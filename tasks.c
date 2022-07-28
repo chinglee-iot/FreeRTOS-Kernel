@@ -797,85 +797,81 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
         configASSERT( pxCurrentTCB->uxCriticalNesting > 0U );
 
         #if ( configRUN_MULTIPLE_PRIORITIES == 0 )
-            {
-                /* No task should yield for this one if it is a lower priority
-                 * than priority level of currently ready tasks. */
-                if( pxTCB->uxPriority < uxTopReadyPriority )
-                {
-                    return xLowestPriorityCore;
-                }
-            }
+            /* No task should yield for this one if it is a lower priority
+             * than priority level of currently ready tasks. */
+            if( pxTCB->uxPriority >= uxTopReadyPriority )
         #endif
-
-        xLowestPriority = ( BaseType_t ) pxTCB->uxPriority;
-
-        if( xPreemptEqualPriority == pdFALSE )
         {
-            /* xLowestPriority will be decremented to -1 if the priority of pxTCB
-             * is 0. This is ok as we will give system idle tasks a priority of -1 below. */
-            --xLowestPriority;
-        }
+            xLowestPriority = ( BaseType_t ) pxTCB->uxPriority;
 
-        for( xCoreID = ( BaseType_t ) 0; xCoreID < ( BaseType_t ) configNUM_CORES; xCoreID++ )
-        {
-            xTaskPriority = ( BaseType_t ) pxCurrentTCBs[ xCoreID ]->uxPriority;
-
-            /* System idle tasks are being assigned a priority of tskIDLE_PRIORITY - 1 here. */
-            if( pxCurrentTCBs[ xCoreID ]->xTaskAttribute & taskATTRIBUTE_IS_IDLE )
+            if( xPreemptEqualPriority == pdFALSE )
             {
-                xTaskPriority = xTaskPriority - 1;
+                /* xLowestPriority will be decremented to -1 if the priority of pxTCB
+                 * is 0. This is ok as we will give system idle tasks a priority of -1 below. */
+                --xLowestPriority;
             }
 
-            if( ( taskTASK_IS_RUNNING( pxCurrentTCBs[ xCoreID ] ) != pdFALSE ) && ( xYieldPendings[ xCoreID ] == pdFALSE ) )
+            for( xCoreID = ( BaseType_t ) 0; xCoreID < ( BaseType_t ) configNUM_CORES; xCoreID++ )
             {
-                if( xTaskPriority <= xLowestPriority )
+                xTaskPriority = ( BaseType_t ) pxCurrentTCBs[ xCoreID ]->uxPriority;
+
+                /* System idle tasks are being assigned a priority of tskIDLE_PRIORITY - 1 here. */
+                if( pxCurrentTCBs[ xCoreID ]->xTaskAttribute & taskATTRIBUTE_IS_IDLE )
                 {
-                    xLowestPriority = xTaskPriority;
-                    xLowestPriorityCore = xCoreID;
+                    xTaskPriority = xTaskPriority - 1;
+                }
+
+                if( ( taskTASK_IS_RUNNING( pxCurrentTCBs[ xCoreID ] ) != pdFALSE ) && ( xYieldPendings[ xCoreID ] == pdFALSE ) )
+                {
+                    if( xTaskPriority <= xLowestPriority )
+                    {
+                        xLowestPriority = xTaskPriority;
+                        xLowestPriorityCore = xCoreID;
+                    }
+                    else
+                    {
+                        mtCOVERAGE_TEST_MARKER();
+                    }
+
+                    #if ( configRUN_MULTIPLE_PRIORITIES == 0 )
+                        {
+                            /* Yield all currently running non-idle tasks with a priority lower than
+                             * the task that needs to run. */
+                            if( ( ( ( BaseType_t ) tskIDLE_PRIORITY - 1 ) < xTaskPriority ) && ( xTaskPriority < ( BaseType_t ) pxTCB->uxPriority ) )
+                            {
+                                prvYieldCore( xCoreID );
+                                xYieldCount++;
+                            }
+                            else
+                            {
+                                mtCOVERAGE_TEST_MARKER();
+                            }
+                        }
+                    #endif /* if ( ( configRUN_MULTIPLE_PRIORITIES == 0 ) && ( configNUM_CORES > 1 ) ) && 1 */
                 }
                 else
                 {
                     mtCOVERAGE_TEST_MARKER();
                 }
+            }
 
-                #if ( configRUN_MULTIPLE_PRIORITIES == 0 )
-                    {
-                        /* Yield all currently running non-idle tasks with a priority lower than
-                         * the task that needs to run. */
-                        if( ( ( ( BaseType_t ) tskIDLE_PRIORITY - 1 ) < xTaskPriority ) && ( xTaskPriority < ( BaseType_t ) pxTCB->uxPriority ) )
-                        {
-                            prvYieldCore( xCoreID );
-                            xYieldCount++;
-                        }
-                        else
-                        {
-                            mtCOVERAGE_TEST_MARKER();
-                        }
-                    }
-                #endif /* if ( ( configRUN_MULTIPLE_PRIORITIES == 0 ) && ( configNUM_CORES > 1 ) ) && 1 */
-            }
-            else
+            if( ( xYieldCount == 0 ) && taskVALID_CORE_ID( xLowestPriorityCore ) )
             {
-                mtCOVERAGE_TEST_MARKER();
+                if( xYieldForTask == pdTRUE )
+                {
+                    prvYieldCore( xLowestPriorityCore );
+                }
             }
+
+            #if ( configRUN_MULTIPLE_PRIORITIES == 0 )
+                /* Verify that the calling core always yields to higher priority tasks. */
+                if( ( pxCurrentTCBs[ portGET_CORE_ID() ]->xTaskAttribute & taskATTRIBUTE_IS_IDLE ) == pdFALSE &&
+                    ( pxTCB->uxPriority > pxCurrentTCBs[ portGET_CORE_ID() ]->uxPriority ) )
+                {
+                    configASSERT( xYieldPendings[ portGET_CORE_ID() ] == pdTRUE || taskTASK_IS_RUNNING( pxCurrentTCBs[ portGET_CORE_ID() ] ) == pdFALSE );
+                }
+            #endif
         }
-
-        if( ( xYieldCount == 0 ) && taskVALID_CORE_ID( xLowestPriorityCore ) )
-        {
-            if( xYieldForTask == pdTRUE )
-            {
-                prvYieldCore( xLowestPriorityCore );
-            }
-        }
-
-        #if ( configRUN_MULTIPLE_PRIORITIES == 0 )
-            /* Verify that the calling core always yields to higher priority tasks. */
-            if( ( pxCurrentTCBs[ portGET_CORE_ID() ]->xTaskAttribute & taskATTRIBUTE_IS_IDLE ) == pdFALSE &&
-                ( pxTCB->uxPriority > pxCurrentTCBs[ portGET_CORE_ID() ]->uxPriority ) )
-            {
-                configASSERT( xYieldPendings[ portGET_CORE_ID() ] == pdTRUE || taskTASK_IS_RUNNING( pxCurrentTCBs[ portGET_CORE_ID() ] ) == pdFALSE );
-            }
-        #endif
 
         return xLowestPriorityCore;
     }
