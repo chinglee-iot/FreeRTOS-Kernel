@@ -1042,6 +1042,10 @@
     #error configUSE_PREEMPTION must be set to 1 to use task preemption disable
 #endif
 
+#if( ( configNUM_CORES == 1 ) && ( configUSE_TASK_PREEMPTION_DISABLE != 0 ) )
+    #error configUSE_TASK_PREEMPTION_DISABLE is not supported in single core FreeRTOS
+#endif
+
 #ifndef configINITIAL_TICK_COUNT
     #define configINITIAL_TICK_COUNT    0
 #endif
