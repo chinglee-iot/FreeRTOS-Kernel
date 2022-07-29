@@ -300,6 +300,10 @@ typedef struct tskTaskControlBlock       /* The old naming convention is used to
     #endif
     char pcTaskName[ configMAX_TASK_NAME_LEN ]; /*< Descriptive name given to the task when created.  Facilitates debugging only. */ /*lint !e971 Unqualified char types are allowed for strings and single characters only. */
 
+    #if ( configUSE_TASK_PREEMPTION_DISABLE == 1 )
+        BaseType_t xPreemptionDisable; /*< Used to prevent the task from being preempted */
+    #endif
+
     #if ( ( portSTACK_GROWTH > 0 ) || ( configRECORD_STACK_HIGH_ADDRESS == 1 ) )
         StackType_t * pxEndOfStack; /*< Points to the highest valid address for the stack. */
     #endif
@@ -825,8 +829,13 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
                 {
                     if( xTaskPriority <= xLowestPriority )
                     {
-                        xLowestPriority = xTaskPriority;
-                        xLowestPriorityCore = xCoreID;
+                        #if ( configUSE_TASK_PREEMPTION_DISABLE == 1 )
+                            if( pxCurrentTCBs[ xCoreID ]->xPreemptionDisable == pdFALSE )
+                        #endif
+                        {
+                            xLowestPriority = xTaskPriority;
+                            xLowestPriorityCore = xCoreID;
+                        }
                     }
                     else
                     {
@@ -1445,6 +1454,12 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
          * for additional information. */
         _REENT_INIT_PTR( ( &( pxNewTCB->xNewLib_reent ) ) );
     }
+    #endif
+
+    #if ( configUSE_TASK_PREEMPTION_DISABLE == 1 )
+        {
+            pxNewTCB->xPreemptionDisable = 0;
+        }
     #endif
 
     /* Initialize the TCB stack to look as if the task was already running,
@@ -2098,7 +2113,12 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB )
                     /* Setting the priority of a running task down means
                      * there may now be another task of higher priority that
                      * is ready to execute. */
-                    xYieldRequired = pdTRUE;
+                    #if ( configUSE_TASK_PREEMPTION_DISABLE == 1 )
+                        if( pxTCB->xPreemptionDisable == pdFALSE )
+                    #endif
+                    {
+                        xYieldRequired = pdTRUE;
+                    }
                 }
                 else
                 {
@@ -2205,6 +2225,52 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB )
     }
 
 #endif /* INCLUDE_vTaskPrioritySet */
+/*-----------------------------------------------------------*/
+
+#if ( configUSE_TASK_PREEMPTION_DISABLE == 1 )
+
+    void vTaskPreemptionDisable( const TaskHandle_t xTask )
+    {
+        TCB_t * pxTCB;
+
+        taskENTER_CRITICAL();
+        {
+            pxTCB = prvGetTCBFromHandle( xTask );
+
+            pxTCB->xPreemptionDisable = pdTRUE;
+        }
+        taskEXIT_CRITICAL();
+    }
+
+#endif /* configUSE_TASK_PREEMPTION_DISABLE */
+/*-----------------------------------------------------------*/
+
+#if ( configUSE_TASK_PREEMPTION_DISABLE == 1 )
+
+    void vTaskPreemptionEnable( const TaskHandle_t xTask )
+    {
+        TCB_t * pxTCB;
+        BaseType_t xCoreID;
+
+        taskENTER_CRITICAL();
+        {
+            pxTCB = prvGetTCBFromHandle( xTask );
+
+            pxTCB->xPreemptionDisable = pdFALSE;
+
+            if( xSchedulerRunning != pdFALSE )
+            {
+                if( taskTASK_IS_RUNNING( pxTCB ) )
+                {
+                    xCoreID = ( BaseType_t ) pxTCB->xTaskRunState;
+                    prvYieldCore( xCoreID );
+                }
+            }
+        }
+        taskEXIT_CRITICAL();
+    }
+
+#endif /* configUSE_TASK_PREEMPTION_DISABLE */
 /*-----------------------------------------------------------*/
 
 #if ( INCLUDE_vTaskSuspend == 1 )
@@ -3653,20 +3719,25 @@ BaseType_t xTaskIncrementTick( void )
 
                     for( x = ( UBaseType_t ) 0; x < ( UBaseType_t ) configNUM_CORES; x++ )
                     {
-                        if( xCoreYieldList[ x ] != pdFALSE )
+                        #if ( configUSE_TASK_PREEMPTION_DISABLE == 1 )
+                            if( pxCurrentTCBs[ x ]->xPreemptionDisable == pdFALSE )
+                        #endif
                         {
-                            if( x == ( UBaseType_t ) xCoreID )
+                            if( xCoreYieldList[ x ] != pdFALSE )
                             {
-                                xSwitchRequired = pdTRUE;
+                                if( x == ( UBaseType_t ) xCoreID )
+                                {
+                                    xSwitchRequired = pdTRUE;
+                                }
+                                else
+                                {
+                                    prvYieldCore( x );
+                                }
                             }
                             else
                             {
-                                prvYieldCore( x );
+                                mtCOVERAGE_TEST_MARKER();
                             }
-                        }
-                        else
-                        {
-                            mtCOVERAGE_TEST_MARKER();
                         }
                     }
                 }

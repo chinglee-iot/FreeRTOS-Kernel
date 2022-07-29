@@ -240,6 +240,10 @@
     #define configUSE_COUNTING_SEMAPHORES    0
 #endif
 
+#ifndef configUSE_TASK_PREEMPTION_DISABLE
+    #define configUSE_TASK_PREEMPTION_DISABLE    0
+#endif
+
 #ifndef configUSE_ALTERNATIVE_API
     #define configUSE_ALTERNATIVE_API    0
 #endif
@@ -1030,6 +1034,14 @@
     #error configUSE_MUTEXES must be set to 1 to use recursive mutexes
 #endif
 
+#if( ( configRUN_MULTIPLE_PRIORITIES == 0 ) && ( configUSE_TASK_PREEMPTION_DISABLE != 0 ) )
+    #error configRUN_MULTIPLE_PRIORITIES must be set to 1 to use task preemption disable
+#endif
+
+#if( ( configUSE_PREEMPTION == 0 ) && ( configUSE_TASK_PREEMPTION_DISABLE != 0 ) )
+    #error configUSE_PREEMPTION must be set to 1 to use task preemption disable
+#endif
+
 #ifndef configINITIAL_TICK_COUNT
     #define configINITIAL_TICK_COUNT    0
 #endif
@@ -1286,6 +1298,9 @@ typedef struct xSTATIC_TCB
         BaseType_t xDummy23[ 2 ];
     #endif
     uint8_t ucDummy7[ configMAX_TASK_NAME_LEN ];
+    #if ( configUSE_TASK_PREEMPTION_DISABLE == 1 )
+        BaseType_t xDummy24;
+    #endif
     #if ( ( portSTACK_GROWTH > 0 ) || ( configRECORD_STACK_HIGH_ADDRESS == 1 ) )
         void * pxDummy8;
     #endif
