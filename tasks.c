@@ -4705,7 +4705,7 @@ static void prvCheckTasksWaitingTermination( void )
 
     #if ( INCLUDE_vTaskDelete == 1 )
     {
-        TCB_t * pxTCB;
+        TCB_t * pxTCB = NULL;
 
         /* uxDeletedTasksWaitingCleanUp is used to prevent taskENTER_CRITICAL()
          * being called too often in the idle task. */
@@ -4738,7 +4738,11 @@ static void prvCheckTasksWaitingTermination( void )
             }
             taskEXIT_CRITICAL();
 
-            prvDeleteTCB( pxTCB );
+            if( pxTCB != NULL )
+            {
+                prvDeleteTCB( pxTCB );
+                pxTCB = NULL;
+            }
         }
     }
     #endif /* INCLUDE_vTaskDelete */
