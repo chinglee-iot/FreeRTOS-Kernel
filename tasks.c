@@ -290,6 +290,10 @@ typedef struct tskTaskControlBlock       /* The old naming convention is used to
         xMPU_SETTINGS xMPUSettings; /*< The MPU settings are defined as part of the port layer.  THIS MUST BE THE SECOND MEMBER OF THE TCB STRUCT. */
     #endif
 
+    #if ( configUSE_CORE_AFFINITY == 1 ) && ( configNUM_CORES > 1 )
+        UBaseType_t uxCoreAffinityMask; /*< Used to link the task to certain cores.  UBaseType_t must have >= the same number of bits as SMP confNUM_CORES */
+    #endif
+
     ListItem_t xStateListItem;                  /*< The list that the state list item of a task is reference from denotes the state of that task (Ready, Blocked, Suspended ). */
     ListItem_t xEventListItem;                  /*< Used to reference a task from an event list. */
     UBaseType_t uxPriority;                     /*< The priority of the task.  0 is the lowest priority. */
@@ -829,12 +833,17 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
                 {
                     if( xTaskPriority <= xLowestPriority )
                     {
-                        #if ( configUSE_TASK_PREEMPTION_DISABLE == 1 )
-                            if( pxCurrentTCBs[ xCoreID ]->xPreemptionDisable == pdFALSE )
+                        #if ( configUSE_CORE_AFFINITY == 1 )
+                            if( ( pxTCB->uxCoreAffinityMask & ( 1 << xCoreID ) ) != 0 )
                         #endif
                         {
-                            xLowestPriority = xTaskPriority;
-                            xLowestPriorityCore = xCoreID;
+                            #if ( configUSE_TASK_PREEMPTION_DISABLE == 1 )
+                                if( pxCurrentTCBs[ xCoreID ]->xPreemptionDisable == pdFALSE )
+                            #endif
+                            {
+                                xLowestPriority = xTaskPriority;
+                                xLowestPriorityCore = xCoreID;
+                            }
                         }
                     }
                     else
@@ -909,6 +918,9 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
         UBaseType_t uxCurrentPriority = uxTopReadyPriority;
         BaseType_t xTaskScheduled = pdFALSE;
         BaseType_t xDecrementTopPriority = pdTRUE;
+        #if ( configUSE_CORE_AFFINITY == 1 )
+            TCB_t * pxPreviousTCB = NULL;
+        #endif
         #if ( configRUN_MULTIPLE_PRIORITIES == 0 )
             BaseType_t xPriorityDropped = pdFALSE;
         #endif
@@ -972,19 +984,32 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
 
                     if( pxTCB->xTaskRunState == taskTASK_NOT_RUNNING )
                     {
-                        /* If the task is not being executed by any core swap it in. */
-                        pxCurrentTCBs[ xCoreID ]->xTaskRunState = taskTASK_NOT_RUNNING;
-                        pxTCB->xTaskRunState = ( TaskRunning_t ) xCoreID;
-                        pxCurrentTCBs[ xCoreID ] = pxTCB;
-                        xTaskScheduled = pdTRUE;
+                        #if ( configUSE_CORE_AFFINITY == 1 )
+                            if( ( pxTCB->uxCoreAffinityMask & ( 1 << xCoreID ) ) != 0 )
+                        #endif
+                        {
+                            /* If the task is not being executed by any core swap it in. */
+                            pxCurrentTCBs[ xCoreID ]->xTaskRunState = taskTASK_NOT_RUNNING;
+                            #if ( configUSE_CORE_AFFINITY == 1 )
+                                pxPreviousTCB = pxCurrentTCBs[ xCoreID ];
+                            #endif
+                            pxTCB->xTaskRunState = ( TaskRunning_t ) xCoreID;
+                            pxCurrentTCBs[ xCoreID ] = pxTCB;
+                            xTaskScheduled = pdTRUE;
+                        }
                     }
                     else if( pxTCB == pxCurrentTCBs[ xCoreID ] )
                     {
                         configASSERT( ( pxTCB->xTaskRunState == xCoreID ) || ( pxTCB->xTaskRunState == taskTASK_YIELDING ) );
 
-                        /* The task is already running on this core, mark it as scheduled. */
-                        pxTCB->xTaskRunState = ( TaskRunning_t ) xCoreID;
-                        xTaskScheduled = pdTRUE;
+                        #if ( configUSE_CORE_AFFINITY == 1 )
+                            if( ( pxTCB->uxCoreAffinityMask & ( 1 << xCoreID ) ) != 0 )
+                        #endif
+                        {
+                            /* The task is already running on this core, mark it as scheduled. */
+                            pxTCB->xTaskRunState = ( TaskRunning_t ) xCoreID;
+                            xTaskScheduled = pdTRUE;
+                        }
                     }
                     else
                     {
@@ -1050,6 +1075,71 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
             #endif /* if( configRUN_MULTIPLE_PRIORITIES == 0 ) */
         }
 
+        #if ( configUSE_CORE_AFFINITY == 1 )
+            if( ( pxPreviousTCB != NULL ) && ( listIS_CONTAINED_WITHIN( &( pxReadyTasksLists[ pxPreviousTCB->uxPriority ] ), &( pxPreviousTCB->xStateListItem ) ) != pdFALSE ) )
+            {
+                /* A ready task was just bumped off this core. Look at the cores it can run from
+                 * to see if it is able to run on any of them. */
+                UBaseType_t uxCoreMap = pxPreviousTCB->uxCoreAffinityMask;
+                BaseType_t xLowestPriority = pxPreviousTCB->uxPriority;
+                BaseType_t xLowestPriorityCore = -1;
+
+                if( pxPreviousTCB->xTaskAttribute & taskATTRIBUTE_IS_IDLE )
+                {
+                    xLowestPriority = xLowestPriority - 1;
+                }
+
+                if( ( uxCoreMap & ( 1 << xCoreID ) ) != 0 )
+                {
+                    /* The ready task that was removed from this core is not excluded from it.
+                     * Only look at the intersection of the cores the removed task is allowed to run
+                     * on with the cores that the new task is excluded from. It is possible that the
+                     * new task was only placed onto this core because it is excluded from another.
+                     * Check to see if the previous task could run on one of those cores. */
+                    uxCoreMap &= ~( pxCurrentTCBs[ xCoreID ]->uxCoreAffinityMask );
+                }
+                else
+                {
+                    /* The ready task that was removed from this core is excluded from it. */
+                }
+
+                uxCoreMap &= ( ( 1 << configNUM_CORES ) - 1 );
+
+                while( uxCoreMap != 0 )
+                {
+                    uint32_t uxCore;
+                    BaseType_t xTaskPriority;
+
+                    uxCore = 31UL - ( uint32_t ) __builtin_clz( uxCoreMap );
+                    configASSERT( taskVALID_CORE_ID( uxCore ) );
+
+                    xTaskPriority = ( BaseType_t ) pxCurrentTCBs[ uxCore ]->uxPriority;
+                    if( pxCurrentTCBs[ uxCore ]->xTaskAttribute & taskATTRIBUTE_IS_IDLE )
+                    {
+                        xTaskPriority = xTaskPriority - ( BaseType_t ) 1;
+                    }
+
+                    uxCoreMap &= ~( 1 << uxCore );
+
+                    if( ( xTaskPriority < xLowestPriority ) && ( taskTASK_IS_RUNNING( pxCurrentTCBs[ uxCore ] ) != pdFALSE ) && ( xYieldPendings[ uxCore ] == pdFALSE ) )
+                    {
+                        #if ( configUSE_TASK_PREEMPTION_DISABLE == 1 )
+                            if( pxCurrentTCBs[ uxCore ]->xPreemptionDisable == pdFALSE )
+                        #endif
+                        {
+                            xLowestPriority = xTaskPriority;
+                            xLowestPriorityCore = uxCore;
+                        }
+                    }
+                }
+
+                if( taskVALID_CORE_ID( xLowestPriorityCore ) )
+                {
+                    prvYieldCore( xLowestPriorityCore );
+                }
+            }
+        #endif /* if ( configUSE_CORE_AFFINITY == 1 ) */
+
         return xTaskScheduled;
     }
 #endif  /* ( configNUM_CORES == 1 ) */
@@ -1064,6 +1154,20 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
                                     UBaseType_t uxPriority,
                                     StackType_t * const puxStackBuffer,
                                     StaticTask_t * const pxTaskBuffer )
+    #if ( ( configNUM_CORES > 1 ) && ( configUSE_CORE_AFFINITY == 1 ) )
+        {
+            return xTaskCreateStaticAffinitySet(pxTaskCode, pcName, ulStackDepth, pvParameters, uxPriority, puxStackBuffer, pxTaskBuffer, tskNO_AFFINITY);
+        }
+
+        TaskHandle_t xTaskCreateStaticAffinitySet( TaskFunction_t pxTaskCode,
+                                                   const char * const pcName,   /*lint !e971 Unqualified char types are allowed for strings and single characters only. */
+                                                   const uint32_t ulStackDepth,
+                                                   void * const pvParameters,
+                                                   UBaseType_t uxPriority,
+                                                   StackType_t * const puxStackBuffer,
+                                                   StaticTask_t * const pxTaskBuffer,
+                                                   UBaseType_t uxCoreAffinityMask )
+    #endif /* ( configNUM_CORES > 1 ) && ( configUSE_CORE_AFFINITY == 1 ) */
     {
         TCB_t * pxNewTCB;
         TaskHandle_t xReturn;
@@ -1099,6 +1203,14 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
             #endif /* tskSTATIC_AND_DYNAMIC_ALLOCATION_POSSIBLE */
 
             prvInitialiseNewTask( pxTaskCode, pcName, ulStackDepth, pvParameters, uxPriority, &xReturn, pxNewTCB, NULL );
+
+            #if ( ( configNUM_CORES > 1 ) && ( configUSE_CORE_AFFINITY == 1 ) )
+                {
+                    /* Set the task's affinity before scheduling it. */
+                    pxNewTCB->uxCoreAffinityMask = uxCoreAffinityMask;
+                }
+            #endif
+
             prvAddNewTaskToReadyList( pxNewTCB );
         }
         else
@@ -1116,6 +1228,15 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
 
     BaseType_t xTaskCreateRestrictedStatic( const TaskParameters_t * const pxTaskDefinition,
                                             TaskHandle_t * pxCreatedTask )
+    #if ( ( configNUM_CORES > 1 ) && ( configUSE_CORE_AFFINITY == 1 ) )
+        {
+            return xTaskCreateRestrictedStaticAffinitySet( pxTaskDefinition, tskNO_AFFINITY, pxCreatedTask );
+        }
+
+        BaseType_t xTaskCreateRestrictedStaticAffinitySet( const TaskParameters_t * const pxTaskDefinition,
+                                                           UBaseType_t uxCoreAffinityMask,
+                                                           TaskHandle_t * pxCreatedTask )
+    #endif /* ( configNUM_CORES > 1 ) && ( configUSE_CORE_AFFINITY == 1 ) */
     {
         TCB_t * pxNewTCB;
         BaseType_t xReturn = errCOULD_NOT_ALLOCATE_REQUIRED_MEMORY;
@@ -1150,6 +1271,13 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
                                   pxCreatedTask, pxNewTCB,
                                   pxTaskDefinition->xRegions );
 
+            #if ( ( configNUM_CORES > 1 ) && ( configUSE_CORE_AFFINITY == 1 ) )
+                {
+                    /* Set the task's affinity before scheduling it */
+                    pxNewTCB->uxCoreAffinityMask = uxCoreAffinityMask;
+                }
+            #endif
+
             prvAddNewTaskToReadyList( pxNewTCB );
             xReturn = pdPASS;
         }
@@ -1164,6 +1292,15 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
 
     BaseType_t xTaskCreateRestricted( const TaskParameters_t * const pxTaskDefinition,
                                       TaskHandle_t * pxCreatedTask )
+    #if ( ( configNUM_CORES > 1 ) && ( configUSE_CORE_AFFINITY == 1 ) )
+        {
+            return xTaskCreateRestrictedAffinitySet( pxTaskDefinition, tskNO_AFFINITY, pxCreatedTask );
+        }
+
+        BaseType_t xTaskCreateRestrictedAffinitySet( const TaskParameters_t * const pxTaskDefinition,
+                                                     UBaseType_t uxCoreAffinityMask,
+                                                     TaskHandle_t * pxCreatedTask )
+    #endif /* ( configNUM_CORES > 1 ) && ( configUSE_CORE_AFFINITY == 1 ) */
     {
         TCB_t * pxNewTCB;
         BaseType_t xReturn = errCOULD_NOT_ALLOCATE_REQUIRED_MEMORY;
@@ -1201,6 +1338,13 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
                                       pxCreatedTask, pxNewTCB,
                                       pxTaskDefinition->xRegions );
 
+                #if ( ( configNUM_CORES > 1 ) && ( configUSE_CORE_AFFINITY == 1 ) )
+                    {
+                        /* Set the task's affinity before scheduling it */
+                        pxNewTCB->uxCoreAffinityMask = uxCoreAffinityMask;
+                    }
+                #endif
+
                 prvAddNewTaskToReadyList( pxNewTCB );
                 xReturn = pdPASS;
             }
@@ -1220,6 +1364,19 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
                             void * const pvParameters,
                             UBaseType_t uxPriority,
                             TaskHandle_t * const pxCreatedTask )
+    #if ( ( configNUM_CORES > 1 ) && ( configUSE_CORE_AFFINITY == 1 ) )
+        {
+            return xTaskCreateAffinitySet(pxTaskCode, pcName, usStackDepth, pvParameters, uxPriority, tskNO_AFFINITY, pxCreatedTask);
+        }
+
+        BaseType_t xTaskCreateAffinitySet( TaskFunction_t pxTaskCode,
+                                           const char * const pcName,     /*lint !e971 Unqualified char types are allowed for strings and single characters only. */
+                                           const configSTACK_DEPTH_TYPE usStackDepth,
+                                           void * const pvParameters,
+                                           UBaseType_t uxPriority,
+                                           UBaseType_t uxCoreAffinityMask,
+                                           TaskHandle_t * const pxCreatedTask )
+    #endif /* ( configNUM_CORES > 1 ) && ( configUSE_CORE_AFFINITY == 1 ) */
     {
         TCB_t * pxNewTCB;
         BaseType_t xReturn;
@@ -1295,6 +1452,14 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
             #endif /* tskSTATIC_AND_DYNAMIC_ALLOCATION_POSSIBLE */
 
             prvInitialiseNewTask( pxTaskCode, pcName, ( uint32_t ) usStackDepth, pvParameters, uxPriority, pxCreatedTask, pxNewTCB, NULL );
+
+            #if ( ( configNUM_CORES > 1 ) && ( configUSE_CORE_AFFINITY == 1 ) )
+                {
+                    /* Set the task's affinity before scheduling it */
+                    pxNewTCB->uxCoreAffinityMask = uxCoreAffinityMask;
+                }
+            #endif
+
             prvAddNewTaskToReadyList( pxNewTCB );
             xReturn = pdPASS;
         }
@@ -1454,6 +1619,12 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
          * for additional information. */
         _REENT_INIT_PTR( ( &( pxNewTCB->xNewLib_reent ) ) );
     }
+    #endif
+
+    #if ( ( configNUM_CORES > 1 ) && ( configUSE_CORE_AFFINITY == 1 ) )
+        {
+            pxNewTCB->uxCoreAffinityMask = tskNO_AFFINITY;
+        }
     #endif
 
     #if ( configUSE_TASK_PREEMPTION_DISABLE == 1 )
@@ -2236,6 +2407,56 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB )
     }
 
 #endif /* INCLUDE_vTaskPrioritySet */
+/*-----------------------------------------------------------*/
+
+#if ( configNUM_CORES > 1 ) && ( configUSE_CORE_AFFINITY == 1 )
+    void vTaskCoreAffinitySet( const TaskHandle_t xTask,
+                               UBaseType_t uxCoreAffinityMask )
+    {
+        TCB_t * pxTCB;
+        BaseType_t xCoreID;
+
+        taskENTER_CRITICAL();
+        {
+            pxTCB = prvGetTCBFromHandle( xTask );
+
+            pxTCB->uxCoreAffinityMask = uxCoreAffinityMask;
+
+            if( xSchedulerRunning != pdFALSE )
+            {
+                if( taskTASK_IS_RUNNING( pxTCB ) )
+                {
+                    xCoreID = ( BaseType_t ) pxTCB->xTaskRunState;
+
+                    if( ( uxCoreAffinityMask & ( 1 << xCoreID ) ) == 0 )
+                    {
+                        prvYieldCore( xCoreID );
+                    }
+                }
+            }
+        }
+        taskEXIT_CRITICAL();
+    }
+#endif /* if ( configNUM_CORES > 1 ) && ( configUSE_CORE_AFFINITY == 1 ) */
+/*-----------------------------------------------------------*/
+
+#if ( configNUM_CORES > 1 ) && ( configUSE_CORE_AFFINITY == 1 )
+    UBaseType_t vTaskCoreAffinityGet( const TaskHandle_t xTask )
+    {
+        TCB_t * pxTCB;
+        UBaseType_t uxCoreAffinityMask;
+
+        taskENTER_CRITICAL();
+        {
+            pxTCB = prvGetTCBFromHandle( xTask );
+            uxCoreAffinityMask = pxTCB->uxCoreAffinityMask;
+        }
+        taskEXIT_CRITICAL();
+
+        return uxCoreAffinityMask;
+    }
+#endif /* if ( configNUM_CORES > 1 ) && ( configUSE_CORE_AFFINITY == 1 ) */
+
 /*-----------------------------------------------------------*/
 
 #if ( configUSE_TASK_PREEMPTION_DISABLE == 1 )
