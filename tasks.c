@@ -2969,13 +2969,20 @@ void vTaskStartScheduler( void )
 {
     BaseType_t xReturn;
 
+    xReturn = prvCreateIdleTasks();
+
     #if ( configUSE_TIMERS == 1 )
         {
-            xReturn = xTimerCreateTimerTask();
+            if( xReturn == pdPASS )
+            {
+                xReturn = xTimerCreateTimerTask();
+            }
+            else
+            {
+                mtCOVERAGE_TEST_MARKER();
+            }
         }
     #endif /* configUSE_TIMERS */
-
-    xReturn = prvCreateIdleTasks();
 
     if( xReturn == pdPASS )
     {
@@ -4761,7 +4768,7 @@ static portTASK_FUNCTION( prvIdleTask, pvParameters )
         }
         #endif /* configUSE_TICKLESS_IDLE */
 
-        #if ( configUSE_MINIMAL_IDLE_HOOK == 1 )
+        #if ( configNUM_CORES > 1 ) && ( configUSE_MINIMAL_IDLE_HOOK == 1 )
             {
                 extern void vApplicationMinimalIdleHook( void );
 
