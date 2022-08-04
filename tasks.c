@@ -2179,17 +2179,12 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB )
             }
             #endif /* if ( configUSE_TASK_NOTIFICATIONS == 1 ) */
         }
-        taskEXIT_CRITICAL();
 
         if( xSchedulerRunning != pdFALSE )
         {
             /* Reset the next expected unblock time in case it referred to the
              * task that is now in the Suspended state. */
-            taskENTER_CRITICAL();
-            {
-                prvResetNextTaskUnblockTime();
-            }
-            taskEXIT_CRITICAL();
+            prvResetNextTaskUnblockTime();
         }
         else
         {
@@ -2200,17 +2195,22 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB )
         {
             if( xSchedulerRunning != pdFALSE )
             {
-                /* The current task has just been suspended. */
-                configASSERT( uxSchedulerSuspended == 0 );
-
-                taskENTER_CRITICAL();
+                if( xTaskRunningOnCore == portGET_CORE_ID() )
+                {
+                    /* The current task has just been suspended. */
+                    configASSERT( uxSchedulerSuspended == 0 );
+                    vTaskYieldWithinAPI();
+                }
+                else
                 {
                     prvYieldCore( xTaskRunningOnCore );
                 }
+
                 taskEXIT_CRITICAL();
             }
             else
             {
+                taskEXIT_CRITICAL();
                 #if ( configNUM_CORES == 1 )
                     /* The scheduler is not running, but the task that was pointed
                      * to by pxCurrentTCB has just been suspended and pxCurrentTCB
@@ -2256,7 +2256,7 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB )
         }
         else
         {
-            mtCOVERAGE_TEST_MARKER();
+            taskEXIT_CRITICAL();
         }
     }
 
