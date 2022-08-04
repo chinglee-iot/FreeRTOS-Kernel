@@ -432,7 +432,11 @@ const volatile UBaseType_t uxTopUsedPriority = configMAX_PRIORITIES - 1U;
  * moves the task's event list item into the xPendingReadyList, ready for the
  * kernel to move the task from the pending ready list into the real ready list
  * when the scheduler is unsuspended.  The pending ready list itself can only be
- * accessed from a critical section. */
+ * accessed from a critical section.
+ *
+ * Updates to uxSchedulerSuspended must be protected by both the task and ISR locks and
+ * must not be done by an ISR. Reads must be protected by either lock and may be done by
+ * either an ISR or a task. */
 PRIVILEGED_DATA static volatile UBaseType_t uxSchedulerSuspended = ( UBaseType_t ) pdFALSE;
 
 #if ( configGENERATE_RUN_TIME_STATS == 1 )
@@ -2815,10 +2819,6 @@ BaseType_t xTaskResumeAll( void )
         if( xSchedulerRunning != pdFALSE )
     #endif
     {
-        /* If uxSchedulerSuspended is zero then this function does not match a
-         * previous call to vTaskSuspendAll(). */
-        configASSERT( uxSchedulerSuspended );
-
         /* It is possible that an ISR caused a task to be removed from an event
          * list while the scheduler was suspended.  If this was the case then the
          * removed task will have been added to the xPendingReadyList.  Once the
@@ -2829,6 +2829,10 @@ BaseType_t xTaskResumeAll( void )
             BaseType_t xCoreID;
 
             xCoreID = portGET_CORE_ID();
+
+            /* If uxSchedulerSuspended is zero then this function does not match a
+             * previous call to vTaskSuspendAll(). */
+            configASSERT( uxSchedulerSuspended );
 
             --uxSchedulerSuspended;
             portRELEASE_TASK_LOCK();
@@ -2847,9 +2851,22 @@ BaseType_t xTaskResumeAll( void )
                         listREMOVE_ITEM( &( pxTCB->xStateListItem ) );
                         prvAddTaskToReadyList( pxTCB );
 
-                        /* All appropriate tasks yield at the moment a task is added to xPendingReadyList.
-                         * If the current core yielded then vTaskSwitchContext() has already been called
-                         * which sets xYieldPendings for the current core to pdTRUE. */
+                        #if ( configNUM_CORES == 1 )
+                            /* If the moved task has a priority higher than the current
+                             * task then a yield must be performed. */
+                            if( pxTCB->uxPriority >= pxCurrentTCB->uxPriority )
+                            {
+                                xYieldPendings[ xCoreID ] = pdTRUE;
+                            }
+                            else
+                            {
+                                mtCOVERAGE_TEST_MARKER();
+                            }
+                        #else
+                            /* All appropriate tasks yield at the moment a task is added to xPendingReadyList.
+                             * If the current core yielded then vTaskSwitchContext() has already been called
+                             * which sets xYieldPendings for the current core to pdTRUE. */
+                        #endif
                     }
 
                     if( pxTCB != NULL )
