@@ -6027,7 +6027,7 @@ TickType_t uxTaskResetEventItemValue( void )
                 /* The notified task has a priority above the currently
                  * executing task so a yield is required. */
                 #if ( configUSE_PREEMPTION == 1 )
-                    prvYieldForTask( pxTCB, pdFALSE, pdTRUE );
+                    ( void ) prvYieldForTask( pxTCB, pdFALSE, pdTRUE );
                 #endif /* ( configUSE_PREEMPTION == 1 ) */
             }
             else
