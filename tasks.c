@@ -432,7 +432,11 @@ const volatile UBaseType_t uxTopUsedPriority = configMAX_PRIORITIES - 1U;
  * moves the task's event list item into the xPendingReadyList, ready for the
  * kernel to move the task from the pending ready list into the real ready list
  * when the scheduler is unsuspended.  The pending ready list itself can only be
- * accessed from a critical section. */
+ * accessed from a critical section.
+ *
+ * Updates to uxSchedulerSuspended must be protected by both the task and ISR locks and
+ * must not be done by an ISR. Reads must be protected by either lock and may be done by
+ * either an ISR or a task. */
 PRIVILEGED_DATA static volatile UBaseType_t uxSchedulerSuspended = ( UBaseType_t ) pdFALSE;
 
 #if ( configGENERATE_RUN_TIME_STATS == 1 )
@@ -2793,116 +2797,134 @@ BaseType_t xTaskResumeAll( void )
     TCB_t * pxTCB = NULL;
     BaseType_t xAlreadyYielded = pdFALSE;
 
-    /* If uxSchedulerSuspended is zero then this function does not match a
-     * previous call to vTaskSuspendAll(). */
-    configASSERT( uxSchedulerSuspended );
-
-    /* It is possible that an ISR caused a task to be removed from an event
-     * list while the scheduler was suspended.  If this was the case then the
-     * removed task will have been added to the xPendingReadyList.  Once the
-     * scheduler has been resumed it is safe to move all the pending ready
-     * tasks from this list into their appropriate ready list. */
-    taskENTER_CRITICAL();
+    #if ( configNUM_CORES > 1 )
+        if( xSchedulerRunning != pdFALSE )
+    #endif
     {
-        BaseType_t xCoreID;
-
-        xCoreID = portGET_CORE_ID();
-
-        --uxSchedulerSuspended;
-        portRELEASE_TASK_LOCK();
-
-        if( uxSchedulerSuspended == ( UBaseType_t ) pdFALSE )
+        /* It is possible that an ISR caused a task to be removed from an event
+         * list while the scheduler was suspended.  If this was the case then the
+         * removed task will have been added to the xPendingReadyList.  Once the
+         * scheduler has been resumed it is safe to move all the pending ready
+         * tasks from this list into their appropriate ready list. */
+        taskENTER_CRITICAL();
         {
-            if( uxCurrentNumberOfTasks > ( UBaseType_t ) 0U )
+            BaseType_t xCoreID;
+
+            xCoreID = portGET_CORE_ID();
+
+            /* If uxSchedulerSuspended is zero then this function does not match a
+             * previous call to vTaskSuspendAll(). */
+            configASSERT( uxSchedulerSuspended );
+
+            --uxSchedulerSuspended;
+            portRELEASE_TASK_LOCK();
+
+            if( uxSchedulerSuspended == ( UBaseType_t ) pdFALSE )
             {
-                /* Move any readied tasks from the pending list into the
-                 * appropriate ready list. */
-                while( listLIST_IS_EMPTY( &xPendingReadyList ) == pdFALSE )
+                if( uxCurrentNumberOfTasks > ( UBaseType_t ) 0U )
                 {
-                    pxTCB = listGET_OWNER_OF_HEAD_ENTRY( ( &xPendingReadyList ) ); /*lint !e9079 void * is used as this macro is used with timers and co-routines too.  Alignment is known to be fine as the type of the pointer stored and retrieved is the same. */
-                    listREMOVE_ITEM( &( pxTCB->xEventListItem ) );
-                    portMEMORY_BARRIER();
-                    listREMOVE_ITEM( &( pxTCB->xStateListItem ) );
-                    prvAddTaskToReadyList( pxTCB );
-
-                    /* All appropriate tasks yield at the moment a task is added to xPendingReadyList.
-                     * If the current core yielded then vTaskSwitchContext() has already been called
-                     * which sets xYieldPendings for the current core to pdTRUE. */
-                }
-
-                if( pxTCB != NULL )
-                {
-                    /* A task was unblocked while the scheduler was suspended,
-                     * which may have prevented the next unblock time from being
-                     * re-calculated, in which case re-calculate it now.  Mainly
-                     * important for low power tickless implementations, where
-                     * this can prevent an unnecessary exit from low power
-                     * state. */
-                    prvResetNextTaskUnblockTime();
-                }
-
-                /* If any ticks occurred while the scheduler was suspended then
-                 * they should be processed now.  This ensures the tick count does
-                 * not  slip, and that any delayed tasks are resumed at the correct
-                 * time.
-                 *
-                 * It should be safe to call xTaskIncrementTick here from any core
-                 * since we are in a critical section and xTaskIncrementTick itself
-                 * protects itself within a critical section. Suspending the scheduler
-                 * from any core causes xTaskIncrementTick to increment uxPendedCounts. */
-                {
-                    TickType_t xPendedCounts = xPendedTicks; /* Non-volatile copy. */
-
-                    if( xPendedCounts > ( TickType_t ) 0U )
+                    /* Move any readied tasks from the pending list into the
+                     * appropriate ready list. */
+                    while( listLIST_IS_EMPTY( &xPendingReadyList ) == pdFALSE )
                     {
-                        do
-                        {
-                            if( xTaskIncrementTick() != pdFALSE )
+                        pxTCB = listGET_OWNER_OF_HEAD_ENTRY( ( &xPendingReadyList ) ); /*lint !e9079 void * is used as this macro is used with timers and co-routines too.  Alignment is known to be fine as the type of the pointer stored and retrieved is the same. */
+                        listREMOVE_ITEM( &( pxTCB->xEventListItem ) );
+                        portMEMORY_BARRIER();
+                        listREMOVE_ITEM( &( pxTCB->xStateListItem ) );
+                        prvAddTaskToReadyList( pxTCB );
+
+                        #if ( configNUM_CORES == 1 )
+                            /* If the moved task has a priority higher than the current
+                             * task then a yield must be performed. */
+                            if( pxTCB->uxPriority >= pxCurrentTCB->uxPriority )
                             {
-                                /* other cores are interrupted from
-                                 * within xTaskIncrementTick(). */
                                 xYieldPendings[ xCoreID ] = pdTRUE;
                             }
                             else
                             {
                                 mtCOVERAGE_TEST_MARKER();
                             }
+                        #else
+                            /* All appropriate tasks yield at the moment a task is added to xPendingReadyList.
+                             * If the current core yielded then vTaskSwitchContext() has already been called
+                             * which sets xYieldPendings for the current core to pdTRUE. */
+                        #endif
+                    }
 
-                            --xPendedCounts;
-                        } while( xPendedCounts > ( TickType_t ) 0U );
+                    if( pxTCB != NULL )
+                    {
+                        /* A task was unblocked while the scheduler was suspended,
+                         * which may have prevented the next unblock time from being
+                         * re-calculated, in which case re-calculate it now.  Mainly
+                         * important for low power tickless implementations, where
+                         * this can prevent an unnecessary exit from low power
+                         * state. */
+                        prvResetNextTaskUnblockTime();
+                    }
 
-                        xPendedTicks = 0;
+                    /* If any ticks occurred while the scheduler was suspended then
+                     * they should be processed now.  This ensures the tick count does
+                     * not  slip, and that any delayed tasks are resumed at the correct
+                     * time.
+                     *
+                     * It should be safe to call xTaskIncrementTick here from any core
+                     * since we are in a critical section and xTaskIncrementTick itself
+                     * protects itself within a critical section. Suspending the scheduler
+                     * from any core causes xTaskIncrementTick to increment uxPendedCounts. */
+                    {
+                        TickType_t xPendedCounts = xPendedTicks; /* Non-volatile copy. */
+
+                        if( xPendedCounts > ( TickType_t ) 0U )
+                        {
+                            do
+                            {
+                                if( xTaskIncrementTick() != pdFALSE )
+                                {
+                                    /* other cores are interrupted from
+                                     * within xTaskIncrementTick(). */
+                                    xYieldPendings[ xCoreID ] = pdTRUE;
+                                }
+                                else
+                                {
+                                    mtCOVERAGE_TEST_MARKER();
+                                }
+
+                                --xPendedCounts;
+                            } while( xPendedCounts > ( TickType_t ) 0U );
+
+                            xPendedTicks = 0;
+                        }
+                        else
+                        {
+                            mtCOVERAGE_TEST_MARKER();
+                        }
+                    }
+
+                    if( xYieldPendings[ xCoreID ] != pdFALSE )
+                    {
+                        #if ( configUSE_PREEMPTION != 0 )
+                        {
+                            xAlreadyYielded = pdTRUE;
+                        }
+                        #endif
+
+                        #if ( configNUM_CORES == 1 )
+                            taskYIELD_IF_USING_PREEMPTION();
+                        #endif /* ( configNUM_CORES == 1 ) */
                     }
                     else
                     {
                         mtCOVERAGE_TEST_MARKER();
                     }
                 }
-
-                if( xYieldPendings[ xCoreID ] != pdFALSE )
-                {
-                    #if ( configUSE_PREEMPTION != 0 )
-                    {
-                        xAlreadyYielded = pdTRUE;
-                    }
-                    #endif
-
-                    #if ( configNUM_CORES == 1 )
-                        taskYIELD_IF_USING_PREEMPTION();
-                    #endif /* ( configNUM_CORES == 1 ) */
-                }
-                else
-                {
-                    mtCOVERAGE_TEST_MARKER();
-                }
+            }
+            else
+            {
+                mtCOVERAGE_TEST_MARKER();
             }
         }
-        else
-        {
-            mtCOVERAGE_TEST_MARKER();
-        }
+        taskEXIT_CRITICAL();
     }
-    taskEXIT_CRITICAL();
 
     return xAlreadyYielded;
 }
