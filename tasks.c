@@ -2223,7 +2223,7 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB )
                     }
                     else if( xYieldForTask != pdFALSE )
                     {
-                        prvYieldForTask( pxTCB, pdTRUE, pdTRUE );
+                        ( void ) prvYieldForTask( pxTCB, pdTRUE, pdTRUE );
                     }
                     else
                     {
