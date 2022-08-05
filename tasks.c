@@ -1818,6 +1818,7 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB )
     {
         TCB_t * pxTCB;
         TaskRunning_t xTaskRunningOnCore;
+        BaseType_t xAddTaskToWaitingTermination = pdFALSE;
 
         taskENTER_CRITICAL();
         {
@@ -1868,6 +1869,7 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB )
                  * check the termination list and free up any memory allocated by
                  * the scheduler for the TCB and stack of the deleted task. */
                 vListInsertEnd( &xTasksWaitingTermination, &( pxTCB->xStateListItem ) );
+                xAddTaskToWaitingTermination = pdTRUE;
 
                 /* Increment the ucTasksDeleted variable so the idle task knows
                  * there is a task that has been deleted and that it should therefore
@@ -1899,8 +1901,12 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB )
 
         /* If the task is not deleting itself, call prvDeleteTCB from outside of
          * critical section. If a task deletes itself, prvDeleteTCB is called
-         * from prvCheckTasksWaitingTermination which is called from Idle task. */
-        if( ( taskTASK_IS_RUNNING( pxTCB ) == pdFALSE ) && ( taskTASK_IS_YIELDING( pxTCB ) == pdFALSE ) )
+         * from prvCheckTasksWaitingTermination which is called from Idle task.
+         *
+         * xAddTaskToWaitingTermination checks the situation that the task to be deleted
+         * running on the other core is switched out.
+         */
+        if( xAddTaskToWaitingTermination == pdFALSE )
         {
             prvDeleteTCB( pxTCB );
         }
