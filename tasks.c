@@ -1473,7 +1473,7 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB )
     {
         TCB_t * pxTCB;
         TaskRunning_t xTaskRunningOnCore;
-        BaseType_T xAddTaskToWaitingTermination = pdFALSE;
+        BaseType_t xAddTaskToWaitingTermination = pdFALSE;
 
         taskENTER_CRITICAL();
         {
