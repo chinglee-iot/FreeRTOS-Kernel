@@ -446,11 +446,13 @@ PRIVILEGED_DATA static volatile UBaseType_t uxSchedulerSuspended = ( UBaseType_t
 
 /* File private functions. --------------------------------*/
 
-/*
- * Checks to see if another task moved the current task out of the ready
- * list while it was waiting to enter a critical section and yields if so.
- */
-static void prvCheckForRunStateChange( void );
+#if ( configNUM_CORES > 1 )
+    /*
+     * Checks to see if another task moved the current task out of the ready
+     * list while it was waiting to enter a critical section and yields if so.
+     */
+    static void prvCheckForRunStateChange( void );
+#endif  /* ( configNUM_CORES > 1 ) */
 
 /*
  * Selects the highest priority available task
