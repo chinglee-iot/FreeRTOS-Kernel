@@ -2128,7 +2128,11 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB )
                 {
                     /* The current task has just been suspended. */
                     configASSERT( uxSchedulerSuspended == 0 );
-                    vTaskYieldWithinAPI();
+                    #if ( portCRITICAL_NESTING_IN_TCB == 1 )
+                        vTaskYieldWithinAPI();
+                    #else
+                        portYIELD_WITHIN_API();
+                    #endif
                 }
                 else
                 {
