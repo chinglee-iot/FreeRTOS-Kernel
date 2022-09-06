@@ -458,11 +458,13 @@ PRIVILEGED_DATA static volatile UBaseType_t uxSchedulerSuspended = ( UBaseType_t
  */
 static BaseType_t prvCreateIdleTasks( void );
 
-/*
- * Checks to see if another task moved the current task out of the ready
- * list while it was waiting to enter a critical section and yields if so.
- */
-static void prvCheckForRunStateChange( void );
+#if ( configNUM_CORES > 1 )
+    /*
+     * Checks to see if another task moved the current task out of the ready
+     * list while it was waiting to enter a critical section and yields if so.
+     */
+    static void prvCheckForRunStateChange( void );
+#endif  /* ( configNUM_CORES > 1 ) */
 
 /*
  * Yields the given core.
@@ -2205,7 +2207,11 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB )
                 {
                     /* The current task has just been suspended. */
                     configASSERT( uxSchedulerSuspended == 0 );
-                    vTaskYieldWithinAPI();
+                    #if ( portCRITICAL_NESTING_IN_TCB == 1 )
+                        vTaskYieldWithinAPI();
+                    #else
+                        portYIELD_WITHIN_API();
+                    #endif
                 }
                 else
                 {
