@@ -3819,7 +3819,9 @@ BaseType_t xTaskRemoveFromEventList( const List_t * const pxEventList )
         /* Mark that a yield is pending in case the user is not using the
          * "xHigherPriorityTaskWoken" parameter to an ISR safe FreeRTOS function. */
         #if ( configUSE_PREEMPTION == 1 )
+        {
             xYieldPendings[ xYieldCoreID ] = pdTRUE;
+        }
         #endif
     }
     else
@@ -3871,6 +3873,7 @@ void vTaskRemoveFromUnorderedEventList( ListItem_t * pxEventListItem,
     prvAddTaskToReadyList( pxUnblockedTCB );
 
     #if ( configUSE_PREEMPTION == 1 )
+    {
         taskENTER_CRITICAL();
         {
             xYieldCoreID = prvYieldForTask( pxUnblockedTCB, pdFALSE, pdFALSE );
@@ -3880,6 +3883,7 @@ void vTaskRemoveFromUnorderedEventList( ListItem_t * pxEventListItem,
             }
         }
         taskEXIT_CRITICAL();
+    }
     #endif  /* ( configUSE_PREEMPTION == 1 ) */
 }
 /*-----------------------------------------------------------*/
@@ -4732,7 +4736,9 @@ static void prvResetNextTaskUnblockTime( void )
             UBaseType_t uxSavedInterruptStatus = 0;
 
             uxSavedInterruptStatus = portSET_INTERRUPT_MASK();
-            xReturn = pxCurrentTCBs[ portGET_CORE_ID() ];
+            {
+                xReturn = pxCurrentTCBs[ portGET_CORE_ID() ];
+            }
             portCLEAR_INTERRUPT_MASK( uxSavedInterruptStatus );
 
             return xReturn;
@@ -5822,7 +5828,9 @@ TickType_t uxTaskResetEventItemValue( void )
                 /* The notified task has a priority above the currently
                  * executing task so a yield is required. */
                 #if ( configUSE_PREEMPTION == 1 )
+                {
                     ( void ) prvYieldForTask( pxTCB, pdFALSE, pdTRUE );
+                }
                 #endif /* ( configUSE_PREEMPTION == 1 ) */
             }
             else
@@ -5962,7 +5970,9 @@ TickType_t uxTaskResetEventItemValue( void )
                      * using the "xHigherPriorityTaskWoken" parameter to an ISR
                      * safe FreeRTOS function. */
                     #if ( configUSE_PREEMPTION == 1 )
+                    {
                         xYieldPendings[ xYieldCoreId ] = pdTRUE;
+                    }
                     #endif /* ( configUSE_PREEMPTION == 1 ) */
                 }
                 else
@@ -6055,7 +6065,9 @@ TickType_t uxTaskResetEventItemValue( void )
                      * using the "xHigherPriorityTaskWoken" parameter in an ISR
                      * safe FreeRTOS function. */
                     #if ( configUSE_PREEMPTION == 1 )
+                    {
                         xYieldPendings[ xYieldCoreId ] = pdTRUE;
+                    }
                     #endif /* ( configUSE_PREEMPTION == 1 ) */
                 }
                 else
