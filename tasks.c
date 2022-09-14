@@ -3357,6 +3357,7 @@ BaseType_t xTaskIncrementTick( void )
             #if ( ( configUSE_PREEMPTION == 1 ) && ( configUSE_TIME_SLICING == 1 ) )
             {
                 #if ( configNUM_CORES == 1 )
+                {
                     if( listCURRENT_LIST_LENGTH( &( pxReadyTasksLists[ pxCurrentTCB->uxPriority ] ) ) > ( UBaseType_t ) 1 )
                     {
                         xSwitchRequired = pdTRUE;
@@ -3365,7 +3366,9 @@ BaseType_t xTaskIncrementTick( void )
                     {
                         mtCOVERAGE_TEST_MARKER();
                     }
+                }
                 #else
+                {
                     /* TODO: If there are fewer "non-IDLE" READY tasks than cores, do not
                      * force a context switch that would just shuffle tasks around cores */
                     /* TODO: There are certainly better ways of doing this that would reduce
@@ -3382,6 +3385,7 @@ BaseType_t xTaskIncrementTick( void )
                             mtCOVERAGE_TEST_MARKER();
                         }
                     }
+                }
                 #endif  /* ( configNUM_CORES == 1 ) */
             }
             #endif /* ( ( configUSE_PREEMPTION == 1 ) && ( configUSE_TIME_SLICING == 1 ) ) */
@@ -3418,44 +3422,46 @@ BaseType_t xTaskIncrementTick( void )
             #endif /* configUSE_PREEMPTION */
 
             #if ( configUSE_PREEMPTION == 1 )
+            {
                 #if ( configNUM_CORES == 1 )
+                {
+                    /* For single core the core ID is always 0. */
+                    if( xCoreYieldList[ 0 ] != pdFALSE )
                     {
-                        /* For single core the core ID is always 0. */
-                        if( xCoreYieldList[ 0 ] != pdFALSE )
+                        xSwitchRequired = pdTRUE;
+                    }
+                    else
+                    {
+                        mtCOVERAGE_TEST_MARKER();
+                    }
+                }
+                #else
+                {
+                    BaseType_t xCoreID;
+
+                    xCoreID = portGET_CORE_ID();
+
+                    for( x = ( UBaseType_t ) 0; x < ( UBaseType_t ) configNUM_CORES; x++ )
+                    {
+                        if( xCoreYieldList[ x ] != pdFALSE )
                         {
-                            xSwitchRequired = pdTRUE;
+                            if( x == ( UBaseType_t ) xCoreID )
+                            {
+                                xSwitchRequired = pdTRUE;
+                            }
+                            else
+                            {
+                                prvYieldCore( x );
+                            }
                         }
                         else
                         {
                             mtCOVERAGE_TEST_MARKER();
                         }
                     }
-                #else
-                    {
-                        BaseType_t xCoreID;
-
-                        xCoreID = portGET_CORE_ID();
-
-                        for( x = ( UBaseType_t ) 0; x < ( UBaseType_t ) configNUM_CORES; x++ )
-                        {
-                            if( xCoreYieldList[ x ] != pdFALSE )
-                            {
-                                if( x == ( UBaseType_t ) xCoreID )
-                                {
-                                    xSwitchRequired = pdTRUE;
-                                }
-                                else
-                                {
-                                    prvYieldCore( x );
-                                }
-                            }
-                            else
-                            {
-                                mtCOVERAGE_TEST_MARKER();
-                            }
-                        }
-                    }
+                }
                 #endif /* ( configNUM_CORES == 1 ) */
+            }
             #endif /* configUSE_PREEMPTION */
         }
         else
