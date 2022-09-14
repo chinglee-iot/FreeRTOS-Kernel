@@ -3370,7 +3370,7 @@ BaseType_t xTaskResumeAll( void )
 
     return xAlreadyYielded;
 }
-/*-----------------------------------------------------------*/git
+/*-----------------------------------------------------------*/
 
 TickType_t xTaskGetTickCount( void )
 {
