@@ -727,18 +727,16 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
 #endif
 
 /*-----------------------------------------------------------*/
-#if ( configNUM_CORES == 1 )
-    static void prvYieldCore( BaseType_t xCoreID )
+static void prvYieldCore( BaseType_t xCoreID )
+{
+    #if ( configNUM_CORES == 1 )
     {
         configASSERT( xCoreID == 0 );
         portYIELD_WITHIN_API();
     }
-#else
-    static void prvYieldCore( BaseType_t xCoreID )
+    #else
     {
-        /* This must be called from a critical section and
-         * xCoreID must be valid. */
-
+        /* This must be called from a critical section and xCoreID must be valid. */
         if( portCHECK_IF_IN_ISR() && ( xCoreID == portGET_CORE_ID() ) )
         {
             xYieldPendings[ xCoreID ] = pdTRUE;
@@ -759,7 +757,8 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
             }
         }
     }
-#endif
+    #endif
+}
 
 /*-----------------------------------------------------------*/
 #if ( configNUM_CORES == 1 )
@@ -1483,9 +1482,13 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB )
             pxTCB = prvGetTCBFromHandle( xTaskToDelete );
 
             #if ( configNUM_CORES == 1 )
+            {
                 xTaskRunningOnCore = ( TaskRunning_t ) 0;
+            }
             #else
+            {
                 xTaskRunningOnCore = pxTCB->xTaskRunState;
+            }
             #endif
 
             /* Remove task from the ready/delayed list. */
@@ -1568,23 +1571,24 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB )
         if( ( xSchedulerRunning != pdFALSE ) && ( taskTASK_IS_RUNNING( pxTCB ) ) )
         {
             #if ( configNUM_CORES == 1 )
+            {
                 configASSERT( uxSchedulerSuspended == 0 );
                 portYIELD_WITHIN_API();
+            }
             #else
+            {
+                if( xTaskRunningOnCore == portGET_CORE_ID() )
                 {
-                    if( xTaskRunningOnCore == portGET_CORE_ID() )
-                    {
-                        configASSERT( uxSchedulerSuspended == 0 );
-                        vTaskYieldWithinAPI();
-                    }
-                    else
-                    {
-                        prvYieldCore( xTaskRunningOnCore );
-                    }
+                    configASSERT( uxSchedulerSuspended == 0 );
+                    vTaskYieldWithinAPI();
                 }
+                else
+                {
+                    prvYieldCore( xTaskRunningOnCore );
+                }
+            }
             #endif
         }
-
         #if ( configNUM_CORES > 1 )
             taskEXIT_CRITICAL();
         #endif
