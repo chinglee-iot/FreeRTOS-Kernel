@@ -470,7 +470,7 @@ static void prvYieldCore( BaseType_t xCoreID );
 /*
  * Yields a core, or cores if multiple priorities are not allowed to run
  * simultaneously, to allow the task pxTCB to run. Negative value is returned if
- * yeilding for task is not required. Otherwise, core ID is returned.
+ * yeilding for the task is not required. Otherwise, core ID is returned.
  */
 static BaseType_t prvYieldForTask( TCB_t * pxTCB,
                                    const BaseType_t xPreemptEqualPriority,
@@ -751,10 +751,11 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
 #endif
 
 /*-----------------------------------------------------------*/
-#if ( configNUM_CORES == 1 )
-    static BaseType_t prvYieldForTask( TCB_t * pxTCB,
-                                       const BaseType_t xPreemptEqualPriority,
-                                       BaseType_t xYieldForTask )
+static BaseType_t prvYieldForTask( TCB_t * pxTCB,
+                                   const BaseType_t xPreemptEqualPriority,
+                                   BaseType_t xYieldForTask )
+{
+    #if ( configNUM_CORES == 1 )
     {
         BaseType_t xLowestPriorityCore = ( ( BaseType_t ) -1 ); /* Negative value to indicate no yielding required. */
 
@@ -777,10 +778,7 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
 
         return xLowestPriorityCore;
     }
-#else
-    static BaseType_t prvYieldForTask( TCB_t * pxTCB,
-                                       const BaseType_t xPreemptEqualPriority,
-                                       BaseType_t xYieldForTask )
+    #else
     {
         BaseType_t xLowestPriority;
         BaseType_t xTaskPriority;
@@ -840,7 +838,8 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
 
         return xLowestPriorityCore;
     }
-#endif  /* ( configNUM_CORES == 1 ) */
+    #endif  /* ( configNUM_CORES == 1 ) */
+}
 
 /*-----------------------------------------------------------*/
 
