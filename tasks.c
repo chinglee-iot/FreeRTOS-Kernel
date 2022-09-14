@@ -852,8 +852,9 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
 
 /*-----------------------------------------------------------*/
 
-#if ( configNUM_CORES == 1 )
-    static BaseType_t prvSelectHighestPriorityTask( BaseType_t xCoreID )
+static BaseType_t prvSelectHighestPriorityTask( BaseType_t xCoreID )
+{
+    #if ( configNUM_CORES == 1 )
     {
         BaseType_t xReturn = pdTRUE;
 
@@ -867,8 +868,7 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
 
         return xReturn;
     }
-#else
-    static BaseType_t prvSelectHighestPriorityTask( const BaseType_t xCoreID )
+    #else
     {
         UBaseType_t uxCurrentPriority = uxTopReadyPriority;
         BaseType_t xTaskScheduled = pdFALSE;
@@ -960,7 +960,8 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
 
         return xTaskScheduled;
     }
-#endif  /* ( configNUM_CORES == 1 ) */
+    #endif  /* ( configNUM_CORES == 1 ) */
+}
 /*-----------------------------------------------------------*/
 
 #if ( configSUPPORT_STATIC_ALLOCATION == 1 )
