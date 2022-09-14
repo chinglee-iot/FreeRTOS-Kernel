@@ -2193,7 +2193,9 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB )
 
                     /* Check if Yield is required for this Task in prvYieldForTask. */
                     #if ( configUSE_PREEMPTION == 1 )
+                    {
                         ( void ) prvYieldForTask( pxTCB, pdTRUE, pdTRUE );
+                    }
                     #endif
                 }
                 else
@@ -2266,7 +2268,7 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB )
                     }
                     else
                     {
-                        xYieldRequired = pdFALSE;
+                        mtCOVERAGE_TEST_MARKER();
                     }
 
                     ( void ) uxListRemove( &( pxTCB->xStateListItem ) );
@@ -2531,8 +2533,9 @@ void vTaskEndScheduler( void )
 }
 /*----------------------------------------------------------*/
 
-#if ( configNUM_CORES == 1 )
-    void vTaskSuspendAll( void )
+void vTaskSuspendAll( void )
+{
+    #if ( configNUM_CORES == 1 )
     {
         /* A critical section is not required as the variable is of type
          * BaseType_t.  Please read Richard Barry's reply in the following link to a
@@ -2551,8 +2554,7 @@ void vTaskEndScheduler( void )
          * the above increment elsewhere. */
         portMEMORY_BARRIER();
     }
-#else
-    void vTaskSuspendAll( void )
+    #else /* ( configNUM_CORES == 1 ) */
     {
         UBaseType_t ulState;
 
@@ -2580,9 +2582,20 @@ void vTaskEndScheduler( void )
             ++uxSchedulerSuspended;
             portRELEASE_ISR_LOCK();
 
-            if( ( uxSchedulerSuspended == 1U ) && ( pxCurrentTCB->uxCriticalNesting == 0U ) )
+            if( uxSchedulerSuspended == 1U )
             {
-                prvCheckForRunStateChange();
+                if( pxCurrentTCB->uxCriticalNesting == 0U )
+                {
+                    prvCheckForRunStateChange();
+                }
+                else
+                {
+                    mtCOVERAGE_TEST_MARKER();
+                }
+            }
+            else
+            {
+                mtCOVERAGE_TEST_MARKER();
             }
 
             portCLEAR_INTERRUPT_MASK( ulState );
@@ -2592,7 +2605,8 @@ void vTaskEndScheduler( void )
             mtCOVERAGE_TEST_MARKER();
         }
     }
-#endif  /* ( configNUM_CORES == 1 ) */
+    #endif  /* ( configNUM_CORES == 1 ) */
+}
 
 /*----------------------------------------------------------*/
 
@@ -2665,6 +2679,8 @@ BaseType_t xTaskResumeAll( void )
     BaseType_t xAlreadyYielded = pdFALSE;
 
     #if ( configNUM_CORES > 1 )
+        /* Scheduler running status is not checked in vTaskSuspendAll in single
+         * core implementation. This condition is only required for multiple cores. */
         if( xSchedulerRunning != pdFALSE )
     #endif
     {
@@ -2701,6 +2717,7 @@ BaseType_t xTaskResumeAll( void )
                         prvAddTaskToReadyList( pxTCB );
 
                         #if ( configNUM_CORES == 1 )
+                        {
                             /* If the moved task has a priority higher than the current
                              * task then a yield must be performed. */
                             if( pxTCB->uxPriority >= pxCurrentTCB->uxPriority )
@@ -2711,6 +2728,7 @@ BaseType_t xTaskResumeAll( void )
                             {
                                 mtCOVERAGE_TEST_MARKER();
                             }
+                        }
                         #else
                             /* All appropriate tasks yield at the moment a task is added to xPendingReadyList.
                              * If the current core yielded then vTaskSwitchContext() has already been called
@@ -2776,7 +2794,9 @@ BaseType_t xTaskResumeAll( void )
                         #endif
 
                         #if ( configNUM_CORES == 1 )
+                        {
                             taskYIELD_IF_USING_PREEMPTION();
+                        }
                         #endif /* ( configNUM_CORES == 1 ) */
                     }
                     else
