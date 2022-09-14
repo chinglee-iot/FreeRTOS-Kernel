@@ -2097,12 +2097,17 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB )
                 }
 
                 #if ( configUSE_PREEMPTION == 1 )
+                {
                     if( xYieldRequired != pdFALSE )
                     {
                         #if ( configNUM_CORES == 1 )
+                        {
                             xCoreID = ( BaseType_t ) 0;
+                        }
                         #else
+                        {
                             xCoreID = ( BaseType_t ) pxTCB->xTaskRunState;
+                        }
                         #endif
                         prvYieldCore( xCoreID );
                     }
@@ -2114,6 +2119,7 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB )
                     {
                         mtCOVERAGE_TEST_MARKER();
                     }
+                }
                 #endif
 
                 /* Remove compiler warning about unused variables when the port
