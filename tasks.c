@@ -945,7 +945,7 @@ static BaseType_t prvYieldForTask( TCB_t * pxTCB,
         return xTaskScheduled;
     }
 
-#endif  /* ( configNUM_CORES => 1 ) */
+#endif  /* ( configNUM_CORES > 1 ) */
 
 /*-----------------------------------------------------------*/
 
