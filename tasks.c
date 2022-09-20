@@ -3787,20 +3787,25 @@ BaseType_t xTaskIncrementTick( void )
 
                     for( x = ( UBaseType_t ) 0; x < ( UBaseType_t ) configNUM_CORES; x++ )
                     {
-                        if( xCoreYieldList[ x ] != pdFALSE )
+                        #if ( configUSE_TASK_PREEMPTION_DISABLE == 1 )
+                            if( pxCurrentTCBs[ x ]->xPreemptionDisable == pdFALSE )
+                        #endif
                         {
-                            if( x == ( UBaseType_t ) xCoreID )
+                            if( xCoreYieldList[ x ] != pdFALSE )
                             {
-                                xSwitchRequired = pdTRUE;
+                                if( x == ( UBaseType_t ) xCoreID )
+                                {
+                                    xSwitchRequired = pdTRUE;
+                                }
+                                else
+                                {
+                                    prvYieldCore( x );
+                                }
                             }
                             else
                             {
-                                prvYieldCore( x );
+                                mtCOVERAGE_TEST_MARKER();
                             }
-                        }
-                        else
-                        {
-                            mtCOVERAGE_TEST_MARKER();
                         }
                     }
                 }
