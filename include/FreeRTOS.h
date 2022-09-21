@@ -287,6 +287,26 @@
     #define portSOFTWARE_BARRIER()
 #endif
 
+#ifndef configNUM_CORES
+    #define configNUM_CORES    1
+#endif
+
+#if ( configNUM_CORES > 1 )
+    #if portCRITICAL_NESTING_IN_TCB == 0
+        #error portCRITICAL_NESTING_IN_TCB is required in SMP
+    #endif
+#endif
+
+#ifndef portGET_CORE_ID
+
+    #if configNUM_CORES == 1
+        #define portGET_CORE_ID()   0
+    #else
+        #error configNUM_CORES is set to more than 1 then portGET_CORE_ID must also be defined.
+    #endif /* configNUM_CORES */
+
+#endif /* portGET_CORE_ID */
+
 /* The timers module relies on xTaskGetSchedulerState(). */
 #if configUSE_TIMERS == 1
 
@@ -1067,7 +1087,6 @@
 #ifndef configRUN_ADDITIONAL_TESTS
     #define configRUN_ADDITIONAL_TESTS    0
 #endif
-
 
 /* Sometimes the FreeRTOSConfig.h settings only allow a task to be created using
  * dynamically allocated RAM, in which case when any task is deleted it is known
