@@ -287,6 +287,26 @@
     #define portSOFTWARE_BARRIER()
 #endif
 
+#ifndef configNUM_CORES
+    #define configNUM_CORES    1
+#endif
+
+#if ( configNUM_CORES > 1 )
+    #if portCRITICAL_NESTING_IN_TCB == 0
+        #error portCRITICAL_NESTING_IN_TCB is required in SMP
+    #endif
+#endif
+
+#ifndef portGET_CORE_ID
+
+    #if configNUM_CORES == 1
+        #define portGET_CORE_ID()   0
+    #else
+        #error configNUM_CORES is set to more than 1 then portGET_CORE_ID must also be defined.
+    #endif /* configNUM_CORES */
+
+#endif /* portGET_CORE_ID */
+
 /* The timers module relies on xTaskGetSchedulerState(). */
 #if configUSE_TIMERS == 1
 
@@ -1068,7 +1088,6 @@
     #define configRUN_ADDITIONAL_TESTS    0
 #endif
 
-
 /* Sometimes the FreeRTOSConfig.h settings only allow a task to be created using
  * dynamically allocated RAM, in which case when any task is deleted it is known
  * that both the task's stack and TCB need to be freed.  Sometimes the
@@ -1189,6 +1208,9 @@ typedef struct xSTATIC_TCB
     StaticListItem_t xDummy3[ 2 ];
     UBaseType_t uxDummy5;
     void * pxDummy6;
+    #if ( configNUM_CORES > 1 )
+        BaseType_t xDummy23[ 2 ];
+    #endif
     uint8_t ucDummy7[ configMAX_TASK_NAME_LEN ];
     #if ( ( portSTACK_GROWTH > 0 ) || ( configRECORD_STACK_HIGH_ADDRESS == 1 ) )
         void * pxDummy8;
