@@ -190,7 +190,7 @@ typedef enum
  *
  * \ingroup TaskUtils
  */
-#define tskNO_AFFINITY ( ( UBaseType_t ) -1U )
+#define tskNO_AFFINITY      ( ( UBaseType_t ) -1U )
 
 /**
  * task. h
@@ -260,7 +260,7 @@ typedef enum
 #define taskSCHEDULER_RUNNING        ( ( BaseType_t ) 2 )
 
 /* Check if core value is valid */
-#define taskVALID_CORE_ID( xCoreID ) ( ( BaseType_t ) ( ( 0 <= xCoreID ) && ( xCoreID < configNUM_CORES ) ) )
+#define taskVALID_CORE_ID( xCoreID )    ( ( BaseType_t ) ( ( 0 <= xCoreID ) && ( xCoreID < configNUM_CORES ) ) )
 
 /*-----------------------------------------------------------
 * TASK CREATION API
@@ -371,7 +371,7 @@ typedef enum
 
 #if ( ( configSUPPORT_DYNAMIC_ALLOCATION == 1 ) && ( configNUM_CORES > 1 ) && ( configUSE_CORE_AFFINITY == 1 ) )
     BaseType_t xTaskCreateAffinitySet( TaskFunction_t pxTaskCode,
-                                       const char * const pcName,     /*lint !e971 Unqualified char types are allowed for strings and single characters only. */
+                                       const char * const pcName, /*lint !e971 Unqualified char types are allowed for strings and single characters only. */
                                        const configSTACK_DEPTH_TYPE usStackDepth,
                                        void * const pvParameters,
                                        UBaseType_t uxPriority,
@@ -499,7 +499,7 @@ typedef enum
 
 #if ( ( configSUPPORT_STATIC_ALLOCATION == 1 ) && ( configNUM_CORES > 1 ) && ( configUSE_CORE_AFFINITY == 1 ) )
     TaskHandle_t xTaskCreateStaticAffinitySet( TaskFunction_t pxTaskCode,
-                                               const char * const pcName,     /*lint !e971 Unqualified char types are allowed for strings and single characters only. */
+                                               const char * const pcName, /*lint !e971 Unqualified char types are allowed for strings and single characters only. */
                                                const uint32_t ulStackDepth,
                                                void * const pvParameters,
                                                UBaseType_t uxPriority,
@@ -1266,6 +1266,7 @@ void vTaskResume( TaskHandle_t xTaskToResume ) PRIVILEGED_FUNCTION;
 BaseType_t xTaskResumeFromISR( TaskHandle_t xTaskToResume ) PRIVILEGED_FUNCTION;
 
 #if ( configUSE_CORE_AFFINITY == 1 )
+
     /**
      * @brief Sets the core affinity mask for a task.
      *
@@ -1299,10 +1300,12 @@ BaseType_t xTaskResumeFromISR( TaskHandle_t xTaskToResume ) PRIVILEGED_FUNCTION;
      *      vTaskCoreAffinitySet( xHandle, uxCoreAffinityMask );
      * }
      */
-    void vTaskCoreAffinitySet( const TaskHandle_t xTask, UBaseType_t uxCoreAffinityMask );
+    void vTaskCoreAffinitySet( const TaskHandle_t xTask,
+                               UBaseType_t uxCoreAffinityMask );
 #endif
 
 #if ( configUSE_CORE_AFFINITY == 1 )
+
     /**
      * @brief Gets the core affinity mask for a task.
      *
@@ -1353,6 +1356,7 @@ BaseType_t xTaskResumeFromISR( TaskHandle_t xTaskToResume ) PRIVILEGED_FUNCTION;
 #endif
 
 #if ( configUSE_TASK_PREEMPTION_DISABLE == 1 )
+
     /**
      * @brief Disables preemption for a task.
      *
@@ -1386,6 +1390,7 @@ BaseType_t xTaskResumeFromISR( TaskHandle_t xTaskToResume ) PRIVILEGED_FUNCTION;
 #endif
 
 #if ( configUSE_TASK_PREEMPTION_DISABLE == 1 )
+
     /**
      * @brief Enables preemption for a task.
      *
