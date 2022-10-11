@@ -4658,8 +4658,6 @@ static void prvResetNextTaskUnblockTime( void )
 
     void vTaskExitCritical( void )
     {
-        BaseType_t xYieldCurrentTask;
-
         if( xSchedulerRunning != pdFALSE )
         {
             /* If pxCurrentTCB->uxCriticalNesting is zero then this function
@@ -4677,6 +4675,9 @@ static void prvResetNextTaskUnblockTime( void )
                 if( pxCurrentTCB->uxCriticalNesting == 0U )
                 {
                     #if ( configNUM_CORES > 1 )
+                    {
+                        BaseType_t xYieldCurrentTask;
+
                         /* Get the xYieldPending stats inside the critical section. */
                         xYieldCurrentTask = xYieldPendings[ portGET_CORE_ID() ];
 
@@ -4692,8 +4693,11 @@ static void prvResetNextTaskUnblockTime( void )
                         {
                             portYIELD();
                         }
+                    }
                     #else
+                    {
                         portENABLE_INTERRUPTS();
+                    }
                     #endif /* ( configNUM_CORES > 1 ) */
                 }
                 else
