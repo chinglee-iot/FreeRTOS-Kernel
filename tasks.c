@@ -153,7 +153,7 @@
          * the  same priority get an equal share of the processor time. */                    \
         listGET_OWNER_OF_NEXT_ENTRY( pxCurrentTCB, &( pxReadyTasksLists[ uxTopPriority ] ) ); \
         uxTopReadyPriority = uxTopPriority;                                                   \
-    }     /* taskSELECT_HIGHEST_PRIORITY_TASK */
+    } /* taskSELECT_HIGHEST_PRIORITY_TASK */
     #endif /* if ( configNUM_CORES == 1 ) */
 
 /*-----------------------------------------------------------*/
@@ -458,10 +458,10 @@ static BaseType_t prvCreateIdleTasks( void );
 
 #if ( configNUM_CORES > 1 )
 
-    /*
-     * Checks to see if another task moved the current task out of the ready
-     * list while it was waiting to enter a critical section and yields if so.
-     */
+/*
+ * Checks to see if another task moved the current task out of the ready
+ * list while it was waiting to enter a critical section and yields if so.
+ */
     static void prvCheckForRunStateChange( void );
 #endif /* ( configNUM_CORES > 1 ) */
 
@@ -785,7 +785,7 @@ static BaseType_t prvYieldForTask( TCB_t * pxTCB,
 
         return xLowestPriorityCore;
     }
-    #else  /* if ( configNUM_CORES == 1 ) */
+    #else /* if ( configNUM_CORES == 1 ) */
     {
         BaseType_t xLowestPriority;
         BaseType_t xTaskPriority;
@@ -797,6 +797,7 @@ static BaseType_t prvYieldForTask( TCB_t * pxTCB,
         configASSERT( pxCurrentTCB->uxCriticalNesting > 0U );
 
         #if ( configRUN_MULTIPLE_PRIORITIES == 0 )
+
             /* No task should yield for this one if it is a lower priority
              * than priority level of currently ready tasks. */
             if( pxTCB->uxPriority >= uxTopReadyPriority )
@@ -1143,7 +1144,7 @@ static BaseType_t prvYieldForTask( TCB_t * pxTCB,
     }
 
     TaskHandle_t xTaskCreateStaticAffinitySet( TaskFunction_t pxTaskCode,
-                                               const char * const pcName,       /*lint !e971 Unqualified char types are allowed for strings and single characters only. */
+                                               const char * const pcName, /*lint !e971 Unqualified char types are allowed for strings and single characters only. */
                                                const uint32_t ulStackDepth,
                                                void * const pvParameters,
                                                UBaseType_t uxPriority,
@@ -1353,7 +1354,7 @@ static BaseType_t prvYieldForTask( TCB_t * pxTCB,
     }
 
     BaseType_t xTaskCreateAffinitySet( TaskFunction_t pxTaskCode,
-                                       const char * const pcName,         /*lint !e971 Unqualified char types are allowed for strings and single characters only. */
+                                       const char * const pcName, /*lint !e971 Unqualified char types are allowed for strings and single characters only. */
                                        const configSTACK_DEPTH_TYPE usStackDepth,
                                        void * const pvParameters,
                                        UBaseType_t uxPriority,
@@ -1738,7 +1739,7 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB )
                         mtCOVERAGE_TEST_MARKER();
                     }
                 }
-            #else  /* if ( configNUM_CORES == 1 ) */
+            #else /* if ( configNUM_CORES == 1 ) */
                 if( pxNewTCB->xTaskAttribute & taskATTRIBUTE_IS_IDLE )
                 {
                     BaseType_t xCoreID;
@@ -2610,6 +2611,7 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB )
             {
                 taskEXIT_CRITICAL();
                 #if ( configNUM_CORES == 1 )
+
                     /* The scheduler is not running, but the task that was pointed
                      * to by pxCurrentTCB has just been suspended and pxCurrentTCB
                      * must be adjusted to point to a different task. */
@@ -2625,7 +2627,8 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB )
                     {
                         vTaskSwitchContext();
                     }
-                #else  /* if ( configNUM_CORES == 1 ) */
+                #else /* if ( configNUM_CORES == 1 ) */
+
                     /* The scheduler is not running, but the task that was pointed
                      * to by pxCurrentTCB has just been suspended and pxCurrentTCB
                      * must be adjusted to point to a different task. */
@@ -2912,10 +2915,10 @@ static BaseType_t prvCreateIdleTasks( void )
                 xIdleTaskHandles[ xCoreID ] = xTaskCreateStatic( prvIdleTask,
                                                                  cIdleName,
                                                                  ulIdleTaskStackSize,
-                                                                 ( void * ) NULL,          /*lint !e961.  The cast is not redundant for all compilers. */
-                                                                 portPRIVILEGE_BIT,        /* In effect ( tskIDLE_PRIORITY | portPRIVILEGE_BIT ), but tskIDLE_PRIORITY is zero. */
+                                                                 ( void * ) NULL,       /*lint !e961.  The cast is not redundant for all compilers. */
+                                                                 portPRIVILEGE_BIT,     /* In effect ( tskIDLE_PRIORITY | portPRIVILEGE_BIT ), but tskIDLE_PRIORITY is zero. */
                                                                  pxIdleTaskStackBuffer,
-                                                                 pxIdleTaskTCBBuffer );    /*lint !e961 MISRA exception, justified as it is not a redundant explicit cast to all supported compilers. */
+                                                                 pxIdleTaskTCBBuffer ); /*lint !e961 MISRA exception, justified as it is not a redundant explicit cast to all supported compilers. */
             }
 
             #if ( configNUM_CORES > 1 )
@@ -2927,10 +2930,10 @@ static BaseType_t prvCreateIdleTasks( void )
                     xIdleTaskHandles[ xCoreID ] = xTaskCreateStatic( prvMinimalIdleTask,
                                                                      cIdleName,
                                                                      configMINIMAL_STACK_SIZE,
-                                                                     ( void * ) NULL,                      /*lint !e961.  The cast is not redundant for all compilers. */
-                                                                     portPRIVILEGE_BIT,                    /* In effect ( tskIDLE_PRIORITY | portPRIVILEGE_BIT ), but tskIDLE_PRIORITY is zero. */
+                                                                     ( void * ) NULL,                   /*lint !e961.  The cast is not redundant for all compilers. */
+                                                                     portPRIVILEGE_BIT,                 /* In effect ( tskIDLE_PRIORITY | portPRIVILEGE_BIT ), but tskIDLE_PRIORITY is zero. */
                                                                      xIdleTaskStackBuffers[ xCoreID - 1 ],
-                                                                     &xIdleTCBBuffers[ xCoreID - 1 ] );    /*lint !e961 MISRA exception, justified as it is not a redundant explicit cast to all supported compilers. */
+                                                                     &xIdleTCBBuffers[ xCoreID - 1 ] ); /*lint !e961 MISRA exception, justified as it is not a redundant explicit cast to all supported compilers. */
                 }
             #endif /* if ( configNUM_CORES > 1 ) */
 
@@ -2952,8 +2955,8 @@ static BaseType_t prvCreateIdleTasks( void )
                                        cIdleName,
                                        configMINIMAL_STACK_SIZE,
                                        ( void * ) NULL,
-                                       portPRIVILEGE_BIT,                 /* In effect ( tskIDLE_PRIORITY | portPRIVILEGE_BIT ), but tskIDLE_PRIORITY is zero. */
-                                       &xIdleTaskHandles[ xCoreID ] );    /*lint !e961 MISRA exception, justified as it is not a redundant explicit cast to all supported compilers. */
+                                       portPRIVILEGE_BIT,              /* In effect ( tskIDLE_PRIORITY | portPRIVILEGE_BIT ), but tskIDLE_PRIORITY is zero. */
+                                       &xIdleTaskHandles[ xCoreID ] ); /*lint !e961 MISRA exception, justified as it is not a redundant explicit cast to all supported compilers. */
             }
 
             #if ( configNUM_CORES > 1 )
@@ -2963,8 +2966,8 @@ static BaseType_t prvCreateIdleTasks( void )
                                            cIdleName,
                                            configMINIMAL_STACK_SIZE,
                                            ( void * ) NULL,
-                                           portPRIVILEGE_BIT,                 /* In effect ( tskIDLE_PRIORITY | portPRIVILEGE_BIT ), but tskIDLE_PRIORITY is zero. */
-                                           &xIdleTaskHandles[ xCoreID ] );    /*lint !e961 MISRA exception, justified as it is not a redundant explicit cast to all supported compilers. */
+                                           portPRIVILEGE_BIT,              /* In effect ( tskIDLE_PRIORITY | portPRIVILEGE_BIT ), but tskIDLE_PRIORITY is zero. */
+                                           &xIdleTaskHandles[ xCoreID ] ); /*lint !e961 MISRA exception, justified as it is not a redundant explicit cast to all supported compilers. */
                 }
             #endif
         }
@@ -3221,6 +3224,7 @@ BaseType_t xTaskResumeAll( void )
     BaseType_t xAlreadyYielded = pdFALSE;
 
     #if ( configNUM_CORES > 1 )
+
         /* Scheduler running status is not checked in vTaskSuspendAll in single
          * core implementation. This condition is only required for multiple cores. */
         if( xSchedulerRunning != pdFALSE )
@@ -3271,10 +3275,11 @@ BaseType_t xTaskResumeAll( void )
                                 mtCOVERAGE_TEST_MARKER();
                             }
                         }
-                        #else  /* if ( configNUM_CORES == 1 ) */
-                              /* All appropriate tasks yield at the moment a task is added to xPendingReadyList.
-                               * If the current core yielded then vTaskSwitchContext() has already been called
-                               * which sets xYieldPendings for the current core to pdTRUE. */
+                        #else /* if ( configNUM_CORES == 1 ) */
+
+                            /* All appropriate tasks yield at the moment a task is added to xPendingReadyList.
+                             * If the current core yielded then vTaskSwitchContext() has already been called
+                             * which sets xYieldPendings for the current core to pdTRUE. */
                         #endif /* if ( configNUM_CORES == 1 ) */
                     }
 
@@ -3637,8 +3642,8 @@ char * pcTaskGetName( TaskHandle_t xTaskToQuery ) /*lint !e971 Unqualified char 
 
 #if ( INCLUDE_xTaskGetIdleTaskHandle == 1 )
 
-    /* SMP_TODO : This function returns only idle task handle for core 0.
-     * Consider to add another function to return the idle task handles. */
+/* SMP_TODO : This function returns only idle task handle for core 0.
+ * Consider to add another function to return the idle task handles. */
     TaskHandle_t xTaskGetIdleTaskHandle( void )
     {
         /* If xTaskGetIdleTaskHandle() is called before the scheduler has been
@@ -3936,10 +3941,11 @@ BaseType_t xTaskIncrementTick( void )
                         mtCOVERAGE_TEST_MARKER();
                     }
                 }
-                #else  /* if ( configNUM_CORES == 1 ) */
+                #else /* if ( configNUM_CORES == 1 ) */
                 {
                     /* TODO: If there are fewer "non-IDLE" READY tasks than cores, do not
                      * force a context switch that would just shuffle tasks around cores */
+
                     /* TODO: There are certainly better ways of doing this that would reduce
                      * the number of interrupts and also potentially help prevent tasks from
                      * moving between cores as often. This, however, works for now. */
@@ -4004,7 +4010,7 @@ BaseType_t xTaskIncrementTick( void )
                         mtCOVERAGE_TEST_MARKER();
                     }
                 }
-                #else  /* if ( configNUM_CORES == 1 ) */
+                #else /* if ( configNUM_CORES == 1 ) */
                 {
                     BaseType_t xCoreID;
 
@@ -5719,10 +5725,10 @@ static void prvResetNextTaskUnblockTime( void )
     }
 #else
 
-    /*If not in a critical section then yield immediately.
-     * Otherwise set xYieldPendings to true to wait to
-     * yield until exiting the critical section.
-     */
+/*If not in a critical section then yield immediately.
+ * Otherwise set xYieldPendings to true to wait to
+ * yield until exiting the critical section.
+ */
     void vTaskYieldWithinAPI( void )
     {
         if( pxCurrentTCB->uxCriticalNesting == 0U )
@@ -5855,7 +5861,7 @@ static void prvResetNextTaskUnblockTime( void )
                             portYIELD();
                         }
                     }
-                    #else  /* if ( configNUM_CORES > 1 ) */
+                    #else /* if ( configNUM_CORES > 1 ) */
                     {
                         portENABLE_INTERRUPTS();
                     }
