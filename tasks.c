@@ -2729,7 +2729,7 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB )
         #if ( configNUM_CORES == 1 )
             /* The parameter cannot be NULL as it is impossible to resume the
              * currently executing task. */
-            if( ( pxTCB != pxCurrentTCB ) && ( pxTCB != NULL ) )
+            if( ( taskTASK_IS_RUNNING( pxTCB ) == pdFALSE ) && ( pxTCB != NULL ) )
         #else
             /* The parameter cannot be NULL as it is impossible to resume the
              * currently executing task. It is also impossible to resume a task
