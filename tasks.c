@@ -2218,14 +2218,14 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB )
          * https://www.FreeRTOS.org/RTOS-Cortex-M3-M4.html */
         portASSERT_IF_INTERRUPT_PRIORITY_INVALID();
 
-        uxSavedInterruptState = portSET_INTERRUPT_MASK_FROM_ISR();
+        uxSavedInterruptState = taskENTER_CRITICAL_FROM_ISR();
         {
             /* If null is passed in here then it is the priority of the calling
              * task that is being queried. */
             pxTCB = prvGetTCBFromHandle( xTask );
             uxReturn = pxTCB->uxPriority;
         }
-        portCLEAR_INTERRUPT_MASK_FROM_ISR( uxSavedInterruptState );
+        taskEXIT_CRITICAL_FROM_ISR( uxSavedInterruptState );
 
         return uxReturn;
     }
@@ -2806,7 +2806,7 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB )
          * https://www.FreeRTOS.org/RTOS-Cortex-M3-M4.html */
         portASSERT_IF_INTERRUPT_PRIORITY_INVALID();
 
-        uxSavedInterruptStatus = portSET_INTERRUPT_MASK_FROM_ISR();
+        uxSavedInterruptStatus = taskENTER_CRITICAL_FROM_ISR();
         {
             if( prvTaskIsTaskSuspended( pxTCB ) != pdFALSE )
             {
@@ -2850,7 +2850,7 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB )
                 mtCOVERAGE_TEST_MARKER();
             }
         }
-        portCLEAR_INTERRUPT_MASK_FROM_ISR( uxSavedInterruptStatus );
+        taskEXIT_CRITICAL_FROM_ISR( uxSavedInterruptStatus );
 
         return xYieldRequired;
     }
@@ -4148,11 +4148,11 @@ BaseType_t xTaskIncrementTick( void )
 
         /* Save the hook function in the TCB.  A critical section is required as
          * the value can be accessed from an interrupt. */
-        uxSavedInterruptStatus = portSET_INTERRUPT_MASK_FROM_ISR();
+        uxSavedInterruptStatus = taskENTER_CRITICAL_FROM_ISR();
         {
             xReturn = pxTCB->pxTaskTag;
         }
-        portCLEAR_INTERRUPT_MASK_FROM_ISR( uxSavedInterruptStatus );
+        taskEXIT_CRITICAL_FROM_ISR( uxSavedInterruptStatus );
 
         return xReturn;
     }
@@ -5896,7 +5896,7 @@ static void prvResetNextTaskUnblockTime( void )
 
         if( xSchedulerRunning != pdFALSE )
         {
-            uxSavedInterruptStatus = portSET_INTERRUPT_MASK();
+            uxSavedInterruptStatus = portSET_INTERRUPT_MASK_FROM_ISR();
 
             if( pxCurrentTCB->uxCriticalNesting == 0U )
             {
@@ -6003,7 +6003,7 @@ static void prvResetNextTaskUnblockTime( void )
                     xYieldCurrentTask = xYieldPendings[ portGET_CORE_ID() ];
 
                     portRELEASE_ISR_LOCK();
-                    portCLEAR_INTERRUPT_MASK( uxSavedInterruptStatus );
+                    portCLEAR_INTERRUPT_MASK_FROM_ISR( uxSavedInterruptStatus );
 
                     /* When a task yields in a critical section it just sets
                      * xYieldPending to true. So now that we have exited the
@@ -6634,7 +6634,7 @@ TickType_t uxTaskResetEventItemValue( void )
 
         pxTCB = xTaskToNotify;
 
-        uxSavedInterruptStatus = portSET_INTERRUPT_MASK_FROM_ISR();
+        uxSavedInterruptStatus = taskENTER_CRITICAL_FROM_ISR();
         {
             if( pulPreviousNotificationValue != NULL )
             {
@@ -6732,7 +6732,7 @@ TickType_t uxTaskResetEventItemValue( void )
                 }
             }
         }
-        portCLEAR_INTERRUPT_MASK_FROM_ISR( uxSavedInterruptStatus );
+        taskEXIT_CRITICAL_FROM_ISR( uxSavedInterruptStatus );
 
         return xReturn;
     }
@@ -6774,7 +6774,7 @@ TickType_t uxTaskResetEventItemValue( void )
 
         pxTCB = xTaskToNotify;
 
-        uxSavedInterruptStatus = portSET_INTERRUPT_MASK_FROM_ISR();
+        uxSavedInterruptStatus = taskENTER_CRITICAL_FROM_ISR();
         {
             ucOriginalNotifyState = pxTCB->ucNotifyState[ uxIndexToNotify ];
             pxTCB->ucNotifyState[ uxIndexToNotify ] = taskNOTIFICATION_RECEIVED;
@@ -6828,7 +6828,7 @@ TickType_t uxTaskResetEventItemValue( void )
                 }
             }
         }
-        portCLEAR_INTERRUPT_MASK_FROM_ISR( uxSavedInterruptStatus );
+        taskEXIT_CRITICAL_FROM_ISR( uxSavedInterruptStatus );
     }
 
 #endif /* configUSE_TASK_NOTIFICATIONS */
