@@ -411,7 +411,7 @@ PRIVILEGED_DATA static volatile TickType_t xTickCount = ( TickType_t ) configINI
 PRIVILEGED_DATA static volatile UBaseType_t uxTopReadyPriority = tskIDLE_PRIORITY;
 PRIVILEGED_DATA static volatile BaseType_t xSchedulerRunning = pdFALSE;
 PRIVILEGED_DATA static volatile TickType_t xPendedTicks = ( TickType_t ) 0U;
-PRIVILEGED_DATA static volatile BaseType_t xYieldPendings[ configNUM_CORES ] = { pdFALSE };
+PRIVILEGED_DATA volatile BaseType_t xYieldPendings[ configNUM_CORES ] = { pdFALSE };
 PRIVILEGED_DATA static volatile BaseType_t xNumOfOverflows = ( BaseType_t ) 0;
 PRIVILEGED_DATA static UBaseType_t uxTaskNumber = ( UBaseType_t ) 0U;
 PRIVILEGED_DATA static volatile TickType_t xNextTaskUnblockTime = ( TickType_t ) 0U; /* Initialised to portMAX_DELAY before the scheduler starts. */
@@ -457,18 +457,11 @@ PRIVILEGED_DATA static volatile UBaseType_t uxSchedulerSuspended = ( UBaseType_t
 static BaseType_t prvCreateIdleTasks( void );
 
 #if ( configNUM_CORES > 1 )
-
-/*
- * Checks to see if another task moved the current task out of the ready
- * list while it was waiting to enter a critical section and yields if so.
- */
-    static void prvCheckForRunStateChange( void );
-#endif /* ( configNUM_CORES > 1 ) */
-
-/*
+    /*
  * Yields the given core.
  */
-static void prvYieldCore( BaseType_t xCoreID );
+    static void prvYieldCore( BaseType_t xCoreID );
+#endif
 
 /*
  * Yields a core, or cores if multiple priorities are not allowed to run
@@ -646,92 +639,32 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
 
 /*-----------------------------------------------------------*/
 
-#if ( configNUM_CORES > 1 )
-    static void prvCheckForRunStateChange( void )
+#if ( configNUM_CORES > 1 ) && ( portCRITICAL_NESTING_IN_TCB == 0 )
+    BaseType_t vTaskCheckCriticalRunStateChange( void )
     {
-        UBaseType_t uxPrevCriticalNesting;
-        UBaseType_t uxPrevSchedulerSuspended;
-        TCB_t * pxThisTCB;
+        BaseType_t runStateChanged = pdFALSE;
 
-        /* This function should not be called in ISR. If the task on the current
-         * core is no longer running, then vTaskSwitchContext() probably should
-         * be run before returning, but we don't have a way to force that to happen
-         * from here. */
-        if( portCHECK_IF_IN_ISR() == pdFALSE )
+        if( uxSchedulerSuspended == 0 )
         {
-            /* This function is always called with interrupts disabled
-             * so this is safe. */
-            pxThisTCB = pxCurrentTCBs[ portGET_CORE_ID() ];
-
-            while( pxThisTCB->xTaskRunState == taskTASK_YIELDING )
+            if( pxCurrentTCBs[ portGET_CORE_ID() ]->xTaskRunState == taskTASK_YIELDING )
             {
-                /* We are only here if we just entered a critical section
-                * or if we just suspended the scheduler, and another task
-                * has requested that we yield.
-                *
-                * This is slightly complicated since we need to save and restore
-                * the suspension and critical nesting counts, as well as release
-                * and reacquire the correct locks. And then do it all over again
-                * if our state changed again during the reacquisition. */
-
-                uxPrevCriticalNesting = pxThisTCB->uxCriticalNesting;
-                uxPrevSchedulerSuspended = uxSchedulerSuspended;
-
-                /* this must only be called the first time we enter into a critical
-                 * section, otherwise it could context switch in the middle of a
-                 * critical section. */
-                configASSERT( uxPrevCriticalNesting + uxPrevSchedulerSuspended == 1U );
-
-                uxSchedulerSuspended = 0U;
-
-                if( uxPrevCriticalNesting > 0U )
-                {
-                    pxThisTCB->uxCriticalNesting = 0U;
-                    portRELEASE_ISR_LOCK();
-                    portRELEASE_TASK_LOCK();
-                }
-                else
-                {
-                    /* uxPrevSchedulerSuspended must be 1 */
-                    portRELEASE_TASK_LOCK();
-                }
-
-                portMEMORY_BARRIER();
-                configASSERT( pxThisTCB->xTaskRunState == taskTASK_YIELDING );
-
-                portENABLE_INTERRUPTS();
-
-                /* Enabling interrupts should cause this core to immediately
-                 * service the pending interrupt and yield. If the run state is still
-                 * yielding here then that is a problem. */
-                configASSERT( pxThisTCB->xTaskRunState != taskTASK_YIELDING );
-
-                portDISABLE_INTERRUPTS();
-                portGET_TASK_LOCK();
-                portGET_ISR_LOCK();
-                pxCurrentTCB->uxCriticalNesting = uxPrevCriticalNesting;
-                uxSchedulerSuspended = uxPrevSchedulerSuspended;
-
-                if( uxPrevCriticalNesting == 0U )
-                {
-                    /* uxPrevSchedulerSuspended must be 1 */
-                    configASSERT( uxPrevSchedulerSuspended != ( UBaseType_t ) pdFALSE );
-                    portRELEASE_ISR_LOCK();
-                }
+                runStateChanged = pdTRUE;
             }
         }
+        else
+        {
+            /* This is the case that schduler is suspended and the task is trying to
+             * enter critical section. */
+        }
+
+        return runStateChanged;
     }
 #endif /* if ( configNUM_CORES > 1 ) */
 
 /*-----------------------------------------------------------*/
-static void prvYieldCore( BaseType_t xCoreID )
-{
-    #if ( configNUM_CORES == 1 )
-    {
-        configASSERT( xCoreID == 0 );
-        portYIELD_WITHIN_API();
-    }
-    #else
+
+#if ( configNUM_CORES > 1 )
+    static void prvYieldCore( BaseType_t xCoreID )
     {
         /* This must be called from a critical section and xCoreID must be valid. */
         if( portCHECK_IF_IN_ISR() && ( xCoreID == portGET_CORE_ID() ) )
@@ -754,10 +687,10 @@ static void prvYieldCore( BaseType_t xCoreID )
             }
         }
     }
-    #endif /* if ( configNUM_CORES == 1 ) */
-}
+#endif
 
 /*-----------------------------------------------------------*/
+
 static BaseType_t prvYieldForTask( TCB_t * pxTCB,
                                    const BaseType_t xPreemptEqualPriority,
                                    BaseType_t xYieldForTask )
@@ -794,7 +727,9 @@ static BaseType_t prvYieldForTask( TCB_t * pxTCB,
         BaseType_t xCoreID;
 
         /* This must be called from a critical section. */
-        configASSERT( pxCurrentTCB->uxCriticalNesting > 0U );
+        #if ( portCRITICAL_NESTING_IN_TCB == 1 )
+            configASSERT( pxCurrentTCB->uxCriticalNesting > 0U );
+        #endif
 
         #if ( configRUN_MULTIPLE_PRIORITIES == 0 )
 
@@ -2610,7 +2545,12 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB )
                 }
                 else
                 {
-                    prvYieldCore( xTaskRunningOnCore );
+                    /* For single core, the running core is always core 0. */
+                    #if ( configNUM_CORES > 1 )
+                    {
+                        prvYieldCore( xTaskRunningOnCore );
+                    }
+                    #endif
                 }
 
                 taskEXIT_CRITICAL();
@@ -3118,6 +3058,8 @@ void vTaskSuspendAll( void )
     #else /* ( configNUM_CORES == 1 ) */
     {
         UBaseType_t ulState;
+        TCB_t * pxThisTCB;
+        BaseType_t xCoreID;
 
         /* This must only be called from within a task */
         portASSERT_IF_IN_ISR();
@@ -3138,6 +3080,9 @@ void vTaskSuspendAll( void )
             portGET_TASK_LOCK();
             portGET_ISR_LOCK();
 
+            xCoreID = portGET_CORE_ID();
+            pxThisTCB = pxCurrentTCBs[ xCoreID ];
+
             /* The scheduler is suspended if uxSchedulerSuspended is non-zero.  An increment
              * is used to allow calls to vTaskSuspendAll() to nest. */
             ++uxSchedulerSuspended;
@@ -3145,9 +3090,31 @@ void vTaskSuspendAll( void )
 
             if( uxSchedulerSuspended == 1U )
             {
-                if( pxCurrentTCB->uxCriticalNesting == 0U )
+                #if ( portCRITICAL_NESTING_IN_TCB == 1 )
+                    if( pxCurrentTCB->uxCriticalNesting == 0U )
+                #else
+                    if( portCORE_IS_IN_CRITICAL( xCoreID ) == pdFALSE )
+                #endif
                 {
-                    prvCheckForRunStateChange();
+                    while( pxThisTCB->xTaskRunState == taskTASK_YIELDING )
+                    {
+                        /* This task is requested to yield. Give up the task lock for yielding. */
+                        uxSchedulerSuspended = 0U;
+                        portRELEASE_TASK_LOCK();
+                        portMEMORY_BARRIER();
+                        portCLEAR_INTERRUPT_MASK( ulState );
+
+                        /* Reacquire the task lock again. */
+                        ulState = portSET_INTERRUPT_MASK();
+
+                        portSOFTWARE_BARRIER();
+                        portGET_TASK_LOCK();
+                        portGET_ISR_LOCK();
+
+                        configASSERT( uxSchedulerSuspended == 0 );
+                        uxSchedulerSuspended = 1U;
+                        portRELEASE_ISR_LOCK();
+                    }
                 }
                 else
                 {
@@ -5820,13 +5787,17 @@ static void prvResetNextTaskUnblockTime( void )
     }
 #else
 
-/*If not in a critical section then yield immediately.
- * Otherwise set xYieldPendings to true to wait to
- * yield until exiting the critical section.
- */
+    /* If not in a critical section then yield immediately.
+     * Otherwise set xYieldPendings to true to wait to
+     * yield until exiting the critical section.
+     */
     void vTaskYieldWithinAPI( void )
     {
-        if( pxCurrentTCB->uxCriticalNesting == 0U )
+        #if ( portCRITICAL_NESTING_IN_TCB == 1 )
+            if( pxCurrentTCB->uxCriticalNesting == 0U )
+        #else
+            if( portCORE_IS_IN_CRITICAL( portGET_CORE_ID() ) == pdFALSE )
+        #endif
         {
             portYIELD();
         }
@@ -5843,19 +5814,27 @@ static void prvResetNextTaskUnblockTime( void )
 
     void vTaskEnterCritical( void )
     {
+        TCB_t * pxThisTCB;
+
         portDISABLE_INTERRUPTS();
+
+        /* This is required for multiple core since different core has different pxCurrentTCB.
+         * pxCurrentTCB is a macro for multiple core. */
+        pxThisTCB = pxCurrentTCB;
 
         if( xSchedulerRunning != pdFALSE )
         {
             #if ( configNUM_CORES > 1 )
-                if( pxCurrentTCB->uxCriticalNesting == 0U )
+            {
+                if( pxThisTCB->uxCriticalNesting == 0U )
                 {
                     portGET_TASK_LOCK();
                     portGET_ISR_LOCK();
                 }
+            }
             #endif
 
-            ( pxCurrentTCB->uxCriticalNesting )++;
+            ( pxThisTCB->uxCriticalNesting )++;
 
             /* This is not the interrupt safe version of the enter critical
              * function so  assert() if it is being called from an interrupt
@@ -5863,18 +5842,38 @@ static void prvResetNextTaskUnblockTime( void )
              * interrupt.  Only assert if the critical nesting count is 1 to
              * protect against recursive calls if the assert function also uses a
              * critical section. */
-            if( pxCurrentTCB->uxCriticalNesting == 1 )
+            if( pxThisTCB->uxCriticalNesting == 1U )
             {
                 portASSERT_IF_IN_ISR();
+
                 #if ( configNUM_CORES > 1 )
+                {
                     if( uxSchedulerSuspended == 0U )
                     {
                         /* The only time there would be a problem is if this is called
                          * before a context switch and vTaskExitCritical() is called
                          * after pxCurrentTCB changes. Therefore this should not be
                          * used within vTaskSwitchContext(). */
-                        prvCheckForRunStateChange();
+                        while( pxThisTCB->xTaskRunState == taskTASK_YIELDING )
+                        {
+                            /* This task is requested to yield. Give up the task lock for yielding. */
+                            pxThisTCB->uxCriticalNesting = 0;
+                            portRELEASE_ISR_LOCK();
+                            portRELEASE_TASK_LOCK();
+                            portMEMORY_BARRIER();
+                            portENABLE_INTERRUPTS();
+
+                            /* The core is able to yield now. */
+
+                            /* Try to enter the critical section again. */
+                            portDISABLE_INTERRUPTS();
+                            portGET_TASK_LOCK();
+                            portGET_ISR_LOCK();
+
+                            pxThisTCB->uxCriticalNesting = 1U;
+                        }
                     }
+                }
                 #endif
             }
         }
