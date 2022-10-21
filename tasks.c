@@ -1747,10 +1747,10 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB )
             #else /* if ( configNUM_CORES == 1 ) */
                 if( pxNewTCB->xTaskAttribute & taskATTRIBUTE_IS_IDLE )
                 {
-                    BaseType_t xCoreID;
+                    UBaseType_t xCoreID;
 
                     /* Check if a core is free. */
-                    for( xCoreID = ( UBaseType_t ) 0; xCoreID < ( UBaseType_t ) configNUM_CORES; xCoreID++ )
+                    for( xCoreID = 0; xCoreID < ( UBaseType_t ) configNUM_CORES; xCoreID++ )
                     {
                         if( pxCurrentTCBs[ xCoreID ] == NULL )
                         {
@@ -1932,6 +1932,7 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB )
     {
         TickType_t xTimeToWake;
         BaseType_t xAlreadyYielded, xShouldDelay = pdFALSE;
+        TickType_t xConstTickCount;
 
         configASSERT( pxPreviousWakeTime );
         configASSERT( ( xTimeIncrement > 0U ) );
@@ -1942,7 +1943,7 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB )
 
             /* Minor optimisation.  The tick count cannot change in this
              * block. */
-            const TickType_t xConstTickCount = xTickCount;
+            xConstTickCount = xTickCount;
 
             /* Generate the tick time at which the task wants to wake. */
             xTimeToWake = *pxPreviousWakeTime + xTimeIncrement;
@@ -4757,6 +4758,9 @@ void vTaskMissedYield( void )
 #if ( configNUM_CORES > 1 )
     static portTASK_FUNCTION( prvMinimalIdleTask, pvParameters )
     {
+        /* Stop warnings. */
+        ( void ) pvParameters;
+
         taskYIELD();
 
         for( ; ; )
@@ -5489,7 +5493,7 @@ static void prvResetNextTaskUnblockTime( void )
             return xReturn;
         }
 
-        TaskHandle_t xTaskGetCurrentTaskHandleCPU( UBaseType_t xCoreID )
+        TaskHandle_t xTaskGetCurrentTaskHandleCPU( BaseType_t xCoreID )
         {
             TaskHandle_t xReturn = NULL;
 
