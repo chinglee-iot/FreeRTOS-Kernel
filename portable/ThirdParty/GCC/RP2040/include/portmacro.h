@@ -181,7 +181,7 @@
         /* Port maintain it's own critical nesting count. */
         #if ( portCRITICAL_NESTING_IN_TCB == 0 )
             extern UBaseType_t uxCriticalNestings[ configNUM_CORES ];
-            #define portCORE_IS_IN_CRITICAL( xCoreID )        ( uxCriticalNestings[ xCoreID ] > 0 )
+            #define portGET_CRITICAL_NESTING_COUNT()          ( uxCriticalNestings[ portGET_CORE_ID() ] )
         #endif
     #endif
 

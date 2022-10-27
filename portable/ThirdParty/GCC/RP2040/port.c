@@ -133,12 +133,6 @@ uint8_t ucOwnedByCore[ portMAX_CORE_COUNT ] = { 0 };
 /* Variable to keep record of spinlock recursive count. */
 uint8_t ucRecursionCountByLock[ portRTOS_SPINLOCK_COUNT ] = { 0 };
 
-/* Get task running state change function. */
-extern BaseType_t vTaskCheckCriticalRunStateChange( void );
-
-/* Check if there is pending yields need to be handler when leaving the critical section. */
-extern BaseType_t xYieldPendings[ configNUM_CORES ];
-
 /*-----------------------------------------------------------*/
 
 #if ( configSUPPORT_PICO_SYNC_INTEROP == 1 )
@@ -1186,35 +1180,6 @@ __attribute__( ( weak ) ) void vPortSetupTimerInterrupt( void )
                 portGET_ISR_LOCK();
             }
             uxCriticalNestings[ xCoreID ]++;
-
-            /* This is not the interrupt safe version of the enter critical
-             * function so  assert() if it is being called from an interrupt
-             * context.  Only API functions that end in "FromISR" can be used in an
-             * interrupt.  Only assert if the critical nesting count is 1 to
-             * protect against recursive calls if the assert function also uses a
-             * critical section. */
-            if( uxCriticalNestings[ xCoreID ] == 1U )
-            {
-                while( vTaskCheckCriticalRunStateChange() == pdTRUE )
-                {
-                    uxCriticalNestings[ xCoreID ] = 0U;
-
-                    /* Release the critical section to yield for other task. */
-                    portRELEASE_ISR_LOCK();
-                    portRELEASE_TASK_LOCK();
-                    portENABLE_INTERRUPTS();
-
-                    /* When this task is running again. The task running state should not be yielding. */
-                    xCoreID = portGET_CORE_ID();
-
-                    /* Acquire the spinlock to enter the critical section again. */
-                    portDISABLE_INTERRUPTS();
-                    portGET_TASK_LOCK();
-                    portGET_ISR_LOCK();
-
-                    uxCriticalNestings[ xCoreID ] = 1U;
-                }
-            }
         }
     }
 
@@ -1265,23 +1230,9 @@ __attribute__( ( weak ) ) void vPortSetupTimerInterrupt( void )
 
                 if( uxCriticalNestings[ xCoreID ] == 0U )
                 {
-                    BaseType_t xYieldCurrentTask;
-
-                    /* Get the xYieldPending stats inside the critical section. */
-                    xYieldCurrentTask = xYieldPendings[ xCoreID ];
-
                     portRELEASE_ISR_LOCK();
                     portRELEASE_TASK_LOCK();
                     portENABLE_INTERRUPTS();
-
-                    /* When a task yields in a critical section it just sets
-                     * xYieldPending to true. So now that we have exited the
-                     * critical section check if xYieldPending is true, and
-                     * if so yield. */
-                    if( xYieldCurrentTask != pdFALSE )
-                    {
-                        portYIELD();
-                    }
                 }
             }
         }
@@ -1294,7 +1245,6 @@ __attribute__( ( weak ) ) void vPortSetupTimerInterrupt( void )
 
     void vTaskExitCriticalFromISR( UBaseType_t uxSavedInterruptStatus )
     {
-        BaseType_t xYieldCurrentTask;
         BaseType_t xCoreID;
 
         if( xSchedulerStarted != pdFALSE )
@@ -1307,20 +1257,8 @@ __attribute__( ( weak ) ) void vPortSetupTimerInterrupt( void )
 
                 if( uxCriticalNestings[ xCoreID ] == 0U )
                 {
-                    /* Get the xYieldPending stats inside the critical section. */
-                    xYieldCurrentTask = xYieldPendings[ portGET_CORE_ID() ];
-
                     portRELEASE_ISR_LOCK();
                     portCLEAR_INTERRUPT_MASK( uxSavedInterruptStatus );
-
-                    /* When a task yields in a critical section it just sets
-                     * xYieldPending to true. So now that we have exited the
-                     * critical section check if xYieldPending is true, and
-                     * if so yield. */
-                    if( xYieldCurrentTask != pdFALSE )
-                    {
-                        portYIELD();
-                    }
                 }
             }
         }
