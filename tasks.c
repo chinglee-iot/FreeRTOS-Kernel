@@ -475,6 +475,12 @@ static BaseType_t prvCreateIdleTasks( void );
 #endif
 
 /*
+ * Checks to see if another task moved the current task out of the ready
+ * list while it was waiting to enter a critical section and yields if so.
+ */
+static void prvCheckForRunStateChange( void );
+
+/*
  * Yields a core, or cores if multiple priorities are not allowed to run
  * simultaneously, to allow the task pxTCB to run. Negative value is returned if
  * yeilding for the task is not required. Otherwise, core ID is returned.
@@ -648,6 +654,68 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
 
 #endif
 
+/*-----------------------------------------------------------*/
+
+#if ( configNUM_CORES > 1 )
+    static void prvCheckForRunStateChange( void )
+    {
+        UBaseType_t uxPrevCriticalNesting;
+        UBaseType_t uxPrevSchedulerSuspended;
+        TCB_t * pxThisTCB;
+        UBaseType_t ulState;
+
+        /* This should be skipped when entering a critical section within
+         * an ISR. If the task on the current core is no longer running, then
+         * vTaskSwitchContext() probably should be run before returning, but
+         * we don't have a way to force that to happen from here. */
+        if( portCHECK_IF_IN_ISR() == pdFALSE )
+        {
+            /* This function is always called with interrupts disabled
+             * so this is safe. */
+            pxThisTCB = pxCurrentTCBs[ portGET_CORE_ID() ];
+
+            if( ( portGET_CRITICAL_NESTING_COUNT() == 1U ) && ( uxSchedulerSuspended == 0U ) )
+            {
+                /* The task just enter the critical section. */
+                while( pxThisTCB->xTaskRunState == taskTASK_YIELDING )
+                {
+                    /* Leave the critical section. This task should yield immediately. */
+                    portEXIT_CRITICAL();
+
+                    /* Enter the critical section again. */
+                    portENTER_CRITICAL();
+                }
+            }
+            else if( ( portGET_CRITICAL_NESTING_COUNT() == 0U ) && ( uxSchedulerSuspended == 1U ) )
+            {
+                /* The task just suspend the scheduler. */
+                while( pxThisTCB->xTaskRunState == taskTASK_YIELDING )
+                {
+                    /* This task is requested to yield. Give up the task lock for yielding. */
+                    --uxSchedulerSuspended;
+                    portRELEASE_TASK_LOCK();
+                    portMEMORY_BARRIER();
+                    portCLEAR_INTERRUPT_MASK( ulState );
+
+                    /* Accquire the task lock again. */
+                    ulState = portSET_INTERRUPT_MASK();
+
+                    portSOFTWARE_BARRIER();
+
+                    portGET_TASK_LOCK();
+                    portGET_ISR_LOCK();
+
+                    ++uxSchedulerSuspended;
+                    portRELEASE_ISR_LOCK();
+                }
+            }
+            else
+            {
+                /* This is the case not first time enter critical section or suspend the scheduler. */
+            }
+        }
+    }
+#endif
 /*-----------------------------------------------------------*/
 
 #if ( configNUM_CORES > 1 )
@@ -3045,7 +3113,6 @@ void vTaskSuspendAll( void )
     #else /* ( configNUM_CORES == 1 ) */
     {
         UBaseType_t ulState;
-        TCB_t * pxThisTCB;
 
         /* This must only be called from within a task */
         portASSERT_IF_IN_ISR();
@@ -3059,9 +3126,6 @@ void vTaskSuspendAll( void )
              * uxSchedulerSuspended since that will prevent context switches. */
             ulState = portSET_INTERRUPT_MASK();
 
-            /* It is safe to get the current task TCB since interrupt is disabled. */
-            pxThisTCB = pxCurrentTCBs[ portGET_CORE_ID() ];
-
             /* portSOFRWARE_BARRIER() is only implemented for emulated/simulated ports that
              * do not otherwise exhibit real time behaviour. */
             portSOFTWARE_BARRIER();
@@ -3074,39 +3138,7 @@ void vTaskSuspendAll( void )
             ++uxSchedulerSuspended;
             portRELEASE_ISR_LOCK();
 
-            if( uxSchedulerSuspended == 1U )
-            {
-                if( portGET_CRITICAL_NESTING_COUNT() == 0U )
-                {
-                    while( pxThisTCB->xTaskRunState == taskTASK_YIELDING )
-                    {
-                        /* This task is requested to yield. Give up the task lock for yielding. */
-                        --uxSchedulerSuspended;
-                        portRELEASE_TASK_LOCK();
-                        portMEMORY_BARRIER();
-                        portCLEAR_INTERRUPT_MASK( ulState );
-
-                        /* Accquire the task lock again. */
-                        ulState = portSET_INTERRUPT_MASK();
-
-                        portSOFTWARE_BARRIER();
-
-                        portGET_TASK_LOCK();
-                        portGET_ISR_LOCK();
-
-                        ++uxSchedulerSuspended;
-                        portRELEASE_ISR_LOCK();
-                    }
-                }
-                else
-                {
-                    mtCOVERAGE_TEST_MARKER();
-                }
-            }
-            else
-            {
-                mtCOVERAGE_TEST_MARKER();
-            }
+            prvCheckForRunStateChange();
 
             portCLEAR_INTERRUPT_MASK( ulState );
         }
@@ -5793,24 +5825,7 @@ static void prvResetNextTaskUnblockTime( void )
     {
         portENTER_CRITICAL();
 
-        /* Check for run state change when the task first time enter critical section. */
-        if( portGET_CRITICAL_NESTING_COUNT() == 1U )
-        {
-            if( uxSchedulerSuspended == 0U )
-            {
-                /* Task run state changed when disabled the interrupt and waiting to
-                 * to acquire the locks. Leave the critical section should cause this task
-                 * yield. */
-                while( pxCurrentTCBs[ portGET_CORE_ID() ]->xTaskRunState == taskTASK_YIELDING )
-                {
-                    /* Leave the critical section. This task should yield immediately. */
-                    portEXIT_CRITICAL();
-
-                    /* Enter the critical section again. */
-                    portENTER_CRITICAL();
-                }
-            }
-        }
+        prvCheckForRunStateChange();
     }
 
 #endif
