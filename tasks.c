@@ -683,6 +683,11 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
                     /* Leave the critical section. This task should yield immediately. */
                     portEXIT_CRITICAL();
 
+                    /* Enabling interrupts should cause this core to immediately
+                     * service the pending interrupt and yield. If the run state is still
+                     * yielding here then that is a problem. */
+                    configASSERT( pxThisTCB->xTaskRunState != taskTASK_YIELDING );
+
                     /* Enter the critical section again. */
                     portENTER_CRITICAL();
                 }
@@ -694,20 +699,22 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
                 {
                     /* This task is requested to yield. Give up the task lock for yielding. */
                     --uxSchedulerSuspended;
+                    portRELEASE_ISR_LOCK();
                     portRELEASE_TASK_LOCK();
                     portMEMORY_BARRIER();
                     portCLEAR_INTERRUPT_MASK( ulState );
 
+                    /* Enabling interrupts should cause this core to immediately
+                     * service the pending interrupt and yield. If the run state is still
+                     * yielding here then that is a problem. */
+                    configASSERT( pxThisTCB->xTaskRunState != taskTASK_YIELDING );
+
                     /* Accquire the task lock again. */
                     ulState = portSET_INTERRUPT_MASK();
-
                     portSOFTWARE_BARRIER();
-
                     portGET_TASK_LOCK();
                     portGET_ISR_LOCK();
-
                     ++uxSchedulerSuspended;
-                    portRELEASE_ISR_LOCK();
                 }
             }
             else
@@ -3137,10 +3144,10 @@ void vTaskSuspendAll( void )
             /* The scheduler is suspended if uxSchedulerSuspended is non-zero.  An increment
              * is used to allow calls to vTaskSuspendAll() to nest. */
             ++uxSchedulerSuspended;
-            portRELEASE_ISR_LOCK();
 
             prvCheckForRunStateChange();
 
+            portRELEASE_ISR_LOCK();
             portCLEAR_INTERRUPT_MASK( ulState );
         }
         else
