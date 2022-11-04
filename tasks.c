@@ -422,7 +422,7 @@ PRIVILEGED_DATA static volatile TickType_t xTickCount = ( TickType_t ) configINI
 PRIVILEGED_DATA static volatile UBaseType_t uxTopReadyPriority = tskIDLE_PRIORITY;
 PRIVILEGED_DATA static volatile BaseType_t xSchedulerRunning = pdFALSE;
 PRIVILEGED_DATA static volatile TickType_t xPendedTicks = ( TickType_t ) 0U;
-PRIVILEGED_DATA volatile BaseType_t xYieldPendings[ configNUM_CORES ] = { pdFALSE };
+PRIVILEGED_DATA static volatile BaseType_t xYieldPendings[ configNUM_CORES ] = { pdFALSE };
 PRIVILEGED_DATA static volatile BaseType_t xNumOfOverflows = ( BaseType_t ) 0;
 PRIVILEGED_DATA static UBaseType_t uxTaskNumber = ( UBaseType_t ) 0U;
 PRIVILEGED_DATA static volatile TickType_t xNextTaskUnblockTime = ( TickType_t ) 0U; /* Initialised to portMAX_DELAY before the scheduler starts. */
@@ -468,7 +468,8 @@ PRIVILEGED_DATA static volatile UBaseType_t uxSchedulerSuspended = ( UBaseType_t
 static BaseType_t prvCreateIdleTasks( void );
 
 #if ( configNUM_CORES > 1 )
-    /*
+
+/*
  * Yields the given core.
  */
     static void prvYieldCore( BaseType_t xCoreID );
@@ -742,7 +743,7 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
             }
         }
     }
-#endif
+#endif /* if ( configNUM_CORES > 1 ) */
 
 /*-----------------------------------------------------------*/
 
@@ -5801,10 +5802,10 @@ static void prvResetNextTaskUnblockTime( void )
     }
 #else
 
-    /* If not in a critical section then yield immediately.
-     * Otherwise set xYieldPendings to true to wait to
-     * yield until exiting the critical section.
-     */
+/* If not in a critical section then yield immediately.
+ * Otherwise set xYieldPendings to true to wait to
+ * yield until exiting the critical section.
+ */
     void vTaskYieldWithinAPI( void )
     {
         if( portGET_CRITICAL_NESTING_COUNT() == 0U )
@@ -5828,7 +5829,7 @@ static void prvResetNextTaskUnblockTime( void )
         prvCheckForRunStateChange();
     }
 
-#endif
+#endif /* if ( configNUM_CORES > 1 ) */
 /*-----------------------------------------------------------*/
 
 #if ( configNUM_CORES > 1 )
@@ -5848,7 +5849,7 @@ static void prvResetNextTaskUnblockTime( void )
         }
     }
 
-#endif
+#endif /* if ( configNUM_CORES > 1 ) */
 /*-----------------------------------------------------------*/
 
 #if ( portCRITICAL_NESTING_IN_TCB == 1 )
