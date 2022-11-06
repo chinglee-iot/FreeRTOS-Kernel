@@ -475,11 +475,14 @@ static BaseType_t prvCreateIdleTasks( void );
     static void prvYieldCore( BaseType_t xCoreID );
 #endif
 
+#if ( configNUM_CORES > 1 )
+
 /*
  * Checks to see if another task moved the current task out of the ready
  * list while it was waiting to enter a critical section and yields if so.
  */
-static void prvCheckForRunStateChange( void );
+    static void prvCheckForRunStateChange( void );
+#endif
 
 /*
  * Yields a core, or cores if multiple priorities are not allowed to run
@@ -5807,6 +5810,7 @@ static void prvResetNextTaskUnblockTime( void )
 /*-----------------------------------------------------------*/
 
 #if ( configNUM_CORES > 1 )
+
     void vSmpTaskEnterCritical( void )
     {
         portENTER_CRITICAL();
