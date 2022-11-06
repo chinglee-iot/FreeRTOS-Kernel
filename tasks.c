@@ -663,7 +663,6 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
         UBaseType_t uxPrevCriticalNesting;
         UBaseType_t uxPrevSchedulerSuspended;
         TCB_t * pxThisTCB;
-        UBaseType_t ulState;
 
         /* This should be skipped when entering a critical section within
          * an ISR. If the task on the current core is no longer running, then
@@ -702,7 +701,7 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
                     portRELEASE_ISR_LOCK();
                     portRELEASE_TASK_LOCK();
                     portMEMORY_BARRIER();
-                    portCLEAR_INTERRUPT_MASK( ulState );
+                    portENABLE_INTERRUPTS();
 
                     /* Enabling interrupts should cause this core to immediately
                      * service the pending interrupt and yield. If the run state is still
@@ -710,7 +709,7 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
                     configASSERT( pxThisTCB->xTaskRunState != taskTASK_YIELDING );
 
                     /* Accquire the task lock again. */
-                    ulState = portSET_INTERRUPT_MASK();
+                    portDISABLE_INTERRUPTS();
                     portSOFTWARE_BARRIER();
                     portGET_TASK_LOCK();
                     portGET_ISR_LOCK();
