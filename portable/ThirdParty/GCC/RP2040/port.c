@@ -745,7 +745,7 @@ void xPortSysTickHandler( void )
 {
     uint32_t ulPreviousMask;
 
-    ulPreviousMask = portSET_INTERRUPT_MASK_FROM_ISR();
+    ulPreviousMask = taskENTER_CRITICAL_FROM_ISR();
     {
         /* Increment the RTOS tick. */
         if( xTaskIncrementTick() != pdFALSE )
@@ -754,7 +754,7 @@ void xPortSysTickHandler( void )
             portNVIC_INT_CTRL_REG = portNVIC_PENDSVSET_BIT;
         }
     }
-    portCLEAR_INTERRUPT_MASK_FROM_ISR( ulPreviousMask );
+    taskEXIT_CRITICAL_FROM_ISR( ulPreviousMask );
 }
 /*-----------------------------------------------------------*/
 

@@ -150,17 +150,10 @@
 
     #define portCLEAR_INTERRUPT_MASK(ulState) __asm volatile ("msr PRIMASK,%0"::"r" (ulState) : )
 
-    #if ( configNUM_CORES == 1 )
-        extern uint32_t ulSetInterruptMaskFromISR( void ) __attribute__( ( naked ) );
-        extern void vClearInterruptMaskFromISR( uint32_t ulMask )  __attribute__( ( naked ) );
-        #define portSET_INTERRUPT_MASK_FROM_ISR()         ulSetInterruptMaskFromISR()
-        #define portCLEAR_INTERRUPT_MASK_FROM_ISR( x )    vClearInterruptMaskFromISR( x )
-    #else
-        extern UBaseType_t vTaskEnterCriticalFromISR( void );
-        extern void vTaskExitCriticalFromISR( UBaseType_t uxSavedInterruptStatus );
-        #define portSET_INTERRUPT_MASK_FROM_ISR()         vTaskEnterCriticalFromISR()
-        #define portCLEAR_INTERRUPT_MASK_FROM_ISR( x )    vTaskExitCriticalFromISR( x )
-    #endif
+    extern uint32_t ulSetInterruptMaskFromISR( void ) __attribute__( ( naked ) );
+    extern void vClearInterruptMaskFromISR( uint32_t ulMask )  __attribute__( ( naked ) );
+    #define portSET_INTERRUPT_MASK_FROM_ISR()         ulSetInterruptMaskFromISR()
+    #define portCLEAR_INTERRUPT_MASK_FROM_ISR( x )    vClearInterruptMaskFromISR( x )
 
     #define portDISABLE_INTERRUPTS()                  __asm volatile ( " cpsid i " ::: "memory" )
 
@@ -177,6 +170,11 @@
         extern void vTaskExitCritical( void );
         #define portENTER_CRITICAL()                      vTaskEnterCritical()
         #define portEXIT_CRITICAL()                       vTaskExitCritical()
+
+        extern UBaseType_t vTaskEnterCriticalFromISR( void );
+        extern void vTaskExitCriticalFromISR( UBaseType_t uxSavedInterruptStatus );
+        #define portENTER_CRITICAL_FROM_ISR()             vTaskEnterCriticalFromISR()
+        #define portEXIT_CRITICAL_FROM_ISR( x )           vTaskExitCriticalFromISR( x )
 
         /* Port maintain it's own critical nesting count. */
         #if ( portCRITICAL_NESTING_IN_TCB == 0 )
