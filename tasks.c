@@ -1994,11 +1994,11 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB )
 
         vTaskSuspendAll();
         {
-            configASSERT( uxSchedulerSuspended == 1 );
-
             /* Minor optimisation.  The tick count cannot change in this
              * block. */
             const TickType_t xConstTickCount = xTickCount;
+
+            configASSERT( uxSchedulerSuspended == 1 );
 
             /* Generate the tick time at which the task wants to wake. */
             xTimeToWake = *pxPreviousWakeTime + xTimeIncrement;
@@ -4124,17 +4124,32 @@ BaseType_t xTaskIncrementTick( void )
              * writer has not explicitly turned time slicing off. */
             #if ( ( configUSE_PREEMPTION == 1 ) && ( configUSE_TIME_SLICING == 1 ) )
             {
-                for( x = ( ( UBaseType_t ) 0 ); x < ( ( UBaseType_t ) configNUM_CORES ); x++ )
+                #if ( configNUM_CORES == 1 )
                 {
-                    if( listCURRENT_LIST_LENGTH( &( pxReadyTasksLists[ pxCurrentTCBs[ x ]->uxPriority ] ) ) > ( UBaseType_t ) 1 )
+                    if( listCURRENT_LIST_LENGTH( &( pxReadyTasksLists[ pxCurrentTCB->uxPriority ] ) ) > ( UBaseType_t ) 1 )
                     {
-                        xYieldRequiredForCore[ x ] = pdTRUE;
+                        xSwitchRequired = pdTRUE;
                     }
                     else
                     {
                         mtCOVERAGE_TEST_MARKER();
                     }
                 }
+                #else /* #if ( configNUM_CORES == 1 ) */
+                {
+                    for( x = ( ( UBaseType_t ) 0 ); x < ( ( UBaseType_t ) configNUM_CORES ); x++ )
+                    {
+                        if( listCURRENT_LIST_LENGTH( &( pxReadyTasksLists[ pxCurrentTCBs[ x ]->uxPriority ] ) ) > ( UBaseType_t ) 1 )
+                        {
+                            xYieldRequiredForCore[ x ] = pdTRUE;
+                        }
+                        else
+                        {
+                            mtCOVERAGE_TEST_MARKER();
+                        }
+                    }
+                }
+                #endif /* #if ( configNUM_CORES == 1 ) */
             }
             #endif /* #if ( ( configUSE_PREEMPTION == 1 ) && ( configUSE_TIME_SLICING == 1 ) ) */
 
@@ -4432,7 +4447,7 @@ BaseType_t xTaskIncrementTick( void )
         portGET_TASK_LOCK(); /* Must always acquire the task lock first. */
         portGET_ISR_LOCK();
         {
-            /* vTaskSwitchContextForCore() must never be called from within a critical section.
+            /* vTaskSwitchContext() must never be called from within a critical section.
              * This is not necessarily true for single core FreeRTOS, but it is for this SMP port. */
             #if ( portCRITICAL_NESTING_IN_TCB == 1 )
                 configASSERT( pxCurrentTCB->uxCriticalNesting == 0 );
@@ -4901,6 +4916,8 @@ void vTaskMissedYield( void )
 #if ( configNUM_CORES > 1 )
     static portTASK_FUNCTION( prvMinimalIdleTask, pvParameters )
     {
+        ( void ) pvParameters;
+
         taskYIELD();
 
         for( ; ; )
@@ -5644,7 +5661,7 @@ static void prvResetNextTaskUnblockTime( void )
             return xReturn;
         }
 
-        TaskHandle_t xTaskGetCurrentTaskHandleCPU( UBaseType_t xCoreID )
+        TaskHandle_t xTaskGetCurrentTaskHandleCPU( BaseType_t xCoreID )
         {
             TaskHandle_t xReturn = NULL;
 
