@@ -2218,14 +2218,14 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB )
          * https://www.FreeRTOS.org/RTOS-Cortex-M3-M4.html */
         portASSERT_IF_INTERRUPT_PRIORITY_INVALID();
 
-        uxSavedInterruptState = taskENTER_CRITICAL_FROM_ISR();
+        uxSavedInterruptState = portSET_INTERRUPT_MASK_FROM_ISR();
         {
             /* If null is passed in here then it is the priority of the calling
              * task that is being queried. */
             pxTCB = prvGetTCBFromHandle( xTask );
             uxReturn = pxTCB->uxPriority;
         }
-        taskEXIT_CRITICAL_FROM_ISR( uxSavedInterruptState );
+        portCLEAR_INTERRUPT_MASK_FROM_ISR( uxSavedInterruptState );
 
         return uxReturn;
     }
@@ -2811,7 +2811,7 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB )
          * https://www.FreeRTOS.org/RTOS-Cortex-M3-M4.html */
         portASSERT_IF_INTERRUPT_PRIORITY_INVALID();
 
-        uxSavedInterruptStatus = taskENTER_CRITICAL_FROM_ISR();
+        uxSavedInterruptStatus = portSET_INTERRUPT_MASK_FROM_ISR();
         {
             if( prvTaskIsTaskSuspended( pxTCB ) != pdFALSE )
             {
@@ -2855,7 +2855,7 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB )
                 mtCOVERAGE_TEST_MARKER();
             }
         }
-        taskEXIT_CRITICAL_FROM_ISR( uxSavedInterruptStatus );
+        portCLEAR_INTERRUPT_MASK_FROM_ISR( uxSavedInterruptStatus );
 
         return xYieldRequired;
     }
@@ -4139,11 +4139,11 @@ BaseType_t xTaskIncrementTick( void )
 
         /* Save the hook function in the TCB.  A critical section is required as
          * the value can be accessed from an interrupt. */
-        uxSavedInterruptStatus = taskENTER_CRITICAL_FROM_ISR();
+        uxSavedInterruptStatus = portSET_INTERRUPT_MASK_FROM_ISR();
         {
             xReturn = pxTCB->pxTaskTag;
         }
-        taskEXIT_CRITICAL_FROM_ISR( uxSavedInterruptStatus );
+        portCLEAR_INTERRUPT_MASK_FROM_ISR( uxSavedInterruptStatus );
 
         return xReturn;
     }
@@ -5890,7 +5890,7 @@ static void prvResetNextTaskUnblockTime( void )
 
         if( xSchedulerRunning != pdFALSE )
         {
-            uxSavedInterruptStatus = portSET_INTERRUPT_MASK_FROM_ISR();
+            uxSavedInterruptStatus = portSET_INTERRUPT_MASK();
 
             if( pxCurrentTCB->uxCriticalNesting == 0U )
             {
@@ -5966,7 +5966,7 @@ static void prvResetNextTaskUnblockTime( void )
                 if( pxCurrentTCB->uxCriticalNesting == 0U )
                 {
                     portRELEASE_ISR_LOCK();
-                    portCLEAR_INTERRUPT_MASK_FROM_ISR( uxSavedInterruptStatus );
+                    portCLEAR_INTERRUPT_MASK( uxSavedInterruptStatus );
                 }
                 else
                 {
@@ -6588,7 +6588,7 @@ TickType_t uxTaskResetEventItemValue( void )
 
         pxTCB = xTaskToNotify;
 
-        uxSavedInterruptStatus = taskENTER_CRITICAL_FROM_ISR();
+        uxSavedInterruptStatus = portSET_INTERRUPT_MASK_FROM_ISR();
         {
             if( pulPreviousNotificationValue != NULL )
             {
@@ -6686,7 +6686,7 @@ TickType_t uxTaskResetEventItemValue( void )
                 }
             }
         }
-        taskEXIT_CRITICAL_FROM_ISR( uxSavedInterruptStatus );
+        portCLEAR_INTERRUPT_MASK_FROM_ISR( uxSavedInterruptStatus );
 
         return xReturn;
     }
@@ -6728,7 +6728,7 @@ TickType_t uxTaskResetEventItemValue( void )
 
         pxTCB = xTaskToNotify;
 
-        uxSavedInterruptStatus = taskENTER_CRITICAL_FROM_ISR();
+        uxSavedInterruptStatus = portSET_INTERRUPT_MASK_FROM_ISR();
         {
             ucOriginalNotifyState = pxTCB->ucNotifyState[ uxIndexToNotify ];
             pxTCB->ucNotifyState[ uxIndexToNotify ] = taskNOTIFICATION_RECEIVED;
@@ -6782,7 +6782,7 @@ TickType_t uxTaskResetEventItemValue( void )
                 }
             }
         }
-        taskEXIT_CRITICAL_FROM_ISR( uxSavedInterruptStatus );
+        portCLEAR_INTERRUPT_MASK_FROM_ISR( uxSavedInterruptStatus );
     }
 
 #endif /* configUSE_TASK_NOTIFICATIONS */
