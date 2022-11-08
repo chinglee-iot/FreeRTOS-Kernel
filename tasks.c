@@ -3978,10 +3978,10 @@ BaseType_t xTaskIncrementTick( void )
     TickType_t xItemValue;
     BaseType_t xSwitchRequired = pdFALSE;
 
-    #if ( configUSE_PREEMPTION == 1 )
+    #if ( configUSE_PREEMPTION == 1 ) && ( configNUM_CORES > 1 )
         UBaseType_t x;
         BaseType_t xYieldRequiredForCore[ configNUM_CORES ] = { pdFALSE };
-    #endif /* #if ( configUSE_PREEMPTION == 1 ) */
+    #endif /* #if ( configUSE_PREEMPTION == 1 ) && ( configNUM_CORES > 1 ) */
 
     #if ( configNUM_CORES > 1 )
         taskENTER_CRITICAL();
@@ -4156,22 +4156,10 @@ BaseType_t xTaskIncrementTick( void )
 
             #if ( configUSE_PREEMPTION == 1 )
             {
-                for( x = ( UBaseType_t ) 0; x < ( UBaseType_t ) configNUM_CORES; x++ )
-                {
-                    if( xYieldPendings[ x ] != pdFALSE )
-                    {
-                        xYieldRequiredForCore[ x ] = pdTRUE;
-                    }
-                    else
-                    {
-                        mtCOVERAGE_TEST_MARKER();
-                    }
-                }
-
                 #if ( configNUM_CORES == 1 )
                 {
                     /* For single core the core ID is always 0. */
-                    if( xYieldRequiredForCore[ 0 ] != pdFALSE )
+                    if( xYieldPendings[ 0 ] != pdFALSE )
                     {
                         xSwitchRequired = pdTRUE;
                     }
@@ -4184,6 +4172,18 @@ BaseType_t xTaskIncrementTick( void )
                 {
                     BaseType_t xCoreID;
                     xCoreID = portGET_CORE_ID();
+
+                    for( x = ( UBaseType_t ) 0; x < ( UBaseType_t ) configNUM_CORES; x++ )
+                    {
+                        if( xYieldPendings[ x ] != pdFALSE )
+                        {
+                            xYieldRequiredForCore[ x ] = pdTRUE;
+                        }
+                        else
+                        {
+                            mtCOVERAGE_TEST_MARKER();
+                        }
+                    }
 
                     for( x = ( UBaseType_t ) 0; x < ( UBaseType_t ) configNUM_CORES; x++ )
                     {
