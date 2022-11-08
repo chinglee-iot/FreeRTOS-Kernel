@@ -695,14 +695,14 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
                 if( uxPrevCriticalNesting > 0U )
                 {
                     pxThisTCB->uxCriticalNesting = 0U;
-                    portRELEASE_ISR_LOCK();
-                    portRELEASE_TASK_LOCK();
                 }
                 else
                 {
+                    portGET_ISR_LOCK();
                     uxSchedulerSuspended = 0U;
-                    portRELEASE_TASK_LOCK();
                 }
+                portRELEASE_ISR_LOCK();
+                portRELEASE_TASK_LOCK();
 
                 portMEMORY_BARRIER();
                 configASSERT( pxThisTCB->xTaskRunState == taskTASK_YIELDING );
