@@ -115,7 +115,21 @@ static void prvTaskExitError( void );
 /* Each task maintains its own interrupt status in the critical nesting
  * variable. This is initialized to 0 to allow vPortEnter/ExitCritical
  * to be called before the scheduler is started */
-static UBaseType_t uxCriticalNesting;
+#if ( configNUM_CORES == 1 )
+    static UBaseType_t uxCriticalNesting;
+#else
+    /* Maintain the critical nesting count in port. */
+    #if ( portCRITICAL_NESTING_IN_TCB == 0 )
+        UBaseType_t uxCriticalNestings[ configNUM_CORES ] = { 0 };
+        BaseType_t xSchedulerStarted[ configNUM_CORES ] = { 0 };
+    #endif
+#endif
+
+/* Variable to keep record of spinlock owned by core. */
+uint8_t ucOwnedByCore[ portMAX_CORE_COUNT ] = { 0 };
+
+/* Variable to keep record of spinlock recursive count. */
+uint8_t ucRecursionCountByLock[ portRTOS_SPINLOCK_COUNT ] = { 0 };
 
 /*-----------------------------------------------------------*/
 
@@ -335,6 +349,10 @@ void vPortStartFirstTask( void )
         irq_set_exclusive_handler( ulIRQNum, prvFIFOInterruptHandler );
         irq_set_enabled( ulIRQNum, 1 );
 
+        #if ( portCRITICAL_NESTING_IN_TCB == 0 )
+            xSchedulerStarted[ portGET_CORE_ID() ] = pdTRUE;
+        #endif
+
         /* Start the first task. */
         vPortStartFirstTask();
 
@@ -463,24 +481,29 @@ void vPortYield( void )
 
 /*-----------------------------------------------------------*/
 
-void vPortEnterCritical( void )
-{
-    portDISABLE_INTERRUPTS();
-    uxCriticalNesting++;
-    __asm volatile ( "dsb" ::: "memory" );
-    __asm volatile ( "isb" );
-}
+#if ( configNUM_CORES == 1 )
+    void vPortEnterCritical( void )
+    {
+        portDISABLE_INTERRUPTS();
+        uxCriticalNesting++;
+        __asm volatile ( "dsb" ::: "memory" );
+        __asm volatile ( "isb" );
+    }
+#endif
 /*-----------------------------------------------------------*/
 
-void vPortExitCritical( void )
-{
-    configASSERT( uxCriticalNesting );
-    uxCriticalNesting--;
-    if( uxCriticalNesting == 0 )
+#if ( configNUM_CORES == 1 )
+    void vPortExitCritical( void )
     {
-        portENABLE_INTERRUPTS();
+        configASSERT( uxCriticalNesting );
+        uxCriticalNesting--;
+        if( uxCriticalNesting == 0 )
+        {
+            portENABLE_INTERRUPTS();
+        }
     }
-}
+#endif
+/*-----------------------------------------------------------*/
 
 void vPortEnableInterrupts( void )
 {
@@ -1128,3 +1151,111 @@ __attribute__( ( weak ) ) void vPortSetupTimerInterrupt( void )
         }
     }
 #endif /* configSUPPORT_PICO_TIME_INTEROP */
+/*-----------------------------------------------------------*/
+
+#if ( portCRITICAL_NESTING_IN_TCB == 0 ) && ( configNUM_CORES > 1 )
+
+    void vTaskEnterCritical( void )
+    {
+        BaseType_t xCoreID;
+
+        /* If the scheduler is not started, it is safe to call portGET_CORE_ID()
+         * without disable interrupt. xSchedulerStarted is set before switched-in
+         * first FreeRTOS thread. So FreeRTOS thread always see xSchedulerStarted is pdTRUE.
+         * Only FreeRTOS thread can be switched between different cores. */
+        if( xSchedulerStarted[ portGET_CORE_ID() ] != pdFALSE )
+        {
+            portDISABLE_INTERRUPTS();
+            xCoreID = portGET_CORE_ID();
+
+            if( uxCriticalNestings[ xCoreID ] == 0 )
+            {
+                portGET_TASK_LOCK();
+                portGET_ISR_LOCK();
+            }
+            uxCriticalNestings[ xCoreID ]++;
+        }
+    }
+
+#endif /* #if ( portCRITICAL_NESTING_IN_TCB == 0 ) && ( configNUM_CORES > 1 ) */
+/*-----------------------------------------------------------*/
+
+#if ( portCRITICAL_NESTING_IN_TCB == 0 ) && ( configNUM_CORES > 1 )
+
+    UBaseType_t vTaskEnterCriticalFromISR( void )
+    {
+        UBaseType_t uxSavedInterruptStatus = 0;
+        BaseType_t xCoreID;
+
+        xCoreID = portGET_CORE_ID();
+
+        if( xSchedulerStarted[ portGET_CORE_ID() ] != pdFALSE )
+        {
+            uxSavedInterruptStatus = portSET_INTERRUPT_MASK();
+
+            if( uxCriticalNestings[ xCoreID ] == 0U )
+            {
+                portGET_ISR_LOCK();
+            }
+
+            uxCriticalNestings[ xCoreID ]++;
+        }
+
+        return uxSavedInterruptStatus;
+    }
+
+#endif /* #if ( portCRITICAL_NESTING_IN_TCB == 0 ) && ( configNUM_CORES > 1 ) */
+/*-----------------------------------------------------------*/
+
+#if ( portCRITICAL_NESTING_IN_TCB == 0 ) && ( configNUM_CORES > 1 )
+
+    void vTaskExitCritical( void )
+    {
+        BaseType_t xCoreID;
+
+        if( xSchedulerStarted[ portGET_CORE_ID() ] != pdFALSE )
+        {
+            xCoreID = portGET_CORE_ID();
+
+            if( uxCriticalNestings[ xCoreID ] > 0U )
+            {
+                uxCriticalNestings[ xCoreID ]--;
+
+                if( uxCriticalNestings[ xCoreID ] == 0U )
+                {
+                    portRELEASE_ISR_LOCK();
+                    portRELEASE_TASK_LOCK();
+                    portENABLE_INTERRUPTS();
+                }
+            }
+        }
+    }
+
+#endif /* #if ( portCRITICAL_NESTING_IN_TCB == 0 ) && ( configNUM_CORES > 1 ) */
+/*-----------------------------------------------------------*/
+
+#if ( portCRITICAL_NESTING_IN_TCB == 0 ) && ( configNUM_CORES > 1 )
+
+    void vTaskExitCriticalFromISR( UBaseType_t uxSavedInterruptStatus )
+    {
+        BaseType_t xCoreID;
+
+        if( xSchedulerStarted[ portGET_CORE_ID() ] != pdFALSE )
+        {
+            xCoreID = portGET_CORE_ID();
+
+            if( uxCriticalNestings[ xCoreID ] > 0U )
+            {
+                uxCriticalNestings[ xCoreID ]--;
+
+                if( uxCriticalNestings[ xCoreID ] == 0U )
+                {
+                    portRELEASE_ISR_LOCK();
+                    portCLEAR_INTERRUPT_MASK( uxSavedInterruptStatus );
+                }
+            }
+        }
+    }
+
+#endif /* #if ( portCRITICAL_NESTING_IN_TCB == 0 ) && ( configNUM_CORES > 1 ) */
+/*-----------------------------------------------------------*/

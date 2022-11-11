@@ -203,7 +203,7 @@ typedef enum
  * \defgroup taskYIELD taskYIELD
  * \ingroup SchedulerControl
  */
-#define taskYIELD()                        portYIELD()
+#define taskYIELD()    portYIELD()
 
 /**
  * task. h
@@ -217,8 +217,13 @@ typedef enum
  * \defgroup taskENTER_CRITICAL taskENTER_CRITICAL
  * \ingroup SchedulerControl
  */
-#define taskENTER_CRITICAL()               portENTER_CRITICAL()
-#define taskENTER_CRITICAL_FROM_ISR()      portSET_INTERRUPT_MASK_FROM_ISR()
+#if ( configNUM_CORES == 1 )
+    #define taskENTER_CRITICAL()    portENTER_CRITICAL()
+#else
+    void vSmpTaskEnterCritical( void );
+    #define taskENTER_CRITICAL    vSmpTaskEnterCritical
+#endif
+#define taskENTER_CRITICAL_FROM_ISR()    portSET_INTERRUPT_MASK_FROM_ISR()
 
 /**
  * task. h
@@ -232,7 +237,12 @@ typedef enum
  * \defgroup taskEXIT_CRITICAL taskEXIT_CRITICAL
  * \ingroup SchedulerControl
  */
-#define taskEXIT_CRITICAL()                portEXIT_CRITICAL()
+#if ( configNUM_CORES == 1 )
+    #define taskEXIT_CRITICAL()    portEXIT_CRITICAL()
+#else
+    void vSmpTaskExitCritical( void );
+    #define taskEXIT_CRITICAL    vSmpTaskExitCritical
+#endif
 #define taskEXIT_CRITICAL_FROM_ISR( x )    portCLEAR_INTERRUPT_MASK_FROM_ISR( x )
 
 /**

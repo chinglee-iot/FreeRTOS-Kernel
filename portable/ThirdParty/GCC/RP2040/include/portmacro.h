@@ -177,6 +177,12 @@
         extern void vTaskExitCritical( void );
         #define portENTER_CRITICAL()                      vTaskEnterCritical()
         #define portEXIT_CRITICAL()                       vTaskExitCritical()
+
+        /* Port maintain it's own critical nesting count. */
+        #if ( portCRITICAL_NESTING_IN_TCB == 0 )
+            extern UBaseType_t uxCriticalNestings[ configNUM_CORES ];
+            #define portGET_CRITICAL_NESTING_COUNT()          ( uxCriticalNestings[ portGET_CORE_ID() ] )
+        #endif
     #endif
 
 	#define portRTOS_SPINLOCK_COUNT 2
@@ -185,8 +191,9 @@
      * static vars, the method is always called with a compile time constant for
      * uxAcquire, and the compiler should dothe right thing! */
     static inline void vPortRecursiveLock(uint32_t ulLockNum, spin_lock_t *pxSpinLock, BaseType_t uxAcquire) {
-        static uint8_t ucOwnedByCore[ portMAX_CORE_COUNT ];
-        static uint8_t ucRecursionCountByLock[ portRTOS_SPINLOCK_COUNT ];
+        /* Use extern since TASK/ISR lock functions will be used in multiple .c files. */
+        extern uint8_t ucOwnedByCore[ portMAX_CORE_COUNT ];
+        extern uint8_t ucRecursionCountByLock[ portRTOS_SPINLOCK_COUNT ];
         configASSERT(ulLockNum >= 0 && ulLockNum < portRTOS_SPINLOCK_COUNT );
         uint32_t ulCoreNum = get_core_num();
         uint32_t ulLockBit = 1u << ulLockNum;
