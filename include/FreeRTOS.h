@@ -297,10 +297,6 @@
     #define configUSE_COUNTING_SEMAPHORES    0
 #endif
 
-#ifndef configUSE_TASK_PREEMPTION_DISABLE
-    #define configUSE_TASK_PREEMPTION_DISABLE    0
-#endif
-
 #ifndef configUSE_ALTERNATIVE_API
     #define configUSE_ALTERNATIVE_API    0
 #endif
@@ -352,8 +348,54 @@
     #define configNUM_CORES    1
 #endif
 
+#ifndef configUSE_SMP_DETERMINISTIC_TASK_SELECT
+    #define configUSE_SMP_DETERMINISTIC_TASK_SELECT  1
+#endif
+
 #ifndef configRUN_MULTIPLE_PRIORITIES
-    #define configRUN_MULTIPLE_PRIORITIES    0
+
+    #if ( configUSE_SMP_DETERMINISTIC_TASK_SELECT == 1 )
+        #define configRUN_MULTIPLE_PRIORITIES    1
+    #else
+        #define configRUN_MULTIPLE_PRIORITIES    0
+    #endif
+
+#endif
+
+#ifndef configUSE_CORE_AFFINITY
+
+    #if ( configUSE_SMP_DETERMINISTIC_TASK_SELECT == 1 )
+        #define configUSE_CORE_AFFINITY    0
+    #else
+        #define configUSE_CORE_AFFINITY    1
+    #endif
+
+#endif
+
+#ifndef configUSE_TASK_PREEMPTION_DISABLE
+
+    #if ( configUSE_SMP_DETERMINISTIC_TASK_SELECT == 1 )
+        #define configUSE_TASK_PREEMPTION_DISABLE    0
+    #else
+        #define configUSE_TASK_PREEMPTION_DISABLE    1
+    #endif
+
+#endif
+
+#if ( configNUM_CORES > 1 ) && ( configUSE_SMP_DETERMINISTIC_TASK_SELECT == 1 )
+
+    #if ( configRUN_MULTIPLE_PRIORITIES == 0 )
+        #error configUSE_SMP_DETERMINISTIC_TASK_SELECT can not be used with configRUN_MULTIPLE_PRIORITIES = 0
+    #endif
+
+    #if ( configUSE_CORE_AFFINITY == 1 )
+        #error configUSE_SMP_DETERMINISTIC_TASK_SELECT can not be used with configUSE_CORE_AFFINITY
+    #endif
+
+    #if ( configUSE_TASK_PREEMPTION_DISABLE == 1 )
+        #error configUSE_SMP_DETERMINISTIC_TASK_SELECT can not be used with configUSE_TASK_PREEMPTION_DISABLE
+    #endif
+
 #endif
 
 #if ( configNUM_CORES > 1 )
