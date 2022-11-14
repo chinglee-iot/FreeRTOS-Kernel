@@ -2170,7 +2170,7 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
                              * suspended. */
                             eReturn = eSuspended;
 
-                            for( x = 0; x < configTASK_NOTIFICATION_ARRAY_ENTRIES; x++ )
+                            for( x = 0; x < ( BaseType_t ) configTASK_NOTIFICATION_ARRAY_ENTRIES; x++ )
                             {
                                 if( pxTCB->ucNotifyState[ x ] == taskWAITING_NOTIFICATION )
                                 {
@@ -2660,7 +2660,7 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
             {
                 BaseType_t x;
 
-                for( x = 0; x < configTASK_NOTIFICATION_ARRAY_ENTRIES; x++ )
+                for( x = 0; x < ( BaseType_t ) configTASK_NOTIFICATION_ARRAY_ENTRIES; x++ )
                 {
                     if( pxTCB->ucNotifyState[ x ] == taskWAITING_NOTIFICATION )
                     {
@@ -5169,7 +5169,7 @@ static portTASK_FUNCTION( prvIdleTask, pvParameters )
         TCB_t * pxTCB;
 
         if( ( xIndex >= 0 ) &&
-            ( xIndex < configNUM_THREAD_LOCAL_STORAGE_POINTERS ) )
+            ( xIndex < ( BaseType_t ) configNUM_THREAD_LOCAL_STORAGE_POINTERS ) )
         {
             pxTCB = prvGetTCBFromHandle( xTaskToSet );
             configASSERT( pxTCB != NULL );
@@ -5189,7 +5189,7 @@ static portTASK_FUNCTION( prvIdleTask, pvParameters )
         TCB_t * pxTCB;
 
         if( ( xIndex >= 0 ) &&
-            ( xIndex < configNUM_THREAD_LOCAL_STORAGE_POINTERS ) )
+            ( xIndex < ( BaseType_t ) configNUM_THREAD_LOCAL_STORAGE_POINTERS ) )
         {
             pxTCB = prvGetTCBFromHandle( xTaskToQuery );
             pvReturn = pxTCB->pvThreadLocalStoragePointers[ xIndex ];
@@ -7143,7 +7143,7 @@ TickType_t uxTaskResetEventItemValue( void )
         configRUN_TIME_COUNTER_TYPE ulReturn = 0;
         BaseType_t i = 0;
 
-        for( i = 0; i < configNUM_CORES; i++ )
+        for( i = 0; i < ( BaseType_t ) configNUM_CORES; i++ )
         {
             ulReturn += xIdleTaskHandles[ i ]->ulRunTimeCounter;
         }
@@ -7171,7 +7171,7 @@ TickType_t uxTaskResetEventItemValue( void )
         {
             BaseType_t i = 0;
 
-            for( i = 0; i < configNUM_CORES; i++ )
+            for( i = 0; i < ( BaseType_t ) configNUM_CORES; i++ )
             {
                 ulRunTimeCounter += xIdleTaskHandles[ i ]->ulRunTimeCounter;
             }
