@@ -256,7 +256,7 @@ EventBits_t xEventGroupSync( EventGroupHandle_t xEventGroup,
 
     if( xTicksToWait != ( TickType_t ) 0 )
     {
-        if( xAlreadyYielded == pdFALSE )
+        if( xAlreadyYielded == ( BaseType_t ) pdFALSE )
         {
             #if ( configNUM_CORES == 1 )
             {
@@ -351,7 +351,7 @@ EventBits_t xEventGroupWaitBits( EventGroupHandle_t xEventGroup,
         /* Check to see if the wait condition is already met or not. */
         xWaitConditionMet = prvTestWaitCondition( uxCurrentEventBits, uxBitsToWaitFor, xWaitForAllBits );
 
-        if( xWaitConditionMet != pdFALSE )
+        if( xWaitConditionMet != ( BaseType_t ) pdFALSE )
         {
             /* The wait condition has already been met so there is no need to
              * block. */
@@ -359,7 +359,7 @@ EventBits_t xEventGroupWaitBits( EventGroupHandle_t xEventGroup,
             xTicksToWait = ( TickType_t ) 0;
 
             /* Clear the wait bits if requested to do so. */
-            if( xClearOnExit != pdFALSE )
+            if( xClearOnExit != ( BaseType_t ) pdFALSE )
             {
                 pxEventBits->uxEventBits &= ~uxBitsToWaitFor;
             }
@@ -381,7 +381,7 @@ EventBits_t xEventGroupWaitBits( EventGroupHandle_t xEventGroup,
              * set.  uxControlBits are used to remember the specified behaviour of
              * this call to xEventGroupWaitBits() - for use when the event bits
              * unblock the task. */
-            if( xClearOnExit != pdFALSE )
+            if( xClearOnExit != ( BaseType_t ) pdFALSE )
             {
                 uxControlBits |= eventCLEAR_EVENTS_ON_EXIT_BIT;
             }
@@ -390,7 +390,7 @@ EventBits_t xEventGroupWaitBits( EventGroupHandle_t xEventGroup,
                 mtCOVERAGE_TEST_MARKER();
             }
 
-            if( xWaitForAllBits != pdFALSE )
+            if( xWaitForAllBits != ( BaseType_t ) pdFALSE )
             {
                 uxControlBits |= eventWAIT_FOR_ALL_BITS;
             }
@@ -416,7 +416,7 @@ EventBits_t xEventGroupWaitBits( EventGroupHandle_t xEventGroup,
 
     if( xTicksToWait != ( TickType_t ) 0 )
     {
-        if( xAlreadyYielded == pdFALSE )
+        if( xAlreadyYielded == ( BaseType_t ) pdFALSE )
         {
             #if ( configNUM_CORES == 1 )
             {
@@ -448,9 +448,9 @@ EventBits_t xEventGroupWaitBits( EventGroupHandle_t xEventGroup,
 
                 /* It is possible that the event bits were updated between this
                  * task leaving the Blocked state and running again. */
-                if( prvTestWaitCondition( uxReturn, uxBitsToWaitFor, xWaitForAllBits ) != pdFALSE )
+                if( prvTestWaitCondition( uxReturn, uxBitsToWaitFor, xWaitForAllBits ) != ( BaseType_t ) pdFALSE )
                 {
-                    if( xClearOnExit != pdFALSE )
+                    if( xClearOnExit != ( BaseType_t ) pdFALSE )
                     {
                         pxEventBits->uxEventBits &= ~uxBitsToWaitFor;
                     }
@@ -712,7 +712,7 @@ static BaseType_t prvTestWaitCondition( const EventBits_t uxCurrentEventBits,
 {
     BaseType_t xWaitConditionMet = ( BaseType_t ) pdFALSE;
 
-    if( xWaitForAllBits == pdFALSE )
+    if( xWaitForAllBits == ( BaseType_t ) pdFALSE )
     {
         /* Task only has to wait for one bit within uxBitsToWaitFor to be
          * set.  Is one already set? */

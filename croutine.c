@@ -123,7 +123,7 @@
             /* Check the priority is within limits. */
             if( uxPriority >= configMAX_CO_ROUTINE_PRIORITIES )
             {
-                uxPriority = configMAX_CO_ROUTINE_PRIORITIES - 1;
+                uxPriority = configMAX_CO_ROUTINE_PRIORITIES - 1U;
             }
 
             /* Fill out the co-routine control block from the function parameters. */
@@ -234,7 +234,7 @@
             xPassedTicks--;
 
             /* If the tick count has overflowed we need to swap the ready lists. */
-            if( xCoRoutineTickCount == 0 )
+            if( xCoRoutineTickCount == 0U )
             {
                 List_t * pxTemp;
 
@@ -297,7 +297,7 @@
             /* Find the highest priority queue that contains ready co-routines. */
             while( listLIST_IS_EMPTY( &( pxReadyCoRoutineLists[ uxTopCoRoutineReadyPriority ] ) ) )
             {
-                if( uxTopCoRoutineReadyPriority == 0 )
+                if( uxTopCoRoutineReadyPriority == 0U )
                 {
                     /* No more co-routines to check. */
                     return;
