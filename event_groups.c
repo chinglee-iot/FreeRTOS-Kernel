@@ -123,7 +123,7 @@ static BaseType_t prvTestWaitCondition( const EventBits_t uxCurrentEventBits,
                 /* Both static and dynamic allocation can be used, so note that
                  * this event group was created statically in case the event group
                  * is later deleted. */
-                pxEventBits->ucStaticallyAllocated = pdTRUE;
+                pxEventBits->ucStaticallyAllocated = ( uint8_t ) pdTRUE;
             }
             #endif /* configSUPPORT_DYNAMIC_ALLOCATION */
 
@@ -174,7 +174,7 @@ static BaseType_t prvTestWaitCondition( const EventBits_t uxCurrentEventBits,
                 /* Both static and dynamic allocation can be used, so note this
                  * event group was allocated statically in case the event group is
                  * later deleted. */
-                pxEventBits->ucStaticallyAllocated = pdFALSE;
+                pxEventBits->ucStaticallyAllocated = ( uint8_t ) pdFALSE;
             }
             #endif /* configSUPPORT_STATIC_ALLOCATION */
 
@@ -199,7 +199,7 @@ EventBits_t xEventGroupSync( EventGroupHandle_t xEventGroup,
     EventBits_t uxOriginalBitValue, uxReturn;
     EventGroup_t * pxEventBits = xEventGroup;
     BaseType_t xAlreadyYielded;
-    BaseType_t xTimeoutOccurred = pdFALSE;
+    BaseType_t xTimeoutOccurred = ( BaseType_t ) pdFALSE;
 
     configASSERT( ( uxBitsToWaitFor & eventEVENT_BITS_CONTROL_BYTES ) == 0 );
     configASSERT( uxBitsToWaitFor != 0 );
@@ -248,7 +248,7 @@ EventBits_t xEventGroupSync( EventGroupHandle_t xEventGroup,
                 /* The rendezvous bits were not set, but no block time was
                  * specified - just return the current event bit value. */
                 uxReturn = pxEventBits->uxEventBits;
-                xTimeoutOccurred = pdTRUE;
+                xTimeoutOccurred = ( BaseType_t ) pdTRUE;
             }
         }
     }
@@ -301,7 +301,7 @@ EventBits_t xEventGroupSync( EventGroupHandle_t xEventGroup,
             }
             taskEXIT_CRITICAL();
 
-            xTimeoutOccurred = pdTRUE;
+            xTimeoutOccurred = ( BaseType_t ) pdTRUE;
         }
         else
         {
@@ -331,7 +331,7 @@ EventBits_t xEventGroupWaitBits( EventGroupHandle_t xEventGroup,
     EventGroup_t * pxEventBits = xEventGroup;
     EventBits_t uxReturn, uxControlBits = 0;
     BaseType_t xWaitConditionMet, xAlreadyYielded;
-    BaseType_t xTimeoutOccurred = pdFALSE;
+    BaseType_t xTimeoutOccurred = ( BaseType_t ) pdFALSE;
 
     /* Check the user is not attempting to wait on the bits used by the kernel
      * itself, and that at least one bit is being requested. */
@@ -373,7 +373,7 @@ EventBits_t xEventGroupWaitBits( EventGroupHandle_t xEventGroup,
             /* The wait condition has not been met, but no block time was
              * specified, so just return the current value. */
             uxReturn = uxCurrentEventBits;
-            xTimeoutOccurred = pdTRUE;
+            xTimeoutOccurred = ( BaseType_t ) pdTRUE;
         }
         else
         {
@@ -464,7 +464,7 @@ EventBits_t xEventGroupWaitBits( EventGroupHandle_t xEventGroup,
                     mtCOVERAGE_TEST_MARKER();
                 }
 
-                xTimeoutOccurred = pdTRUE;
+                xTimeoutOccurred = ( BaseType_t ) pdTRUE;
             }
             taskEXIT_CRITICAL();
         }
@@ -555,7 +555,7 @@ EventBits_t xEventGroupSetBits( EventGroupHandle_t xEventGroup,
     List_t const * pxList;
     EventBits_t uxBitsToClear = 0, uxBitsWaitedFor, uxControlBits;
     EventGroup_t * pxEventBits = xEventGroup;
-    BaseType_t xMatchFound = pdFALSE;
+    BaseType_t xMatchFound = ( BaseType_t ) pdFALSE;
 
     /* Check the user is not attempting to set the bits used by the kernel
      * itself. */
@@ -578,7 +578,7 @@ EventBits_t xEventGroupSetBits( EventGroupHandle_t xEventGroup,
         {
             pxNext = listGET_NEXT( pxListItem );
             uxBitsWaitedFor = listGET_LIST_ITEM_VALUE( pxListItem );
-            xMatchFound = pdFALSE;
+            xMatchFound = ( BaseType_t ) pdFALSE;
 
             /* Split the bits waited for from the control bits. */
             uxControlBits = uxBitsWaitedFor & eventEVENT_BITS_CONTROL_BYTES;
@@ -589,7 +589,7 @@ EventBits_t xEventGroupSetBits( EventGroupHandle_t xEventGroup,
                 /* Just looking for single bit being set. */
                 if( ( uxBitsWaitedFor & pxEventBits->uxEventBits ) != ( EventBits_t ) 0 )
                 {
-                    xMatchFound = pdTRUE;
+                    xMatchFound = ( BaseType_t ) pdTRUE;
                 }
                 else
                 {
@@ -599,14 +599,14 @@ EventBits_t xEventGroupSetBits( EventGroupHandle_t xEventGroup,
             else if( ( uxBitsWaitedFor & pxEventBits->uxEventBits ) == uxBitsWaitedFor )
             {
                 /* All bits are set. */
-                xMatchFound = pdTRUE;
+                xMatchFound = ( BaseType_t ) pdTRUE;
             }
             else
             {
                 /* Need all bits to be set, but not all the bits were set. */
             }
 
-            if( xMatchFound != pdFALSE )
+            if( xMatchFound != ( BaseType_t ) pdFALSE )
             {
                 /* The bits match.  Should the bits be cleared on exit? */
                 if( ( uxControlBits & eventCLEAR_EVENTS_ON_EXIT_BIT ) != ( EventBits_t ) 0 )
@@ -710,7 +710,7 @@ static BaseType_t prvTestWaitCondition( const EventBits_t uxCurrentEventBits,
                                         const EventBits_t uxBitsToWaitFor,
                                         const BaseType_t xWaitForAllBits )
 {
-    BaseType_t xWaitConditionMet = pdFALSE;
+    BaseType_t xWaitConditionMet = ( BaseType_t ) pdFALSE;
 
     if( xWaitForAllBits == pdFALSE )
     {
@@ -718,7 +718,7 @@ static BaseType_t prvTestWaitCondition( const EventBits_t uxCurrentEventBits,
          * set.  Is one already set? */
         if( ( uxCurrentEventBits & uxBitsToWaitFor ) != ( EventBits_t ) 0 )
         {
-            xWaitConditionMet = pdTRUE;
+            xWaitConditionMet = ( BaseType_t ) pdTRUE;
         }
         else
         {
@@ -731,7 +731,7 @@ static BaseType_t prvTestWaitCondition( const EventBits_t uxCurrentEventBits,
          * Are they set already? */
         if( ( uxCurrentEventBits & uxBitsToWaitFor ) == uxBitsToWaitFor )
         {
-            xWaitConditionMet = pdTRUE;
+            xWaitConditionMet = ( BaseType_t ) pdTRUE;
         }
         else
         {

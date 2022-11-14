@@ -350,11 +350,11 @@
 
         if( pxUnblockedCRCB->uxPriority >= pxCurrentCoRoutine->uxPriority )
         {
-            xReturn = pdTRUE;
+            xReturn = ( BaseType_t ) pdTRUE;
         }
         else
         {
-            xReturn = pdFALSE;
+            xReturn = ( BaseType_t ) pdFALSE;
         }
 
         return xReturn;

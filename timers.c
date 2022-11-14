@@ -521,12 +521,12 @@
             if( ( pxTimer->ucStatus & tmrSTATUS_IS_AUTORELOAD ) == 0 )
             {
                 /* Not an auto-reload timer. */
-                xReturn = pdFALSE;
+                xReturn = ( BaseType_t ) pdFALSE;
             }
             else
             {
                 /* Is an auto-reload timer. */
-                xReturn = pdTRUE;
+                xReturn = ( BaseType_t ) pdTRUE;
             }
         }
         taskEXIT_CRITICAL();
@@ -749,11 +749,11 @@
         if( xTimeNow < xLastTime )
         {
             prvSwitchTimerLists();
-            *pxTimerListsWereSwitched = pdTRUE;
+            *pxTimerListsWereSwitched = ( BaseType_t ) pdTRUE;
         }
         else
         {
-            *pxTimerListsWereSwitched = pdFALSE;
+            *pxTimerListsWereSwitched = ( BaseType_t ) pdFALSE;
         }
 
         xLastTime = xTimeNow;
@@ -767,7 +767,7 @@
                                                   const TickType_t xTimeNow,
                                                   const TickType_t xCommandTime )
     {
-        BaseType_t xProcessTimerNow = pdFALSE;
+        BaseType_t xProcessTimerNow = ( BaseType_t ) pdFALSE;
 
         listSET_LIST_ITEM_VALUE( &( pxTimer->xTimerListItem ), xNextExpiryTime );
         listSET_LIST_ITEM_OWNER( &( pxTimer->xTimerListItem ), pxTimer );
@@ -780,7 +780,7 @@
             {
                 /* The time between a command being issued and the command being
                  * processed actually exceeds the timers period.  */
-                xProcessTimerNow = pdTRUE;
+                xProcessTimerNow = ( BaseType_t ) pdTRUE;
             }
             else
             {
@@ -794,7 +794,7 @@
                 /* If, since the command was issued, the tick count has overflowed
                  * but the expiry time has not, then the timer must have already passed
                  * its expiry time and should be processed immediately. */
-                xProcessTimerNow = pdTRUE;
+                xProcessTimerNow = ( BaseType_t ) pdTRUE;
             }
             else
             {
@@ -1042,11 +1042,11 @@
         {
             if( ( pxTimer->ucStatus & tmrSTATUS_IS_ACTIVE ) == 0 )
             {
-                xReturn = pdFALSE;
+                xReturn = ( BaseType_t ) pdFALSE;
             }
             else
             {
-                xReturn = pdTRUE;
+                xReturn = ( BaseType_t ) pdTRUE;
             }
         }
         taskEXIT_CRITICAL();
