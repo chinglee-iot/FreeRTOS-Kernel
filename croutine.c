@@ -110,7 +110,7 @@
         /* Allocate the memory that will store the co-routine control block. */
         pxCoRoutine = ( CRCB_t * ) pvPortMalloc( sizeof( CRCB_t ) );
 
-        if( pxCoRoutine )
+        if( pxCoRoutine != NULL )
         {
             /* If pxCurrentCoRoutine is NULL then this is the first co-routine to
             * be created and the co-routine data structures need initialising. */
@@ -190,7 +190,7 @@
             vListInsert( ( List_t * ) pxDelayedCoRoutineList, ( ListItem_t * ) &( pxCurrentCoRoutine->xGenericListItem ) );
         }
 
-        if( pxEventList )
+        if( pxEventList != NULL )
         {
             /* Also add the co-routine to an event list.  If this is done then the
              * function must be called with interrupts disabled. */
@@ -266,7 +266,7 @@
                     ( void ) uxListRemove( &( pxCRCB->xGenericListItem ) );
 
                     /* Is the co-routine waiting on an event also? */
-                    if( pxCRCB->xEventListItem.pxContainer )
+                    if( pxCRCB->xEventListItem.pxContainer != NULL )
                     {
                         ( void ) uxListRemove( &( pxCRCB->xEventListItem ) );
                     }

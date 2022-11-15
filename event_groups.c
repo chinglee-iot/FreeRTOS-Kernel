@@ -111,6 +111,9 @@ static BaseType_t prvTestWaitCondition( const EventBits_t uxCurrentEventBits,
         #endif /* configASSERT_DEFINED */
 
         /* The user has provided a statically allocated event group - use it. */
+        /* MISRA Rule 11.3 prohibits casting a pointer to a different type.
+         * Allow to convert from StaticEventGroup_t to EventGroup_t. */
+        /* coverity[misra_c_2012_rule_11_3_violation] */
         pxEventBits = ( EventGroup_t * ) pxEventGroupBuffer; /*lint !e740 !e9087 EventGroup_t and StaticEventGroup_t are deliberately aliased for data hiding purposes and guaranteed to have the same size and alignment requirement - checked by configASSERT(). */
 
         if( pxEventBits != NULL )
@@ -646,6 +649,10 @@ EventBits_t xEventGroupSetBits( EventGroupHandle_t xEventGroup,
     configASSERT( ( uxBitsToSet & eventEVENT_BITS_CONTROL_BYTES ) == 0 );
 
     pxList = &( pxEventBits->xTasksWaitingForBits );
+
+    /* MISRA Rule 11.3 prohibits casting a pointer to a different type.
+     * Allow to convert from MiniListItem_t to ListItem_t const. */
+    /* coverity[misra_c_2012_rule_11_3_violation] */
     pxListEnd = listGET_END_MARKER( pxList ); /*lint !e826 !e740 !e9087 The mini list structure is used as the list end to save RAM.  This is checked and valid. */
     vTaskSuspendAll();
     {

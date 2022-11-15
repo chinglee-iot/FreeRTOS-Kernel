@@ -335,6 +335,10 @@
 
             /* A pointer to a StaticTimer_t structure MUST be provided, use it. */
             configASSERT( pxTimerBuffer );
+            
+            /* MISRA Rule 11.3 prohibits casting a pointer to a different type.
+             * Allow to convert from StaticTimer_t to Timer_t. */
+            /* coverity[misra_c_2012_rule_11_3_violation] */
             pxNewTimer = ( Timer_t * ) pxTimerBuffer; /*lint !e740 !e9087 StaticTimer_t is a pointer to a Timer_t, so guaranteed to be aligned and sized correctly (checked by an assert()), so this is safe. */
 
             if( pxNewTimer != NULL )
