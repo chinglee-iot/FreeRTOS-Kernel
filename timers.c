@@ -375,7 +375,7 @@
         pxNewTimer->pxCallbackFunction = pxCallbackFunction;
         vListInitialiseItem( &( pxNewTimer->xTimerListItem ) );
 
-        if( xAutoReload != ( BaseType_t ) pdFALSE )
+        if( xAutoReload )
         {
             pxNewTimer->ucStatus |= tmrSTATUS_IS_AUTORELOAD;
         }
@@ -497,7 +497,7 @@
         configASSERT( xTimer );
         taskENTER_CRITICAL();
         {
-            if( xAutoReload != ( BaseType_t ) pdFALSE )
+            if( xAutoReload )
             {
                 pxTimer->ucStatus |= tmrSTATUS_IS_AUTORELOAD;
             }
@@ -521,11 +521,29 @@
             if( ( pxTimer->ucStatus & tmrSTATUS_IS_AUTORELOAD ) == 0U )
             {
                 /* Not an auto-reload timer. */
+                /* MISRA Ref 10.5.1  [Essential type casting]
+                 * The rule 10.5 is violated because type of the boolean macros defined by FreeRTOS-Kernel
+                 * are 0 and 1, which results in a signed integer.
+                 * This means that our implementation conforms to the exception provided by MISRA
+                 * To quote MISRA: "An integer constant expression with the value 0 or 1 of either signedness
+                 * may be cast to a type which is defined as essentially Boolean.
+                 * This allows the implementation of non-C99 Boolean models."
+                 */
+                /* coverity[misra_c_2012_rule_10_5_violation] */
                 xReturn = ( BaseType_t ) pdFALSE;
             }
             else
             {
                 /* Is an auto-reload timer. */
+                /* MISRA Ref 10.5.1  [Essential type casting]
+                 * The rule 10.5 is violated because type of the boolean macros defined by FreeRTOS-Kernel
+                 * are 0 and 1, which results in a signed integer.
+                 * This means that our implementation conforms to the exception provided by MISRA
+                 * To quote MISRA: "An integer constant expression with the value 0 or 1 of either signedness
+                 * may be cast to a type which is defined as essentially Boolean.
+                 * This allows the implementation of non-C99 Boolean models."
+                 */
+                /* coverity[misra_c_2012_rule_10_5_violation] */
                 xReturn = ( BaseType_t ) pdTRUE;
             }
         }
@@ -567,7 +585,7 @@
         /* Insert the timer into the appropriate list for the next expiry time.
          * If the next expiry time has already passed, advance the expiry time,
          * call the callback function, and try again. */
-        while( prvInsertTimerInActiveList( pxTimer, ( xExpiredTime + pxTimer->xTimerPeriodInTicks ), xTimeNow, xExpiredTime ) != ( BaseType_t ) pdFALSE )
+        while( prvInsertTimerInActiveList( pxTimer, ( xExpiredTime + pxTimer->xTimerPeriodInTicks ), xTimeNow, xExpiredTime ) )
         {
             /* Advance the expiry time. */
             xExpiredTime += pxTimer->xTimerPeriodInTicks;
@@ -657,10 +675,10 @@
              * prvSampleTimeNow() function. */
             xTimeNow = prvSampleTimeNow( &xTimerListsWereSwitched );
 
-            if( xTimerListsWereSwitched == ( BaseType_t ) pdFALSE )
+            if( !xTimerListsWereSwitched )
             {
                 /* The tick count has not overflowed, has the timer expired? */
-                if( ( xListWasEmpty == ( BaseType_t ) pdFALSE ) && ( xNextExpireTime <= xTimeNow ) )
+                if( ( !xListWasEmpty ) && ( xNextExpireTime <= xTimeNow ) )
                 {
                     ( void ) xTaskResumeAll();
                     prvProcessExpiredTimer( xNextExpireTime, xTimeNow );
@@ -673,7 +691,7 @@
                      * received - whichever comes first.  The following line cannot
                      * be reached unless xNextExpireTime > xTimeNow, except in the
                      * case when the current timer list is empty. */
-                    if( xListWasEmpty != ( BaseType_t ) pdFALSE )
+                    if( xListWasEmpty )
                     {
                         /* The current timer list is empty - is the overflow list
                          * also empty? */
@@ -682,7 +700,7 @@
 
                     vQueueWaitForMessageRestricted( xTimerQueue, ( xNextExpireTime - xTimeNow ), xListWasEmpty );
 
-                    if( xTaskResumeAll() == ( BaseType_t ) pdFALSE )
+                    if( !xTaskResumeAll() )
                     {
                         /* Yield to wait for either a command to arrive, or the
                          * block time to expire.  If a command arrived between the
@@ -725,7 +743,7 @@
          * re-assessed.  */
         *pxListWasEmpty = listLIST_IS_EMPTY( pxCurrentTimerList );
 
-        if( *pxListWasEmpty == ( BaseType_t ) pdFALSE )
+        if( !( *pxListWasEmpty ) )
         {
             xNextExpireTime = listGET_ITEM_VALUE_OF_HEAD_ENTRY( pxCurrentTimerList );
         }
@@ -749,10 +767,29 @@
         if( xTimeNow < xLastTime )
         {
             prvSwitchTimerLists();
+            
+            /* MISRA Ref 10.5.1  [Essential type casting]
+             * The rule 10.5 is violated because type of the boolean macros defined by FreeRTOS-Kernel
+             * are 0 and 1, which results in a signed integer.
+             * This means that our implementation conforms to the exception provided by MISRA
+             * To quote MISRA: "An integer constant expression with the value 0 or 1 of either signedness
+             * may be cast to a type which is defined as essentially Boolean.
+             * This allows the implementation of non-C99 Boolean models."
+             */
+            /* coverity[misra_c_2012_rule_10_5_violation] */
             *pxTimerListsWereSwitched = ( BaseType_t ) pdTRUE;
         }
         else
         {
+            /* MISRA Ref 10.5.1  [Essential type casting]
+             * The rule 10.5 is violated because type of the boolean macros defined by FreeRTOS-Kernel
+             * are 0 and 1, which results in a signed integer.
+             * This means that our implementation conforms to the exception provided by MISRA
+             * To quote MISRA: "An integer constant expression with the value 0 or 1 of either signedness
+             * may be cast to a type which is defined as essentially Boolean.
+             * This allows the implementation of non-C99 Boolean models."
+             */
+            /* coverity[misra_c_2012_rule_10_5_violation] */
             *pxTimerListsWereSwitched = ( BaseType_t ) pdFALSE;
         }
 
@@ -767,6 +804,15 @@
                                                   const TickType_t xTimeNow,
                                                   const TickType_t xCommandTime )
     {
+        /* MISRA Ref 10.5.1  [Essential type casting]
+         * The rule 10.5 is violated because type of the boolean macros defined by FreeRTOS-Kernel
+         * are 0 and 1, which results in a signed integer.
+         * This means that our implementation conforms to the exception provided by MISRA
+         * To quote MISRA: "An integer constant expression with the value 0 or 1 of either signedness
+         * may be cast to a type which is defined as essentially Boolean.
+         * This allows the implementation of non-C99 Boolean models."
+         */
+        /* coverity[misra_c_2012_rule_10_5_violation] */
         BaseType_t xProcessTimerNow = ( BaseType_t ) pdFALSE;
 
         listSET_LIST_ITEM_VALUE( &( pxTimer->xTimerListItem ), xNextExpiryTime );
@@ -779,7 +825,16 @@
             if( ( ( TickType_t ) ( xTimeNow - xCommandTime ) ) >= pxTimer->xTimerPeriodInTicks ) /*lint !e961 MISRA exception as the casts are only redundant for some ports. */
             {
                 /* The time between a command being issued and the command being
-                 * processed actually exceeds the timers period.  */
+                 * processed actually exceeds the timers period. */
+                /* MISRA Ref 10.5.1  [Essential type casting]
+                 * The rule 10.5 is violated because type of the boolean macros defined by FreeRTOS-Kernel
+                 * are 0 and 1, which results in a signed integer.
+                 * This means that our implementation conforms to the exception provided by MISRA
+                 * To quote MISRA: "An integer constant expression with the value 0 or 1 of either signedness
+                 * may be cast to a type which is defined as essentially Boolean.
+                 * This allows the implementation of non-C99 Boolean models."
+                 */
+                /* coverity[misra_c_2012_rule_10_5_violation] */
                 xProcessTimerNow = ( BaseType_t ) pdTRUE;
             }
             else
@@ -794,6 +849,15 @@
                 /* If, since the command was issued, the tick count has overflowed
                  * but the expiry time has not, then the timer must have already passed
                  * its expiry time and should be processed immediately. */
+                /* MISRA Ref 10.5.1  [Essential type casting]
+                 * The rule 10.5 is violated because type of the boolean macros defined by FreeRTOS-Kernel
+                 * are 0 and 1, which results in a signed integer.
+                 * This means that our implementation conforms to the exception provided by MISRA
+                 * To quote MISRA: "An integer constant expression with the value 0 or 1 of either signedness
+                 * may be cast to a type which is defined as essentially Boolean.
+                 * This allows the implementation of non-C99 Boolean models."
+                 */
+                /* coverity[misra_c_2012_rule_10_5_violation] */
                 xProcessTimerNow = ( BaseType_t ) pdTRUE;
             }
             else
@@ -845,7 +909,7 @@
                  * software timer. */
                 pxTimer = xMessage.u.xTimerParameters.pxTimer;
 
-                if( listIS_CONTAINED_WITHIN( NULL, &( pxTimer->xTimerListItem ) ) == pdFALSE ) /*lint !e961. The cast is only redundant when NULL is passed into the macro. */
+                if( !listIS_CONTAINED_WITHIN( NULL, &( pxTimer->xTimerListItem ) ) ) /*lint !e961. The cast is only redundant when NULL is passed into the macro. */
                 {
                     /* The timer is in a list, remove it. */
                     ( void ) uxListRemove( &( pxTimer->xTimerListItem ) );
@@ -874,7 +938,7 @@
                         /* Start or restart a timer. */
                         pxTimer->ucStatus |= tmrSTATUS_IS_ACTIVE;
 
-                        if( prvInsertTimerInActiveList( pxTimer, xMessage.u.xTimerParameters.xMessageValue + pxTimer->xTimerPeriodInTicks, xTimeNow, xMessage.u.xTimerParameters.xMessageValue ) != ( BaseType_t ) pdFALSE )
+                        if( prvInsertTimerInActiveList( pxTimer, xMessage.u.xTimerParameters.xMessageValue + pxTimer->xTimerPeriodInTicks, xTimeNow, xMessage.u.xTimerParameters.xMessageValue ) )
                         {
                             /* The timer expired before it was added to the active
                              * timer list.  Process it now. */
@@ -963,7 +1027,7 @@
          * If there are any timers still referenced from the current timer list
          * then they must have expired and should be processed before the lists
          * are switched. */
-        while( listLIST_IS_EMPTY( pxCurrentTimerList ) == pdFALSE )
+        while( !listLIST_IS_EMPTY( pxCurrentTimerList ) )
         {
             xNextExpireTime = listGET_ITEM_VALUE_OF_HEAD_ENTRY( pxCurrentTimerList );
 
@@ -1042,10 +1106,28 @@
         {
             if( ( pxTimer->ucStatus & tmrSTATUS_IS_ACTIVE ) == 0U )
             {
+                /* MISRA Ref 10.5.1  [Essential type casting]
+                 * The rule 10.5 is violated because type of the boolean macros defined by FreeRTOS-Kernel
+                 * are 0 and 1, which results in a signed integer.
+                 * This means that our implementation conforms to the exception provided by MISRA
+                 * To quote MISRA: "An integer constant expression with the value 0 or 1 of either signedness
+                 * may be cast to a type which is defined as essentially Boolean.
+                 * This allows the implementation of non-C99 Boolean models."
+                 */
+                /* coverity[misra_c_2012_rule_10_5_violation] */
                 xReturn = ( BaseType_t ) pdFALSE;
             }
             else
             {
+                /* MISRA Ref 10.5.1  [Essential type casting]
+                 * The rule 10.5 is violated because type of the boolean macros defined by FreeRTOS-Kernel
+                 * are 0 and 1, which results in a signed integer.
+                 * This means that our implementation conforms to the exception provided by MISRA
+                 * To quote MISRA: "An integer constant expression with the value 0 or 1 of either signedness
+                 * may be cast to a type which is defined as essentially Boolean.
+                 * This allows the implementation of non-C99 Boolean models."
+                 */
+                /* coverity[misra_c_2012_rule_10_5_violation] */
                 xReturn = ( BaseType_t ) pdTRUE;
             }
         }

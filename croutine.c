@@ -204,7 +204,7 @@
         /* Are there any co-routines waiting to get moved to the ready list?  These
          * are co-routines that have been readied by an ISR.  The ISR cannot access
          * the ready lists itself. */
-        while( listLIST_IS_EMPTY( &xPendingReadyCoRoutineList ) == pdFALSE )
+        while( !listLIST_IS_EMPTY( &xPendingReadyCoRoutineList ) )
         {
             CRCB_t * pxUnblockedCRCB;
 
@@ -246,7 +246,7 @@
             }
 
             /* See if this tick has made a timeout expire. */
-            while( listLIST_IS_EMPTY( pxDelayedCoRoutineList ) == pdFALSE )
+            while( !listLIST_IS_EMPTY( pxDelayedCoRoutineList ) )
             {
                 pxCRCB = ( CRCB_t * ) listGET_OWNER_OF_HEAD_ENTRY( pxDelayedCoRoutineList );
 
@@ -350,10 +350,28 @@
 
         if( pxUnblockedCRCB->uxPriority >= pxCurrentCoRoutine->uxPriority )
         {
+            /* MISRA Ref 10.5.1  [Essential type casting]
+             * The rule 10.5 is violated because type of the boolean macros defined by FreeRTOS-Kernel
+             * are 0 and 1, which results in a signed integer.
+             * This means that our implementation conforms to the exception provided by MISRA
+             * To quote MISRA: "An integer constant expression with the value 0 or 1 of either signedness
+             * may be cast to a type which is defined as essentially Boolean.
+             * This allows the implementation of non-C99 Boolean models."
+             */
+            /* coverity[misra_c_2012_rule_10_5_violation] */
             xReturn = ( BaseType_t ) pdTRUE;
         }
         else
         {
+            /* MISRA Ref 10.5.1  [Essential type casting]
+             * The rule 10.5 is violated because type of the boolean macros defined by FreeRTOS-Kernel
+             * are 0 and 1, which results in a signed integer.
+             * This means that our implementation conforms to the exception provided by MISRA
+             * To quote MISRA: "An integer constant expression with the value 0 or 1 of either signedness
+             * may be cast to a type which is defined as essentially Boolean.
+             * This allows the implementation of non-C99 Boolean models."
+             */
+            /* coverity[misra_c_2012_rule_10_5_violation] */
             xReturn = ( BaseType_t ) pdFALSE;
         }
 
