@@ -283,6 +283,8 @@
 
     void vCoRoutineSchedule( void )
     {
+        BaseType_t noMoreToCheck = ( BaseType_t ) pdFALSE;
+
         /* Only run a co-routine after prvInitialiseCoRoutineLists() has been
          * called.  prvInitialiseCoRoutineLists() is called automatically when a
          * co-routine is created. */
@@ -300,18 +302,26 @@
                 if( uxTopCoRoutineReadyPriority == 0U )
                 {
                     /* No more co-routines to check. */
-                    return;
+                    noMoreToCheck = pdTRUE;
+                    break;
                 }
 
                 --uxTopCoRoutineReadyPriority;
             }
 
-            /* listGET_OWNER_OF_NEXT_ENTRY walks through the list, so the co-routines
-             * of the same priority get an equal share of the processor time. */
-            listGET_OWNER_OF_NEXT_ENTRY( pxCurrentCoRoutine, &( pxReadyCoRoutineLists[ uxTopCoRoutineReadyPriority ] ) );
+            if( noMoreToCheck == ( BaseType_t ) pdFALSE )
+            {
+                /* listGET_OWNER_OF_NEXT_ENTRY walks through the list, so the co-routines
+                 * of the same priority get an equal share of the processor time. */
+                listGET_OWNER_OF_NEXT_ENTRY( pxCurrentCoRoutine, &( pxReadyCoRoutineLists[ uxTopCoRoutineReadyPriority ] ) );
 
-            /* Call the co-routine. */
-            ( pxCurrentCoRoutine->pxCoRoutineFunction )( pxCurrentCoRoutine, pxCurrentCoRoutine->uxIndex );
+                /* Call the co-routine. */
+                ( pxCurrentCoRoutine->pxCoRoutineFunction )( pxCurrentCoRoutine, pxCurrentCoRoutine->uxIndex );
+            }
+            else
+            {
+                /* Nothing to do if no more co-routines to check. */
+            }
         }
     }
 /*-----------------------------------------------------------*/
