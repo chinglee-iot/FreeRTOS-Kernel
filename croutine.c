@@ -228,7 +228,7 @@
 
         xPassedTicks = xTaskGetTickCount() - xLastTickCount;
 
-        while( xPassedTicks )
+        while( xPassedTicks > 0 )
         {
             xCoRoutineTickCount++;
             xPassedTicks--;
@@ -295,7 +295,7 @@
             prvCheckDelayedList();
 
             /* Find the highest priority queue that contains ready co-routines. */
-            while( listLIST_IS_EMPTY( &( pxReadyCoRoutineLists[ uxTopCoRoutineReadyPriority ] ) ) )
+            while( listLIST_IS_EMPTY( &( pxReadyCoRoutineLists[ uxTopCoRoutineReadyPriority ] ) ) == pdTRUE )
             {
                 if( uxTopCoRoutineReadyPriority == 0U )
                 {
