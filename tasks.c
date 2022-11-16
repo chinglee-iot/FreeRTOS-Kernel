@@ -6220,7 +6220,7 @@ static void prvResetNextTaskUnblockTime( void )
         size_t x;
 
         /* Start by copying the entire string. */
-        strcpy( pcBuffer, pcTaskName );
+        ( void ) strcpy( pcBuffer, pcTaskName );
 
         /* Pad the end of the string with spaces to ensure columns line up when
          * printed out. */
