@@ -397,10 +397,11 @@ typedef struct tskTaskControlBlock       /* The old naming convention is used to
     #if ( configUSE_POSIX_ERRNO == 1 )
         int iTaskErrno;
     #endif
-} tskTCB;
+};
 
 /* The old tskTCB name is maintained above then typedefed to the new TCB_t name
  * below to enable the use of older kernel aware debuggers. */
+typedef struct tskTaskControlBlock tskTCB;
 typedef tskTCB TCB_t;
 
 /*lint -save -e956 A manual analysis and inspection has been used to determine
