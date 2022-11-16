@@ -287,9 +287,19 @@ typedef BaseType_t TaskRunning_t;
  */
 typedef struct tskTaskControlBlock       /* The old naming convention is used to prevent breaking kernel aware debuggers. */
 {
+    /* 
+     * The rule 2.2 is "There shall be no dead code."
+     * pxTopOfStack is actually used in some ports, so we suppress the violation here.
+     */
+    /* coverity[misra_c_2012_rule_2_2_violation] */
     volatile StackType_t * pxTopOfStack; /*< Points to the location of the last item placed on the tasks stack.  THIS MUST BE THE FIRST MEMBER OF THE TCB STRUCT. */
 
     #if ( portUSING_MPU_WRAPPERS == 1 )
+        /* 
+         * The rule 2.2 is "There shall be no dead code."
+         * xMPUSettings is actually used when vPortStoreTaskMPUSettings is defined, so we suppress the violation here.
+         */
+        /* coverity[misra_c_2012_rule_2_2_violation] */
         xMPU_SETTINGS xMPUSettings; /*< The MPU settings are defined as part of the port layer.  THIS MUST BE THE SECOND MEMBER OF THE TCB STRUCT. */
     #endif
 
@@ -297,7 +307,17 @@ typedef struct tskTaskControlBlock       /* The old naming convention is used to
         UBaseType_t uxCoreAffinityMask; /*< Used to link the task to certain cores.  UBaseType_t must have greater than or equal to the number of bits as confNUM_CORES. */
     #endif
 
+    /* 
+     * The rule 2.2 is "There shall be no dead code."
+     * This is a false alarm, xStateListItem is actually used.
+     */
+    /* coverity[misra_c_2012_rule_2_2_violation] */
     ListItem_t xStateListItem;                  /*< The list that the state list item of a task is reference from denotes the state of that task (Ready, Blocked, Suspended ). */
+    /* 
+     * The rule 2.2 is "There shall be no dead code."
+     * This is a false alarm, xEventListItem is actually used.
+     */
+    /* coverity[misra_c_2012_rule_2_2_violation] */
     ListItem_t xEventListItem;                  /*< Used to reference a task from an event list. */
     UBaseType_t uxPriority;                     /*< The priority of the task.  0 is the lowest priority. */
     StackType_t * pxStack;                      /*< Points to the start of the stack. */
@@ -305,6 +325,11 @@ typedef struct tskTaskControlBlock       /* The old naming convention is used to
         volatile TaskRunning_t xTaskRunState;   /*< Used to identify the core the task is running on, if the task is running. Otherwise, identifies the task's state - not running or yielding. */
         UBaseType_t uxTaskAttributes;           /*< Task's attributes - currently used to identify the idle tasks. */
     #endif
+    /* 
+     * The rule 2.2 is "There shall be no dead code."
+     * pcTaskName is actually used in some ports, so we suppress the violation here.
+     */
+    /* coverity[misra_c_2012_rule_2_2_violation] */
     char pcTaskName[ configMAX_TASK_NAME_LEN ]; /*< Descriptive name given to the task when created.  Facilitates debugging only. */ /*lint !e971 Unqualified char types are allowed for strings and single characters only. */
 
     #if ( configUSE_TASK_PREEMPTION_DISABLE == 1 )
@@ -334,6 +359,11 @@ typedef struct tskTaskControlBlock       /* The old naming convention is used to
     #endif
 
     #if ( configNUM_THREAD_LOCAL_STORAGE_POINTERS > 0 )
+        /* 
+         * The rule 2.2 is "There shall be no dead code."
+         * pvThreadLocalStoragePointers is actually used in some ports, so we suppress the violation here.
+         */
+        /* coverity[misra_c_2012_rule_2_2_violation] */
         void * pvThreadLocalStoragePointers[ configNUM_THREAD_LOCAL_STORAGE_POINTERS ];
     #endif
 
