@@ -230,12 +230,14 @@ EventBits_t xEventGroupSync( EventGroupHandle_t xEventGroup,
      */
     /* coverity[misra_c_2012_rule_10_5_violation] */
     BaseType_t xTimeoutOccurred = ( BaseType_t ) pdFALSE;
+    /* Declare to confort MISRA C 2012 Rule 17.8 - "A function parameter should not be modified" */
+    TickType_t xLocalTicksToWait = xTicksToWait;
 
     configASSERT( ( uxBitsToWaitFor & eventEVENT_BITS_CONTROL_BYTES ) == 0 );
     configASSERT( uxBitsToWaitFor != 0 );
     #if ( ( INCLUDE_xTaskGetSchedulerState == 1 ) || ( configUSE_TIMERS == 1 ) )
     {
-        configASSERT( !( ( xTaskGetSchedulerState() == taskSCHEDULER_SUSPENDED ) && ( xTicksToWait != 0 ) ) );
+        configASSERT( !( ( xTaskGetSchedulerState() == taskSCHEDULER_SUSPENDED ) && ( xLocalTicksToWait != 0 ) ) );
     }
     #endif
 
@@ -254,18 +256,18 @@ EventBits_t xEventGroupSync( EventGroupHandle_t xEventGroup,
              * already unless this is the only task in the rendezvous. */
             pxEventBits->uxEventBits &= ~uxBitsToWaitFor;
 
-            xTicksToWait = 0;
+            xLocalTicksToWait = 0;
         }
         else
         {
-            if( xTicksToWait != ( TickType_t ) 0 )
+            if( xLocalTicksToWait != ( TickType_t ) 0 )
             {
                 traceEVENT_GROUP_SYNC_BLOCK( xEventGroup, uxBitsToSet, uxBitsToWaitFor );
 
                 /* Store the bits that the calling task is waiting for in the
                  * task's event list item so the kernel knows when a match is
                  * found.  Then enter the blocked state. */
-                vTaskPlaceOnUnorderedEventList( &( pxEventBits->xTasksWaitingForBits ), ( uxBitsToWaitFor | eventCLEAR_EVENTS_ON_EXIT_BIT | eventWAIT_FOR_ALL_BITS ), xTicksToWait );
+                vTaskPlaceOnUnorderedEventList( &( pxEventBits->xTasksWaitingForBits ), ( uxBitsToWaitFor | eventCLEAR_EVENTS_ON_EXIT_BIT | eventWAIT_FOR_ALL_BITS ), xLocalTicksToWait );
 
                 /* This assignment is obsolete as uxReturn will get set after
                  * the task unblocks, but some compilers mistakenly generate a
@@ -294,7 +296,7 @@ EventBits_t xEventGroupSync( EventGroupHandle_t xEventGroup,
     }
     xAlreadyYielded = xTaskResumeAll();
 
-    if( xTicksToWait != ( TickType_t ) 0 )
+    if( xLocalTicksToWait != ( TickType_t ) 0 )
     {
         if( !xAlreadyYielded )
         {
@@ -390,6 +392,8 @@ EventBits_t xEventGroupWaitBits( EventGroupHandle_t xEventGroup,
      */
     /* coverity[misra_c_2012_rule_10_5_violation] */
     BaseType_t xTimeoutOccurred = ( BaseType_t ) pdFALSE;
+    /* Declare to confort MISRA C 2012 Rule 17.8 - "A function parameter should not be modified" */
+    TickType_t xLocalTicksToWait = xTicksToWait;
 
     /* Check the user is not attempting to wait on the bits used by the kernel
      * itself, and that at least one bit is being requested. */
@@ -398,7 +402,7 @@ EventBits_t xEventGroupWaitBits( EventGroupHandle_t xEventGroup,
     configASSERT( uxBitsToWaitFor != 0 );
     #if ( ( INCLUDE_xTaskGetSchedulerState == 1 ) || ( configUSE_TIMERS == 1 ) )
     {
-        configASSERT( !( ( xTaskGetSchedulerState() == taskSCHEDULER_SUSPENDED ) && ( xTicksToWait != 0 ) ) );
+        configASSERT( !( ( xTaskGetSchedulerState() == taskSCHEDULER_SUSPENDED ) && ( xLocalTicksToWait != 0 ) ) );
     }
     #endif
 
@@ -414,7 +418,7 @@ EventBits_t xEventGroupWaitBits( EventGroupHandle_t xEventGroup,
             /* The wait condition has already been met so there is no need to
              * block. */
             uxReturn = uxCurrentEventBits;
-            xTicksToWait = ( TickType_t ) 0;
+            xLocalTicksToWait = ( TickType_t ) 0;
 
             /* Clear the wait bits if requested to do so. */
             if( xClearOnExit == ( BaseType_t ) pdTRUE )
@@ -426,7 +430,7 @@ EventBits_t xEventGroupWaitBits( EventGroupHandle_t xEventGroup,
                 mtCOVERAGE_TEST_MARKER();
             }
         }
-        else if( xTicksToWait == ( TickType_t ) 0 )
+        else if( xLocalTicksToWait == ( TickType_t ) 0 )
         {
             /* The wait condition has not been met, but no block time was
              * specified, so just return the current value. */
@@ -470,7 +474,7 @@ EventBits_t xEventGroupWaitBits( EventGroupHandle_t xEventGroup,
             /* Store the bits that the calling task is waiting for in the
              * task's event list item so the kernel knows when a match is
              * found.  Then enter the blocked state. */
-            vTaskPlaceOnUnorderedEventList( &( pxEventBits->xTasksWaitingForBits ), ( uxBitsToWaitFor | uxControlBits ), xTicksToWait );
+            vTaskPlaceOnUnorderedEventList( &( pxEventBits->xTasksWaitingForBits ), ( uxBitsToWaitFor | uxControlBits ), xLocalTicksToWait );
 
             /* This is obsolete as it will get set after the task unblocks, but
              * some compilers mistakenly generate a warning about the variable
@@ -482,7 +486,7 @@ EventBits_t xEventGroupWaitBits( EventGroupHandle_t xEventGroup,
     }
     xAlreadyYielded = xTaskResumeAll();
 
-    if( xTicksToWait != ( TickType_t ) 0 )
+    if( xLocalTicksToWait != ( TickType_t ) 0 )
     {
         if( !xAlreadyYielded )
         {

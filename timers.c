@@ -586,13 +586,16 @@
                                 TickType_t xExpiredTime,
                                 const TickType_t xTimeNow )
     {
+        /* Declare to confort MISRA C 2012 Rule 17.8 - "A function parameter should not be modified" */
+        TickType_t xLocalExpiredTime = xExpiredTime;
+
         /* Insert the timer into the appropriate list for the next expiry time.
          * If the next expiry time has already passed, advance the expiry time,
          * call the callback function, and try again. */
-        while( prvInsertTimerInActiveList( pxTimer, ( xExpiredTime + pxTimer->xTimerPeriodInTicks ), xTimeNow, xExpiredTime ) )
+        while( prvInsertTimerInActiveList( pxTimer, ( xLocalExpiredTime + pxTimer->xTimerPeriodInTicks ), xTimeNow, xLocalExpiredTime ) )
         {
             /* Advance the expiry time. */
-            xExpiredTime += pxTimer->xTimerPeriodInTicks;
+            xLocalExpiredTime += pxTimer->xTimerPeriodInTicks;
 
             /* Call the timer callback. */
             traceTIMER_EXPIRED( pxTimer );
@@ -669,6 +672,8 @@
     {
         TickType_t xTimeNow;
         BaseType_t xTimerListsWereSwitched;
+        /* Declare to confort MISRA C 2012 Rule 17.8 - "A function parameter should not be modified" */
+        BaseType_t xLocalListWasEmpty = xListWasEmpty;
 
         vTaskSuspendAll();
         {
@@ -682,7 +687,7 @@
             if( !xTimerListsWereSwitched )
             {
                 /* The tick count has not overflowed, has the timer expired? */
-                if( ( !xListWasEmpty ) && ( xNextExpireTime <= xTimeNow ) )
+                if( ( !xLocalListWasEmpty ) && ( xNextExpireTime <= xTimeNow ) )
                 {
                     ( void ) xTaskResumeAll();
                     prvProcessExpiredTimer( xNextExpireTime, xTimeNow );
@@ -695,14 +700,14 @@
                      * received - whichever comes first.  The following line cannot
                      * be reached unless xNextExpireTime > xTimeNow, except in the
                      * case when the current timer list is empty. */
-                    if( xListWasEmpty )
+                    if( xLocalListWasEmpty )
                     {
                         /* The current timer list is empty - is the overflow list
                          * also empty? */
-                        xListWasEmpty = listLIST_IS_EMPTY( pxOverflowTimerList );
+                        xLocalListWasEmpty = listLIST_IS_EMPTY( pxOverflowTimerList );
                     }
 
-                    vQueueWaitForMessageRestricted( xTimerQueue, ( xNextExpireTime - xTimeNow ), xListWasEmpty );
+                    vQueueWaitForMessageRestricted( xTimerQueue, ( xNextExpireTime - xTimeNow ), xLocalListWasEmpty );
 
                     if( !xTaskResumeAll() )
                     {

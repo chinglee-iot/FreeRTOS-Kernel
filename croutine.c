@@ -106,6 +106,8 @@
     {
         BaseType_t xReturn;
         CRCB_t * pxCoRoutine;
+        /* Declare to confort MISRA C 2012 Rule 17.8 - "A function parameter should not be modified" */
+        BaseType_t uxLocalPriority = uxPriority;
 
         /* Allocate the memory that will store the co-routine control block. */
         pxCoRoutine = ( CRCB_t * ) pvPortMalloc( sizeof( CRCB_t ) );
@@ -121,14 +123,14 @@
             }
 
             /* Check the priority is within limits. */
-            if( uxPriority >= configMAX_CO_ROUTINE_PRIORITIES )
+            if( uxLocalPriority >= configMAX_CO_ROUTINE_PRIORITIES )
             {
-                uxPriority = configMAX_CO_ROUTINE_PRIORITIES - 1U;
+                uxLocalPriority = configMAX_CO_ROUTINE_PRIORITIES - 1U;
             }
 
             /* Fill out the co-routine control block from the function parameters. */
             pxCoRoutine->uxState = corINITIAL_STATE;
-            pxCoRoutine->uxPriority = uxPriority;
+            pxCoRoutine->uxPriority = uxLocalPriority;
             pxCoRoutine->uxIndex = uxIndex;
             pxCoRoutine->pxCoRoutineFunction = pxCoRoutineCode;
 
@@ -143,7 +145,7 @@
             listSET_LIST_ITEM_OWNER( &( pxCoRoutine->xEventListItem ), pxCoRoutine );
 
             /* Event lists are always in priority order. */
-            listSET_LIST_ITEM_VALUE( &( pxCoRoutine->xEventListItem ), ( ( TickType_t ) configMAX_CO_ROUTINE_PRIORITIES - ( TickType_t ) uxPriority ) );
+            listSET_LIST_ITEM_VALUE( &( pxCoRoutine->xEventListItem ), ( ( TickType_t ) configMAX_CO_ROUTINE_PRIORITIES - ( TickType_t ) uxLocalPriority ) );
 
             /* Now the co-routine has been initialised it can be added to the ready
              * list at the correct priority. */

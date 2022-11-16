@@ -832,16 +832,18 @@ static size_t prvWriteMessageToBuffer( StreamBuffer_t * const pxStreamBuffer,
 {
     size_t xNextHead = pxStreamBuffer->xHead;
     configMESSAGE_BUFFER_LENGTH_TYPE xMessageLength;
+    /* Declare to confort MISRA C 2012 Rule 17.8 - "A function parameter should not be modified" */
+    size_t xLocalDataLengthBytes = xDataLengthBytes;
 
     if( ( pxStreamBuffer->ucFlags & sbFLAGS_IS_MESSAGE_BUFFER ) != ( uint8_t ) 0 )
     {
         /* This is a message buffer, as opposed to a stream buffer. */
 
-        /* Convert xDataLengthBytes to the message length type. */
-        xMessageLength = ( configMESSAGE_BUFFER_LENGTH_TYPE ) xDataLengthBytes;
+        /* Convert xLocalDataLengthBytes to the message length type. */
+        xMessageLength = ( configMESSAGE_BUFFER_LENGTH_TYPE ) xLocalDataLengthBytes;
 
         /* Ensure the data length given fits within configMESSAGE_BUFFER_LENGTH_TYPE. */
-        configASSERT( ( size_t ) xMessageLength == xDataLengthBytes );
+        configASSERT( ( size_t ) xMessageLength == xLocalDataLengthBytes );
 
         if( xSpace >= xRequiredSpace )
         {
@@ -853,7 +855,7 @@ static size_t prvWriteMessageToBuffer( StreamBuffer_t * const pxStreamBuffer,
         else
         {
             /* Not enough space, so do not write data to the buffer. */
-            xDataLengthBytes = 0;
+            xLocalDataLengthBytes = 0;
         }
     }
     else
@@ -861,16 +863,16 @@ static size_t prvWriteMessageToBuffer( StreamBuffer_t * const pxStreamBuffer,
         /* This is a stream buffer, as opposed to a message buffer, so writing a
          * stream of bytes rather than discrete messages.  Plan to write as many
          * bytes as possible. */
-        xDataLengthBytes = configMIN( xDataLengthBytes, xSpace );
+        xLocalDataLengthBytes = configMIN( xLocalDataLengthBytes, xSpace );
     }
 
-    if( xDataLengthBytes != ( size_t ) 0 )
+    if( xLocalDataLengthBytes != ( size_t ) 0 )
     {
         /* Write the data to the buffer. */
-        pxStreamBuffer->xHead = prvWriteBytesToBuffer( pxStreamBuffer, ( const uint8_t * ) pvTxData, xDataLengthBytes, xNextHead ); /*lint !e9079 Storage buffer is implemented as uint8_t for ease of sizing, alignment and access. */
+        pxStreamBuffer->xHead = prvWriteBytesToBuffer( pxStreamBuffer, ( const uint8_t * ) pvTxData, xLocalDataLengthBytes, xNextHead ); /*lint !e9079 Storage buffer is implemented as uint8_t for ease of sizing, alignment and access. */
     }
 
-    return xDataLengthBytes;
+    return xLocalDataLengthBytes;
 }
 /*-----------------------------------------------------------*/
 
@@ -1083,6 +1085,8 @@ static size_t prvReadMessageFromBuffer( StreamBuffer_t * pxStreamBuffer,
     size_t xCount, xNextMessageLength;
     configMESSAGE_BUFFER_LENGTH_TYPE xTempNextMessageLength;
     size_t xNextTail = pxStreamBuffer->xTail;
+    /* Declare to confort MISRA C 2012 Rule 17.8 - "A function parameter should not be modified" */
+    size_t xLocalBytesAvailable = xBytesAvailable;
 
     if( ( pxStreamBuffer->ucFlags & sbFLAGS_IS_MESSAGE_BUFFER ) != ( uint8_t ) 0 )
     {
@@ -1093,7 +1097,7 @@ static size_t prvReadMessageFromBuffer( StreamBuffer_t * pxStreamBuffer,
 
         /* Reduce the number of bytes available by the number of bytes just
          * read out. */
-        xBytesAvailable -= sbBYTES_TO_STORE_MESSAGE_LENGTH;
+        xLocalBytesAvailable -= sbBYTES_TO_STORE_MESSAGE_LENGTH;
 
         /* Check there is enough space in the buffer provided by the
          * user. */
@@ -1115,7 +1119,7 @@ static size_t prvReadMessageFromBuffer( StreamBuffer_t * pxStreamBuffer,
     }
 
     /* Use the minimum of the wanted bytes and the available bytes. */
-    xCount = configMIN( xNextMessageLength, xBytesAvailable );
+    xCount = configMIN( xNextMessageLength, xLocalBytesAvailable );
 
     if( xCount != ( size_t ) 0 )
     {
@@ -1254,17 +1258,19 @@ static size_t prvWriteBytesToBuffer( StreamBuffer_t * const pxStreamBuffer,
                                      size_t xHead )
 {
     size_t xFirstLength;
+    /* Declare to confort MISRA C 2012 Rule 17.8 - "A function parameter should not be modified" */
+    size_t xLocalHead = xHead;
 
     configASSERT( xCount > ( size_t ) 0 );
 
     /* Calculate the number of bytes that can be added in the first write -
      * which may be less than the total number of bytes that need to be added if
      * the buffer will wrap back to the beginning. */
-    xFirstLength = configMIN( pxStreamBuffer->xLength - xHead, xCount );
+    xFirstLength = configMIN( pxStreamBuffer->xLength - xLocalHead, xCount );
 
     /* Write as many bytes as can be written in the first write. */
-    configASSERT( ( xHead + xFirstLength ) <= pxStreamBuffer->xLength );
-    ( void ) memcpy( ( void * ) ( &( pxStreamBuffer->pucBuffer[ xHead ] ) ), ( const void * ) pucData, xFirstLength ); /*lint !e9087 memcpy() requires void *. */
+    configASSERT( ( xLocalHead + xFirstLength ) <= pxStreamBuffer->xLength );
+    ( void ) memcpy( ( void * ) ( &( pxStreamBuffer->pucBuffer[ xLocalHead ] ) ), ( const void * ) pucData, xFirstLength ); /*lint !e9087 memcpy() requires void *. */
 
     /* If the number of bytes written was less than the number that could be
      * written in the first write... */
@@ -1279,18 +1285,18 @@ static size_t prvWriteBytesToBuffer( StreamBuffer_t * const pxStreamBuffer,
         mtCOVERAGE_TEST_MARKER();
     }
 
-    xHead += xCount;
+    xLocalHead += xCount;
 
-    if( xHead >= pxStreamBuffer->xLength )
+    if( xLocalHead >= pxStreamBuffer->xLength )
     {
-        xHead -= pxStreamBuffer->xLength;
+        xLocalHead -= pxStreamBuffer->xLength;
     }
     else
     {
         mtCOVERAGE_TEST_MARKER();
     }
 
-    return xHead;
+    return xLocalHead;
 }
 /*-----------------------------------------------------------*/
 
@@ -1300,19 +1306,21 @@ static size_t prvReadBytesFromBuffer( StreamBuffer_t * pxStreamBuffer,
                                       size_t xTail )
 {
     size_t xFirstLength;
+    /* Declare to confort MISRA C 2012 Rule 17.8 - "A function parameter should not be modified" */
+    size_t xLocalTail = xTail;
 
     configASSERT( xCount != ( size_t ) 0 );
 
     /* Calculate the number of bytes that can be read - which may be
      * less than the number wanted if the data wraps around to the start of
      * the buffer. */
-    xFirstLength = configMIN( pxStreamBuffer->xLength - xTail, xCount );
+    xFirstLength = configMIN( pxStreamBuffer->xLength - xLocalTail, xCount );
 
     /* Obtain the number of bytes it is possible to obtain in the first
      * read.  Asserts check bounds of read and write. */
     configASSERT( xFirstLength <= xCount );
-    configASSERT( ( xTail + xFirstLength ) <= pxStreamBuffer->xLength );
-    ( void ) memcpy( ( void * ) pucData, ( const void * ) &( pxStreamBuffer->pucBuffer[ xTail ] ), xFirstLength ); /*lint !e9087 memcpy() requires void *. */
+    configASSERT( ( xLocalTail + xFirstLength ) <= pxStreamBuffer->xLength );
+    ( void ) memcpy( ( void * ) pucData, ( const void * ) &( pxStreamBuffer->pucBuffer[ xLocalTail ] ), xFirstLength ); /*lint !e9087 memcpy() requires void *. */
 
     /* If the total number of wanted bytes is greater than the number
      * that could be read in the first read... */
@@ -1327,14 +1335,14 @@ static size_t prvReadBytesFromBuffer( StreamBuffer_t * pxStreamBuffer,
     }
 
     /* Move the tail pointer to effectively remove the data read from the buffer. */
-    xTail += xCount;
+    xLocalTail += xCount;
 
-    if( xTail >= pxStreamBuffer->xLength )
+    if( xLocalTail >= pxStreamBuffer->xLength )
     {
-        xTail -= pxStreamBuffer->xLength;
+        xLocalTail -= pxStreamBuffer->xLength;
     }
 
-    return xTail;
+    return xLocalTail;
 }
 /*-----------------------------------------------------------*/
 
