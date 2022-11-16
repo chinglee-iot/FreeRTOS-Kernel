@@ -162,7 +162,7 @@
     {                                                                                     \
         if( ( pxStreamBuffer )->pxSendCompletedCallback != NULL )                         \
         {                                                                                 \
-            pxStreamBuffer->pxSendCompletedCallback( ( pxStreamBuffer ), pdFALSE, NULL ); \
+            ( pxStreamBuffer )->pxSendCompletedCallback( ( pxStreamBuffer ), pdFALSE, NULL ); \
         }                                                                                 \
         else                                                                              \
         {                                                                                 \

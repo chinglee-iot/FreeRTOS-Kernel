@@ -274,11 +274,11 @@ typedef BaseType_t TaskRunning_t;
  *                        but scheduled to yield.
  */
 #if ( configNUM_CORES == 1 )
-    #define taskTASK_IS_RUNNING( pxTCB )     ( pxTCB == pxCurrentTCB )
+    #define taskTASK_IS_RUNNING( pxTCB )     ( ( pxTCB ) == pxCurrentTCB )
     #define taskTASK_IS_YIELDING( pxTCB )    ( pdFALSE )
 #else
-    #define taskTASK_IS_RUNNING( pxTCB )     ( ( pxTCB->xTaskRunState >= 0 ) && ( pxTCB->xTaskRunState < configNUM_CORES ) )
-    #define taskTASK_IS_YIELDING( pxTCB )    ( pxTCB->xTaskRunState == taskTASK_YIELDING )
+    #define taskTASK_IS_RUNNING( pxTCB )     ( ( ( pxTCB )->xTaskRunState >= 0 ) && ( ( pxTCB )->xTaskRunState < configNUM_CORES ) )
+    #define taskTASK_IS_YIELDING( pxTCB )    ( ( pxTCB )->xTaskRunState == taskTASK_YIELDING )
 #endif
 
 /* Indicates that the task is an Idle task. */
