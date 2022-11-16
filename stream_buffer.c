@@ -52,6 +52,10 @@
  * because the MPU ports require MPU_WRAPPERS_INCLUDED_FROM_API_FILE to be defined
  * for the header files above, but not in this file, in order to generate the
  * correct privileged Vs unprivileged linkage and placement. */
+/* 
+ * The rule 20.5 is "#undef should not be used."
+ */
+/* coverity[misra_c_2012_rule_20_5_violation] */
 #undef MPU_WRAPPERS_INCLUDED_FROM_API_FILE /*lint !e961 !e750 !e9021. */
 
 /* If the user has not provided application specific Rx notification macros,
