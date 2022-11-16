@@ -1768,6 +1768,11 @@ UBaseType_t uxTaskGetStackHighWaterMark( TaskHandle_t xTask ) PRIVILEGED_FUNCTIO
  * actual spaces on the stack rather than bytes) since the task referenced by
  * xTask was created.
  */
+/* 
+ * The rule 5.1 is "External identifiers shall be distinct."
+ * uxTaskGetStackHighWaterMark2 is an interface which is enabled by INCLUDE_uxTaskGetStackHighWaterMark2.
+ */
+/* coverity[misra_c_2012_rule_5_1_violation] */
 configSTACK_DEPTH_TYPE uxTaskGetStackHighWaterMark2( TaskHandle_t xTask ) PRIVILEGED_FUNCTION;
 
 /* When using trace macros it is sometimes necessary to include task.h before
