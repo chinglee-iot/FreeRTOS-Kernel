@@ -264,7 +264,7 @@ static size_t prvBytesInBuffer( const StreamBuffer_t * const pxStreamBuffer ) PR
  * To mark the write as complete, manually set the buffer's xHead field with the
  * returned xHead from this function.
  */
-static size_t prvWriteBytesToBuffer( StreamBuffer_t * const pxStreamBuffer,
+static size_t prvWriteBytesToBuffer( const StreamBuffer_t * pxStreamBuffer,
                                      const uint8_t * pucData,
                                      size_t xCount,
                                      size_t xHead ) PRIVILEGED_FUNCTION;
@@ -306,7 +306,7 @@ static size_t prvWriteMessageToBuffer( StreamBuffer_t * const pxStreamBuffer,
  * To mark the read as complete, manually set the buffer's xTail field with the
  * returned xTail from this function.
  */
-static size_t prvReadBytesFromBuffer( StreamBuffer_t * pxStreamBuffer,
+static size_t prvReadBytesFromBuffer( const StreamBuffer_t * pxStreamBuffer,
                                       uint8_t * pucData,
                                       size_t xCount,
                                       size_t xTail ) PRIVILEGED_FUNCTION;
@@ -601,7 +601,7 @@ BaseType_t xStreamBufferSetTriggerLevel( StreamBufferHandle_t xStreamBuffer,
 }
 /*-----------------------------------------------------------*/
 
-size_t xStreamBufferSpacesAvailable( StreamBufferHandle_t xStreamBuffer )
+size_t xStreamBufferSpacesAvailable( ConstStreamBufferHandle_t xStreamBuffer )
 {
     const StreamBuffer_t * const pxStreamBuffer = xStreamBuffer;
     size_t xSpace;
@@ -634,7 +634,7 @@ size_t xStreamBufferSpacesAvailable( StreamBufferHandle_t xStreamBuffer )
 }
 /*-----------------------------------------------------------*/
 
-size_t xStreamBufferBytesAvailable( StreamBufferHandle_t xStreamBuffer )
+size_t xStreamBufferBytesAvailable( ConstStreamBufferHandle_t xStreamBuffer )
 {
     const StreamBuffer_t * const pxStreamBuffer = xStreamBuffer;
     size_t xReturn;
@@ -1256,7 +1256,7 @@ BaseType_t xStreamBufferReceiveCompletedFromISR( StreamBufferHandle_t xStreamBuf
 }
 /*-----------------------------------------------------------*/
 
-static size_t prvWriteBytesToBuffer( StreamBuffer_t * const pxStreamBuffer,
+static size_t prvWriteBytesToBuffer( const StreamBuffer_t * pxStreamBuffer,
                                      const uint8_t * pucData,
                                      size_t xCount,
                                      size_t xHead )
@@ -1304,7 +1304,7 @@ static size_t prvWriteBytesToBuffer( StreamBuffer_t * const pxStreamBuffer,
 }
 /*-----------------------------------------------------------*/
 
-static size_t prvReadBytesFromBuffer( StreamBuffer_t * pxStreamBuffer,
+static size_t prvReadBytesFromBuffer( const StreamBuffer_t * pxStreamBuffer,
                                       uint8_t * pucData,
                                       size_t xCount,
                                       size_t xTail )
@@ -1433,7 +1433,7 @@ static void prvInitialiseNewStreamBuffer( StreamBuffer_t * const pxStreamBuffer,
 
 #if ( configUSE_TRACE_FACILITY == 1 )
 
-    uint8_t ucStreamBufferGetStreamBufferType( StreamBufferHandle_t xStreamBuffer )
+    uint8_t ucStreamBufferGetStreamBufferType( ConstStreamBufferHandle_t xStreamBuffer )
     {
         return( xStreamBuffer->ucFlags & sbFLAGS_IS_MESSAGE_BUFFER );
     }

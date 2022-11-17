@@ -145,7 +145,7 @@ QueueHandle_t MPU_xQueueCreateCountingSemaphore( const UBaseType_t uxMaxCount,
 QueueHandle_t MPU_xQueueCreateCountingSemaphoreStatic( const UBaseType_t uxMaxCount,
                                                        const UBaseType_t uxInitialCount,
                                                        StaticQueue_t * pxStaticQueue ) FREERTOS_SYSTEM_CALL;
-TaskHandle_t MPU_xQueueGetMutexHolder( QueueHandle_t xSemaphore ) FREERTOS_SYSTEM_CALL;
+TaskHandle_t MPU_xQueueGetMutexHolder( ConstQueueHandle_t xSemaphore ) FREERTOS_SYSTEM_CALL;
 BaseType_t MPU_xQueueTakeMutexRecursive( QueueHandle_t xMutex,
                                          TickType_t xTicksToWait ) FREERTOS_SYSTEM_CALL;
 BaseType_t MPU_xQueueGiveMutexRecursive( QueueHandle_t pxMutex ) FREERTOS_SYSTEM_CALL;
@@ -226,7 +226,7 @@ EventBits_t MPU_xEventGroupSync( EventGroupHandle_t xEventGroup,
                                  const EventBits_t uxBitsToWaitFor,
                                  TickType_t xTicksToWait ) FREERTOS_SYSTEM_CALL;
 void MPU_vEventGroupDelete( EventGroupHandle_t xEventGroup ) FREERTOS_SYSTEM_CALL;
-UBaseType_t MPU_uxEventGroupGetNumber( void * xEventGroup ) FREERTOS_SYSTEM_CALL;
+UBaseType_t MPU_uxEventGroupGetNumber( const void * xEventGroup ) FREERTOS_SYSTEM_CALL;
 
 /* MPU versions of message/stream_buffer.h API functions. */
 size_t MPU_xStreamBufferSend( StreamBufferHandle_t xStreamBuffer,
@@ -242,8 +242,8 @@ void MPU_vStreamBufferDelete( StreamBufferHandle_t xStreamBuffer ) FREERTOS_SYST
 BaseType_t MPU_xStreamBufferIsFull( StreamBufferHandle_t xStreamBuffer ) FREERTOS_SYSTEM_CALL;
 BaseType_t MPU_xStreamBufferIsEmpty( StreamBufferHandle_t xStreamBuffer ) FREERTOS_SYSTEM_CALL;
 BaseType_t MPU_xStreamBufferReset( StreamBufferHandle_t xStreamBuffer ) FREERTOS_SYSTEM_CALL;
-size_t MPU_xStreamBufferSpacesAvailable( StreamBufferHandle_t xStreamBuffer ) FREERTOS_SYSTEM_CALL;
-size_t MPU_xStreamBufferBytesAvailable( StreamBufferHandle_t xStreamBuffer ) FREERTOS_SYSTEM_CALL;
+size_t MPU_xStreamBufferSpacesAvailable( ConstStreamBufferHandle_t xStreamBuffer ) FREERTOS_SYSTEM_CALL;
+size_t MPU_xStreamBufferBytesAvailable( ConstStreamBufferHandle_t xStreamBuffer ) FREERTOS_SYSTEM_CALL;
 BaseType_t MPU_xStreamBufferSetTriggerLevel( StreamBufferHandle_t xStreamBuffer,
                                              size_t xTriggerLevel ) FREERTOS_SYSTEM_CALL;
 StreamBufferHandle_t MPU_xStreamBufferGenericCreate( size_t xBufferSizeBytes,

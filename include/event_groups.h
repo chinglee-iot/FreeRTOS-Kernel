@@ -81,6 +81,7 @@
  */
 struct EventGroupDef_t;
 typedef struct EventGroupDef_t   * EventGroupHandle_t;
+typedef const struct EventGroupDef_t   * ConstEventGroupHandle_t;
 
 /*
  * The type that holds event bits always matches TickType_t - therefore the
@@ -733,7 +734,7 @@ EventBits_t xEventGroupSync( EventGroupHandle_t xEventGroup,
 /**
  * event_groups.h
  * @code{c}
- *  EventBits_t xEventGroupGetBitsFromISR( EventGroupHandle_t xEventGroup );
+ *  EventBits_t xEventGroupGetBitsFromISR( ConstEventGroupHandle_t xEventGroup );
  * @endcode
  *
  * A version of xEventGroupGetBits() that can be called from an ISR.
@@ -745,7 +746,7 @@ EventBits_t xEventGroupSync( EventGroupHandle_t xEventGroup,
  * \defgroup xEventGroupGetBitsFromISR xEventGroupGetBitsFromISR
  * \ingroup EventGroup
  */
-EventBits_t xEventGroupGetBitsFromISR( EventGroupHandle_t xEventGroup ) PRIVILEGED_FUNCTION;
+EventBits_t xEventGroupGetBitsFromISR( ConstEventGroupHandle_t xEventGroup ) PRIVILEGED_FUNCTION;
 
 /**
  * event_groups.h
@@ -769,7 +770,7 @@ void vEventGroupClearBitsCallback( void * pvEventGroup,
 
 
 #if ( configUSE_TRACE_FACILITY == 1 )
-    UBaseType_t uxEventGroupGetNumber( void * xEventGroup ) PRIVILEGED_FUNCTION;
+    UBaseType_t uxEventGroupGetNumber( const void * xEventGroup ) PRIVILEGED_FUNCTION;
     void vEventGroupSetNumber( void * xEventGroup,
                                UBaseType_t uxEventGroupNumber ) PRIVILEGED_FUNCTION;
 #endif

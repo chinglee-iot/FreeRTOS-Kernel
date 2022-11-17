@@ -614,10 +614,10 @@ static void prvInitialiseNewQueue( const UBaseType_t uxQueueLength,
 
 #if ( ( configUSE_MUTEXES == 1 ) && ( INCLUDE_xSemaphoreGetMutexHolder == 1 ) )
 
-    TaskHandle_t xQueueGetMutexHolder( QueueHandle_t xSemaphore )
+    TaskHandle_t xQueueGetMutexHolder( ConstQueueHandle_t xSemaphore )
     {
         TaskHandle_t pxReturn;
-        Queue_t * const pxSemaphore = ( Queue_t * ) xSemaphore;
+        const Queue_t * pxSemaphore = ( Queue_t * ) xSemaphore;
 
         configASSERT( xSemaphore );
 
@@ -647,7 +647,7 @@ static void prvInitialiseNewQueue( const UBaseType_t uxQueueLength,
 
 #if ( ( configUSE_MUTEXES == 1 ) && ( INCLUDE_xSemaphoreGetMutexHolder == 1 ) )
 
-    TaskHandle_t xQueueGetMutexHolderFromISR( QueueHandle_t xSemaphore )
+    TaskHandle_t xQueueGetMutexHolderFromISR( ConstQueueHandle_t xSemaphore )
     {
         TaskHandle_t pxReturn;
 

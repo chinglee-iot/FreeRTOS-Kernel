@@ -615,7 +615,7 @@ EventBits_t xEventGroupClearBits( EventGroupHandle_t xEventGroup,
 #endif /* if ( ( configUSE_TRACE_FACILITY == 1 ) && ( INCLUDE_xTimerPendFunctionCall == 1 ) && ( configUSE_TIMERS == 1 ) ) */
 /*-----------------------------------------------------------*/
 
-EventBits_t xEventGroupGetBitsFromISR( EventGroupHandle_t xEventGroup )
+EventBits_t xEventGroupGetBitsFromISR( ConstEventGroupHandle_t xEventGroup )
 {
     UBaseType_t uxSavedInterruptStatus;
     EventGroup_t const * const pxEventBits = xEventGroup;
@@ -914,7 +914,7 @@ static BaseType_t prvTestWaitCondition( const EventBits_t uxCurrentEventBits,
 
 #if ( configUSE_TRACE_FACILITY == 1 )
 
-    UBaseType_t uxEventGroupGetNumber( void * xEventGroup )
+    UBaseType_t uxEventGroupGetNumber( const void * xEventGroup )
     {
         UBaseType_t xReturn;
         EventGroup_t const * pxEventBits = ( EventGroup_t * ) xEventGroup; /*lint !e9087 !e9079 EventGroupHandle_t is a pointer to an EventGroup_t, but EventGroupHandle_t is kept opaque outside of this file for data hiding purposes. */
