@@ -258,7 +258,7 @@
                                                       configTIMER_SERVICE_TASK_NAME,
                                                       ulTimerTaskStackSize,
                                                       NULL,
-                                                      ( ( UBaseType_t ) configTIMER_TASK_PRIORITY ) | portPRIVILEGE_BIT,
+                                                      ( UBaseType_t ) ( ( uint8_t ) configTIMER_TASK_PRIORITY ) | portPRIVILEGE_BIT,
                                                       pxTimerTaskStackBuffer,
                                                       pxTimerTaskTCBBuffer );
 

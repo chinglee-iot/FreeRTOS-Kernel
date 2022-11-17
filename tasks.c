@@ -6271,7 +6271,7 @@ static void prvResetNextTaskUnblockTime( void )
 
         /* Pad the end of the string with spaces to ensure columns line up when
          * printed out. */
-        for( x = strlen( pcBuffer ); x < ( size_t ) ( configMAX_TASK_NAME_LEN - 1 ); x++ )
+        for( x = strlen( pcBuffer ); x < ( ( size_t ) configMAX_TASK_NAME_LEN - ( size_t ) 1 ); x++ )
         {
             pcBuffer[ x ] = ' ';
         }
