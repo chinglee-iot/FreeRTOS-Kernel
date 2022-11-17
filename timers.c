@@ -688,10 +688,10 @@
              * prvSampleTimeNow() function. */
             xTimeNow = prvSampleTimeNow( &xTimerListsWereSwitched );
 
-            if( !xTimerListsWereSwitched )
+            if( xTimerListsWereSwitched == ( BaseType_t ) pdFALSE )
             {
                 /* The tick count has not overflowed, has the timer expired? */
-                if( ( !xLocalListWasEmpty ) && ( xNextExpireTime <= xTimeNow ) )
+                if( ( xLocalListWasEmpty == ( BaseType_t ) pdFALSE ) && ( xNextExpireTime <= xTimeNow ) )
                 {
                     ( void ) xTaskResumeAll();
                     prvProcessExpiredTimer( xNextExpireTime, xTimeNow );
@@ -713,7 +713,7 @@
 
                     vQueueWaitForMessageRestricted( xTimerQueue, ( xNextExpireTime - xTimeNow ), xLocalListWasEmpty );
 
-                    if( !xTaskResumeAll() )
+                    if( xTaskResumeAll() == ( BaseType_t ) pdFALSE )
                     {
                         /* Yield to wait for either a command to arrive, or the
                          * block time to expire.  If a command arrived between the
@@ -756,7 +756,7 @@
          * re-assessed.  */
         *pxListWasEmpty = listLIST_IS_EMPTY( pxCurrentTimerList );
 
-        if( !( *pxListWasEmpty ) )
+        if( *pxListWasEmpty == ( BaseType_t ) pdFALSE )
         {
             xNextExpireTime = listGET_ITEM_VALUE_OF_HEAD_ENTRY( pxCurrentTimerList );
         }

@@ -302,7 +302,7 @@ EventBits_t xEventGroupSync( EventGroupHandle_t xEventGroup,
 
     if( xLocalTicksToWait != ( TickType_t ) 0 )
     {
-        if( !xAlreadyYielded )
+        if( xAlreadyYielded == ( BaseType_t ) pdFALSE )
         {
             #if ( configNUM_CORES == 1 )
             {
@@ -492,7 +492,7 @@ EventBits_t xEventGroupWaitBits( EventGroupHandle_t xEventGroup,
 
     if( xLocalTicksToWait != ( TickType_t ) 0 )
     {
-        if( !xAlreadyYielded )
+        if( xAlreadyYielded == ( BaseType_t ) pdFALSE )
         {
             #if ( configNUM_CORES == 1 )
             {
@@ -800,7 +800,7 @@ void vEventGroupDelete( EventGroupHandle_t xEventGroup )
     {
         /* The event group could have been allocated statically or
          * dynamically, so check before attempting to free the memory. */
-        if( !pxEventBits->ucStaticallyAllocated )
+        if( pxEventBits->ucStaticallyAllocated == ( BaseType_t ) pdFALSE )
         {
             vPortFree( pxEventBits );
         }
@@ -846,7 +846,7 @@ static BaseType_t prvTestWaitCondition( const EventBits_t uxCurrentEventBits,
     /* coverity[misra_c_2012_rule_10_5_violation] */
     BaseType_t xWaitConditionMet = ( BaseType_t ) pdFALSE;
 
-    if( !xWaitForAllBits )
+    if( xWaitForAllBits == ( BaseType_t ) pdFALSE )
     {
         /* Task only has to wait for one bit within uxBitsToWaitFor to be
          * set.  Is one already set? */
