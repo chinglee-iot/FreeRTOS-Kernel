@@ -90,7 +90,12 @@ typedef struct tskTaskControlBlock * TaskHandle_t;
  * Defines the prototype to which the application task hook function must
  * conform.
  */
-typedef BaseType_t (* TaskHookFunction_t)( void * );
+/* 
+ * The rule 8.2 is "Function types shall be in prototype form with named parameters."
+ * Parameter name is defined but the MISRA violation still exists. Suppress the violation for the false alarm.
+ */
+/* coverity[misra_c_2012_rule_8_2_violation] */
+typedef BaseType_t (* TaskHookFunction_t)( void * pvParameter );
 
 /* Task states returned by eTaskGetState. */
 typedef enum

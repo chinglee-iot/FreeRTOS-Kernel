@@ -88,8 +88,8 @@ typedef void (* TimerCallbackFunction_t)( TimerHandle_t xTimer );
  * Defines the prototype to which functions used with the
  * xTimerPendFunctionCallFromISR() function must conform.
  */
-typedef void (* PendedFunction_t)( void *,
-                                   uint32_t );
+typedef void (* PendedFunction_t)( void * pvParameter1,
+                                   uint32_t ulParameter2 );
 
 /**
  * TimerHandle_t xTimerCreate(  const char * const pcTimerName,
