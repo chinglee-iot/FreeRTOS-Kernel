@@ -985,9 +985,9 @@ size_t xStreamBufferReceive( StreamBufferHandle_t xStreamBuffer,
 }
 /*-----------------------------------------------------------*/
 
-size_t xStreamBufferNextMessageLengthBytes( StreamBufferHandle_t xStreamBuffer )
+size_t xStreamBufferNextMessageLengthBytes( ConstStreamBufferHandle_t xStreamBuffer )
 {
-    StreamBuffer_t * const pxStreamBuffer = xStreamBuffer;
+    const StreamBuffer_t * pxStreamBuffer = xStreamBuffer;
     size_t xReturn, xBytesAvailable;
     configMESSAGE_BUFFER_LENGTH_TYPE xTempReturn;
 

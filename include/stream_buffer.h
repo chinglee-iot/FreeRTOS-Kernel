@@ -896,7 +896,7 @@ StreamBufferHandle_t xStreamBufferGenericCreateStatic( size_t xBufferSizeBytes,
                                                        StreamBufferCallbackFunction_t pxSendCompletedCallback,
                                                        StreamBufferCallbackFunction_t pxReceiveCompletedCallback ) PRIVILEGED_FUNCTION;
 
-size_t xStreamBufferNextMessageLengthBytes( StreamBufferHandle_t xStreamBuffer ) PRIVILEGED_FUNCTION;
+size_t xStreamBufferNextMessageLengthBytes( ConstStreamBufferHandle_t xStreamBuffer ) PRIVILEGED_FUNCTION;
 
 #if ( configUSE_TRACE_FACILITY == 1 )
     void vStreamBufferSetStreamBufferNumber( StreamBufferHandle_t xStreamBuffer,

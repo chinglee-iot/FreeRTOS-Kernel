@@ -404,7 +404,7 @@
     BaseType_t xTimerGenericCommandFromTask( TimerHandle_t xTimer,
                                              const BaseType_t xCommandID,
                                              const TickType_t xOptionalValue,
-                                             BaseType_t * const pxHigherPriorityTaskWoken,
+                                             const BaseType_t * pxHigherPriorityTaskWoken,
                                              const TickType_t xTicksToWait )
     {
         BaseType_t xReturn = pdFAIL;
@@ -497,9 +497,9 @@
     }
 /*-----------------------------------------------------------*/
 
-    TickType_t xTimerGetPeriod( TimerHandle_t xTimer )
+    TickType_t xTimerGetPeriod( ConstTimerHandle_t xTimer )
     {
-        Timer_t * pxTimer = xTimer;
+        const Timer_t * pxTimer = xTimer;
 
         configASSERT( xTimer );
         return pxTimer->xTimerPeriodInTicks;
@@ -536,9 +536,9 @@
     }
 /*-----------------------------------------------------------*/
 
-    BaseType_t xTimerGetReloadMode( TimerHandle_t xTimer )
+    BaseType_t xTimerGetReloadMode( ConstTimerHandle_t xTimer )
     {
-        Timer_t * pxTimer = xTimer;
+        const Timer_t * pxTimer = xTimer;
         BaseType_t xReturn;
 
         configASSERT( xTimer );
@@ -584,9 +584,9 @@
     }
 /*-----------------------------------------------------------*/
 
-    TickType_t xTimerGetExpiryTime( TimerHandle_t xTimer )
+    TickType_t xTimerGetExpiryTime( ConstTimerHandle_t xTimer )
     {
-        Timer_t * pxTimer = xTimer;
+        const Timer_t * pxTimer = xTimer;
         TickType_t xReturn;
 
         configASSERT( xTimer );
@@ -595,9 +595,9 @@
     }
 /*-----------------------------------------------------------*/
 
-    const char * pcTimerGetName( TimerHandle_t xTimer ) /*lint !e971 Unqualified char types are allowed for strings and single characters only. */
+    const char * pcTimerGetName( ConstTimerHandle_t xTimer ) /*lint !e971 Unqualified char types are allowed for strings and single characters only. */
     {
-        Timer_t * pxTimer = xTimer;
+        const Timer_t * pxTimer = xTimer;
 
         configASSERT( xTimer );
         return pxTimer->pcTimerName;
@@ -1188,10 +1188,10 @@
     }
 /*-----------------------------------------------------------*/
 
-    BaseType_t xTimerIsTimerActive( TimerHandle_t xTimer )
+    BaseType_t xTimerIsTimerActive( ConstTimerHandle_t xTimer )
     {
         BaseType_t xReturn;
-        Timer_t * pxTimer = xTimer;
+        const Timer_t * pxTimer = xTimer;
 
         configASSERT( xTimer );
 
@@ -1231,9 +1231,9 @@
     } /*lint !e818 Can't be pointer to const due to the typedef. */
 /*-----------------------------------------------------------*/
 
-    void * pvTimerGetTimerID( const TimerHandle_t xTimer )
+    void * pvTimerGetTimerID( const ConstTimerHandle_t xTimer )
     {
-        Timer_t * const pxTimer = xTimer;
+        const Timer_t * const pxTimer = xTimer;
         void * pvReturn;
 
         configASSERT( xTimer );
@@ -1324,7 +1324,7 @@
 
     #if ( configUSE_TRACE_FACILITY == 1 )
 
-        UBaseType_t uxTimerGetTimerNumber( TimerHandle_t xTimer )
+        UBaseType_t uxTimerGetTimerNumber( ConstTimerHandle_t xTimer )
         {
             return ( ( Timer_t * ) xTimer )->uxTimerNumber;
         }

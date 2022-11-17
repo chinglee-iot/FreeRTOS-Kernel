@@ -78,6 +78,7 @@
  */
 struct tmrTimerControl; /* The old naming convention is used to prevent breaking kernel aware debuggers. */
 typedef struct tmrTimerControl * TimerHandle_t;
+typedef const struct tmrTimerControl * ConstTimerHandle_t;
 
 /*
  * Defines the prototype to which timer callback functions must conform.
@@ -368,7 +369,7 @@ typedef void (* PendedFunction_t)( void * pvParameter1,
 #endif /* configSUPPORT_STATIC_ALLOCATION */
 
 /**
- * void *pvTimerGetTimerID( TimerHandle_t xTimer );
+ * void *pvTimerGetTimerID( ConstTimerHandle_t xTimer );
  *
  * Returns the ID assigned to the timer.
  *
@@ -387,7 +388,7 @@ typedef void (* PendedFunction_t)( void * pvParameter1,
  *
  * See the xTimerCreate() API function example usage scenario.
  */
-void * pvTimerGetTimerID( const TimerHandle_t xTimer ) PRIVILEGED_FUNCTION;
+void * pvTimerGetTimerID( const ConstTimerHandle_t xTimer ) PRIVILEGED_FUNCTION;
 
 /**
  * void vTimerSetTimerID( TimerHandle_t xTimer, void *pvNewID );
@@ -412,7 +413,7 @@ void vTimerSetTimerID( TimerHandle_t xTimer,
                        void * pvNewID ) PRIVILEGED_FUNCTION;
 
 /**
- * BaseType_t xTimerIsTimerActive( TimerHandle_t xTimer );
+ * BaseType_t xTimerIsTimerActive( ConstTimerHandle_t xTimer );
  *
  * Queries a timer to see if it is active or dormant.
  *
@@ -446,7 +447,7 @@ void vTimerSetTimerID( TimerHandle_t xTimer,
  * }
  * @endverbatim
  */
-BaseType_t xTimerIsTimerActive( TimerHandle_t xTimer ) PRIVILEGED_FUNCTION;
+BaseType_t xTimerIsTimerActive( ConstTimerHandle_t xTimer ) PRIVILEGED_FUNCTION;
 
 /**
  * TaskHandle_t xTimerGetTimerDaemonTaskHandle( void );
@@ -1241,7 +1242,7 @@ BaseType_t xTimerPendFunctionCall( PendedFunction_t xFunctionToPend,
                                    TickType_t xTicksToWait ) PRIVILEGED_FUNCTION;
 
 /**
- * const char * const pcTimerGetName( TimerHandle_t xTimer );
+ * const char * const pcTimerGetName( ConstTimerHandle_t xTimer );
  *
  * Returns the name that was assigned to a timer when the timer was created.
  *
@@ -1249,7 +1250,7 @@ BaseType_t xTimerPendFunctionCall( PendedFunction_t xFunctionToPend,
  *
  * @return The name assigned to the timer specified by the xTimer parameter.
  */
-const char * pcTimerGetName( TimerHandle_t xTimer ) PRIVILEGED_FUNCTION; /*lint !e971 Unqualified char types are allowed for strings and single characters only. */
+const char * pcTimerGetName( ConstTimerHandle_t xTimer ) PRIVILEGED_FUNCTION; /*lint !e971 Unqualified char types are allowed for strings and single characters only. */
 
 /**
  * void vTimerSetReloadMode( TimerHandle_t xTimer, const BaseType_t xAutoReload );
@@ -1270,7 +1271,7 @@ void vTimerSetReloadMode( TimerHandle_t xTimer,
                           const BaseType_t xAutoReload ) PRIVILEGED_FUNCTION;
 
 /**
- * BaseType_t xTimerGetReloadMode( TimerHandle_t xTimer );
+ * BaseType_t xTimerGetReloadMode( ConstTimerHandle_t xTimer );
  *
  * Queries a timer to determine if it is an auto-reload timer, in which case the timer
  * automatically resets itself each time it expires, or a one-shot timer, in
@@ -1281,7 +1282,7 @@ void vTimerSetReloadMode( TimerHandle_t xTimer,
  * @return If the timer is an auto-reload timer then pdTRUE is returned, otherwise
  * pdFALSE is returned.
  */
-BaseType_t xTimerGetReloadMode( TimerHandle_t xTimer ) PRIVILEGED_FUNCTION;
+BaseType_t xTimerGetReloadMode( ConstTimerHandle_t xTimer ) PRIVILEGED_FUNCTION;
 
 /**
  * UBaseType_t uxTimerGetReloadMode( TimerHandle_t xTimer );
@@ -1309,7 +1310,7 @@ UBaseType_t uxTimerGetReloadMode( TimerHandle_t xTimer ) PRIVILEGED_FUNCTION;
 TickType_t xTimerGetPeriod( TimerHandle_t xTimer ) PRIVILEGED_FUNCTION;
 
 /**
- * TickType_t xTimerGetExpiryTime( TimerHandle_t xTimer );
+ * TickType_t xTimerGetExpiryTime( ConstTimerHandle_t xTimer );
  *
  * Returns the time in ticks at which the timer will expire.  If this is less
  * than the current tick count then the expiry time has overflowed from the
@@ -1321,7 +1322,7 @@ TickType_t xTimerGetPeriod( TimerHandle_t xTimer ) PRIVILEGED_FUNCTION;
  * will next expire is returned.  If the timer is not running then the return
  * value is undefined.
  */
-TickType_t xTimerGetExpiryTime( TimerHandle_t xTimer ) PRIVILEGED_FUNCTION;
+TickType_t xTimerGetExpiryTime( ConstTimerHandle_t xTimer ) PRIVILEGED_FUNCTION;
 
 /*
  * Functions beyond this part are not part of the public API and are intended
@@ -1338,7 +1339,7 @@ BaseType_t xTimerCreateTimerTask( void ) PRIVILEGED_FUNCTION;
 BaseType_t xTimerGenericCommandFromTask( TimerHandle_t xTimer,
                                          const BaseType_t xCommandID,
                                          const TickType_t xOptionalValue,
-                                         BaseType_t * const pxHigherPriorityTaskWoken,
+                                         const BaseType_t * pxHigherPriorityTaskWoken,
                                          const TickType_t xTicksToWait ) PRIVILEGED_FUNCTION;
 
 BaseType_t xTimerGenericCommandFromISR( TimerHandle_t xTimer,
@@ -1354,7 +1355,7 @@ BaseType_t xTimerGenericCommandFromISR( TimerHandle_t xTimer,
 #if ( configUSE_TRACE_FACILITY == 1 )
     void vTimerSetTimerNumber( TimerHandle_t xTimer,
                                UBaseType_t uxTimerNumber ) PRIVILEGED_FUNCTION;
-    UBaseType_t uxTimerGetTimerNumber( TimerHandle_t xTimer ) PRIVILEGED_FUNCTION;
+    UBaseType_t uxTimerGetTimerNumber( ConstTimerHandle_t xTimer ) PRIVILEGED_FUNCTION;
 #endif
 
 #if ( configSUPPORT_STATIC_ALLOCATION == 1 )
