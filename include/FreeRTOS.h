@@ -946,7 +946,7 @@
 #endif
 
 #ifndef portPRIVILEGE_BIT
-    #define portPRIVILEGE_BIT    ( ( UBaseType_t ) 0x00 )
+    #define portPRIVILEGE_BIT    ( ( UBaseType_t ) 0x00U )
 #endif
 
 #ifndef portYIELD_WITHIN_API

@@ -230,7 +230,7 @@
 
         xPassedTicks = xTaskGetTickCount() - xLastTickCount;
 
-        while( xPassedTicks > 0 )
+        while( xPassedTicks > ( TickType_t ) 0 )
         {
             xCoRoutineTickCount++;
             xPassedTicks--;

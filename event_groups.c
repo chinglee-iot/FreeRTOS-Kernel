@@ -800,7 +800,7 @@ void vEventGroupDelete( EventGroupHandle_t xEventGroup )
     {
         /* The event group could have been allocated statically or
          * dynamically, so check before attempting to free the memory. */
-        if( pxEventBits->ucStaticallyAllocated == ( BaseType_t ) pdFALSE )
+        if( pxEventBits->ucStaticallyAllocated == ( uint8_t ) pdFALSE )
         {
             vPortFree( pxEventBits );
         }
