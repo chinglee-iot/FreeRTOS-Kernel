@@ -212,9 +212,10 @@
     sbSEND_COMPLETE_FROM_ISR( ( pxStreamBuffer ), ( pxHigherPriorityTaskWoken ) )
 #endif /* if ( configUSE_SB_COMPLETED_CALLBACK == 1 ) */
 
-/* MISRA Ref 4.4.1  [Sections of code should not be commented out] */
-/* More details at:  */
-/* coverity[misra_c_2012_directive_4_6_violation] */
+/* 
+ * The rule 20.5 is "Sections of code should not be 'commented out'"
+ */
+/* coverity[misra_c_2012_directive_4_4_violation] */
 /*lint -restore (9026) */
 
 /* The number of bytes used to hold the length of a message in the buffer. */
