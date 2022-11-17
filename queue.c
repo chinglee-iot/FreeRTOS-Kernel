@@ -2745,7 +2745,7 @@ BaseType_t xQueueIsQueueFullFromISR( const QueueHandle_t xQueue )
 
     BaseType_t xQueueCRReceiveFromISR( QueueHandle_t xQueue,
                                        void * pvBuffer,
-                                       BaseType_t * pxCoRoutineWoken )
+                                       BaseType_t * pxTaskWoken )
     {
         BaseType_t xReturn;
         Queue_t * const pxQueue = xQueue;
@@ -2769,13 +2769,13 @@ BaseType_t xQueueIsQueueFullFromISR( const QueueHandle_t xQueue )
             --( pxQueue->uxMessagesWaiting );
             ( void ) memcpy( ( void * ) pvBuffer, ( void * ) pxQueue->u.xQueue.pcReadFrom, ( unsigned ) pxQueue->uxItemSize );
 
-            if( ( *pxCoRoutineWoken ) == pdFALSE )
+            if( ( *pxTaskWoken ) == pdFALSE )
             {
                 if( listLIST_IS_EMPTY( &( pxQueue->xTasksWaitingToSend ) ) == pdFALSE )
                 {
                     if( xCoRoutineRemoveFromEventList( &( pxQueue->xTasksWaitingToSend ) ) != pdFALSE )
                     {
-                        *pxCoRoutineWoken = pdTRUE;
+                        *pxTaskWoken = pdTRUE;
                     }
                     else
                     {

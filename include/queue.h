@@ -1464,8 +1464,8 @@ QueueHandle_t xQueueCreateCountingSemaphoreStatic( const UBaseType_t uxMaxCount,
                                                    StaticQueue_t * pxStaticQueue ) PRIVILEGED_FUNCTION;
 BaseType_t xQueueSemaphoreTake( QueueHandle_t xQueue,
                                 TickType_t xTicksToWait ) PRIVILEGED_FUNCTION;
-TaskHandle_t xQueueGetMutexHolder( ConstQueueHandle_t xSemaphoreQueue ) PRIVILEGED_FUNCTION;
-TaskHandle_t xQueueGetMutexHolderFromISR( ConstQueueHandle_t xSemaphoreQueue ) PRIVILEGED_FUNCTION;
+TaskHandle_t xQueueGetMutexHolder( ConstQueueHandle_t xSemaphore ) PRIVILEGED_FUNCTION;
+TaskHandle_t xQueueGetMutexHolderFromISR( ConstQueueHandle_t xSemaphore ) PRIVILEGED_FUNCTION;
 
 /*
  * For internal use only.  Use xSemaphoreTakeMutexRecursive() or
