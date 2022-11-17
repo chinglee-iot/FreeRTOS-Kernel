@@ -617,7 +617,7 @@ static void prvInitialiseNewQueue( const UBaseType_t uxQueueLength,
     TaskHandle_t xQueueGetMutexHolder( ConstQueueHandle_t xSemaphore )
     {
         TaskHandle_t pxReturn;
-        const Queue_t * pxSemaphore = ( Queue_t * ) xSemaphore;
+        const Queue_t * pxSemaphore = ( const Queue_t * ) xSemaphore;
 
         configASSERT( xSemaphore );
 
@@ -656,9 +656,9 @@ static void prvInitialiseNewQueue( const UBaseType_t uxQueueLength,
         /* Mutexes cannot be used in interrupt service routines, so the mutex
          * holder should not change in an ISR, and therefore a critical section is
          * not required here. */
-        if( ( ( Queue_t * ) xSemaphore )->uxQueueType == queueQUEUE_IS_MUTEX )
+        if( ( ( const Queue_t * ) xSemaphore )->uxQueueType == queueQUEUE_IS_MUTEX )
         {
-            pxReturn = ( ( Queue_t * ) xSemaphore )->u.xSemaphore.xMutexHolder;
+            pxReturn = ( ( const Queue_t * ) xSemaphore )->u.xSemaphore.xMutexHolder;
         }
         else
         {
