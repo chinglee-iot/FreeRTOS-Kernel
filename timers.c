@@ -578,7 +578,7 @@
         return xReturn;
     }
 
-    UBaseType_t uxTimerGetReloadMode( TimerHandle_t xTimer )
+    UBaseType_t uxTimerGetReloadMode( ConstTimerHandle_t xTimer )
     {
         return ( UBaseType_t ) xTimerGetReloadMode( xTimer );
     }
@@ -1326,7 +1326,7 @@
 
         UBaseType_t uxTimerGetTimerNumber( ConstTimerHandle_t xTimer )
         {
-            return ( ( Timer_t * ) xTimer )->uxTimerNumber;
+            return ( ( const Timer_t * ) xTimer )->uxTimerNumber;
         }
 
     #endif /* configUSE_TRACE_FACILITY */

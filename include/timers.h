@@ -1285,7 +1285,7 @@ void vTimerSetReloadMode( TimerHandle_t xTimer,
 BaseType_t xTimerGetReloadMode( ConstTimerHandle_t xTimer ) PRIVILEGED_FUNCTION;
 
 /**
- * UBaseType_t uxTimerGetReloadMode( TimerHandle_t xTimer );
+ * UBaseType_t uxTimerGetReloadMode( ConstTimerHandle_t xTimer );
  *
  * Queries a timer to determine if it is an auto-reload timer, in which case the timer
  * automatically resets itself each time it expires, or a one-shot timer, in
@@ -1296,10 +1296,10 @@ BaseType_t xTimerGetReloadMode( ConstTimerHandle_t xTimer ) PRIVILEGED_FUNCTION;
  * @return If the timer is an auto-reload timer then pdTRUE is returned, otherwise
  * pdFALSE is returned.
  */
-UBaseType_t uxTimerGetReloadMode( TimerHandle_t xTimer ) PRIVILEGED_FUNCTION;
+UBaseType_t uxTimerGetReloadMode( ConstTimerHandle_t xTimer ) PRIVILEGED_FUNCTION;
 
 /**
- * TickType_t xTimerGetPeriod( TimerHandle_t xTimer );
+ * TickType_t xTimerGetPeriod( ConstTimerHandle_t xTimer );
  *
  * Returns the period of a timer.
  *
@@ -1307,7 +1307,7 @@ UBaseType_t uxTimerGetReloadMode( TimerHandle_t xTimer ) PRIVILEGED_FUNCTION;
  *
  * @return The period of the timer in ticks.
  */
-TickType_t xTimerGetPeriod( TimerHandle_t xTimer ) PRIVILEGED_FUNCTION;
+TickType_t xTimerGetPeriod( ConstTimerHandle_t xTimer ) PRIVILEGED_FUNCTION;
 
 /**
  * TickType_t xTimerGetExpiryTime( ConstTimerHandle_t xTimer );
