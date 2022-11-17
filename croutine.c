@@ -107,7 +107,7 @@
         BaseType_t xReturn;
         CRCB_t * pxCoRoutine;
         /* Declare to confort MISRA C 2012 Rule 17.8 - "A function parameter should not be modified" */
-        BaseType_t uxLocalPriority = uxPriority;
+        UBaseType_t uxLocalPriority = uxPriority;
 
         /* Allocate the memory that will store the co-routine control block. */
         pxCoRoutine = ( CRCB_t * ) pvPortMalloc( sizeof( CRCB_t ) );
@@ -304,7 +304,7 @@
                 if( uxTopCoRoutineReadyPriority == 0U )
                 {
                     /* No more co-routines to check. */
-                    noMoreToCheck = pdTRUE;
+                    noMoreToCheck = ( BaseType_t ) pdTRUE;
                     break;
                 }
 
