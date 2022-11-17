@@ -3337,6 +3337,34 @@ void vTaskInternalSetTimeOutState( TimeOut_t * const pxTimeOut ) PRIVILEGED_FUNC
  */
 void vTaskYieldWithinAPI( void );
 
+#if ( portCRITICAL_NESTING_IN_TCB == 1 )
+    /*
+     * For internal/port use only. Implementation for portENTER_CRITICAL().
+     */
+    void vTaskEnterCritical( void );
+#endif /* portCRITICAL_NESTING_IN_TCB == 1 */
+
+#if ( portCRITICAL_NESTING_IN_TCB == 1 )
+    /*
+     * For internal/port use only. Implementation for portEXIT_CRITICAL().
+     */
+    void vTaskExitCritical( void );
+#endif /* portCRITICAL_NESTING_IN_TCB == 1 */
+
+#if ( portCRITICAL_NESTING_IN_TCB == 1 ) && ( configNUM_CORES > 1 )
+    /*
+     * For internal/port use only. Implementation for portSET_INTERRUPT_MASK_FROM_ISR().
+     */
+    UBaseType_t vTaskEnterCriticalFromISR( void )
+#endif /* ( portCRITICAL_NESTING_IN_TCB == 1 ) && ( configNUM_CORES > 1 ) */
+
+#if ( portCRITICAL_NESTING_IN_TCB == 1 ) && ( configNUM_CORES > 1 )
+    /*
+     * For internal/port use only. Implementation for portCLEAR_INTERRUPT_MASK_FROM_ISR().
+     */
+    void vTaskExitCriticalFromISR( UBaseType_t uxSavedInterruptStatus );
+#endif /* ( portCRITICAL_NESTING_IN_TCB == 1 ) && ( configNUM_CORES > 1 ) */
+
 /* *INDENT-OFF* */
 #ifdef __cplusplus
     }

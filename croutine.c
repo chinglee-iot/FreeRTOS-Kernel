@@ -51,7 +51,7 @@
     static List_t xPendingReadyCoRoutineList;                               /*< Holds co-routines that have been readied by an external event.  They cannot be added directly to the ready lists as the ready lists cannot be accessed by interrupts. */
 
 /* Other file private variables. --------------------------------*/
-    CRCB_t * pxCurrentCoRoutine = NULL;
+    static CRCB_t * pxCurrentCoRoutine = NULL;
     static UBaseType_t uxTopCoRoutineReadyPriority = 0;
     static TickType_t xCoRoutineTickCount = 0, xLastTickCount = 0, xPassedTicks = 0;
 

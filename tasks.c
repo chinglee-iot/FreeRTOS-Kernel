@@ -407,9 +407,17 @@ typedef tskTCB TCB_t;
 /*lint -save -e956 A manual analysis and inspection has been used to determine
  * which static variables must be declared volatile. */
 #if ( configNUM_CORES == 1 )
+    /* Declare an extern here to confort MISRA C 2012 Rule 8.4 - 
+     * "A compatible declaration shall be visible when an object or function with external linkage is defined"
+     * This variable is used in some ports. */
+    extern portDONT_DISCARD PRIVILEGED_DATA TCB_t * volatile pxCurrentTCB;
     portDONT_DISCARD PRIVILEGED_DATA TCB_t * volatile pxCurrentTCB = NULL;
 #else
-portDONT_DISCARD PRIVILEGED_DATA TCB_t * volatile pxCurrentTCBs[ configNUM_CORES ] = { NULL };
+    /* Declare an extern here to confort MISRA C 2012 Rule 8.4 - 
+     * "A compatible declaration shall be visible when an object or function with external linkage is defined"
+     * This variable is used in some ports. */
+    extern portDONT_DISCARD PRIVILEGED_DATA TCB_t * volatile pxCurrentTCBs[ configNUM_CORES ];
+    portDONT_DISCARD PRIVILEGED_DATA TCB_t * volatile pxCurrentTCBs[ configNUM_CORES ] = { NULL };
     #define pxCurrentTCB    xTaskGetCurrentTaskHandle()
 #endif
 
@@ -458,6 +466,10 @@ PRIVILEGED_DATA static TaskHandle_t xIdleTaskHandles[ configNUM_CORES ] = { NULL
 /* Improve support for OpenOCD. The kernel tracks Ready tasks via priority lists.
  * For tracking the state of remote threads, OpenOCD uses uxTopUsedPriority
  * to determine the number of priority lists to read back from the remote target. */
+/* Declare an extern here to confort MISRA C 2012 Rule 8.4 - 
+ * "A compatible declaration shall be visible when an object or function with external linkage is defined"
+ * This variable is used in OpenOCD. */
+extern const volatile UBaseType_t uxTopUsedPriority;
 const volatile UBaseType_t uxTopUsedPriority = configMAX_PRIORITIES - 1U;
 
 /* Context switches are held pending while the scheduler is suspended.  Also,
