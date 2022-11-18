@@ -2521,22 +2521,39 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
     {
         TCB_t * pxTCB;
         BaseType_t xCoreID;
+        UBaseType_t uxPrevCoreAffinityMask;
 
         taskENTER_CRITICAL();
         {
             pxTCB = prvGetTCBFromHandle( xTask );
 
+            uxPrevCoreAffinityMask = pxTCB->uxCoreAffinityMask;
             pxTCB->uxCoreAffinityMask = uxCoreAffinityMask;
 
             if( xSchedulerRunning != pdFALSE )
             {
                 if( taskTASK_IS_RUNNING( pxTCB ) )
                 {
+                    /* The task is no longer linked to this core. Request the core which
+                     * is running this task to yield for other task. */
                     xCoreID = ( BaseType_t ) pxTCB->xTaskRunState;
 
                     if( ( uxCoreAffinityMask & ( 1 << xCoreID ) ) == 0 )
                     {
                         prvYieldCore( xCoreID );
+                    }
+                }
+                else
+                {
+                    /* uxPrevCoreAffinityMask stores the mask that indicate the cores
+                     * not link to this task in previous core affinity mask. */
+                    uxPrevCoreAffinityMask = ( ~uxPrevCoreAffinityMask ) & ( ( 1 << configNUM_CORES ) - 1 );
+
+                    /* The new core mask enables this task runs on more cores. Check
+                     * if this task is able to run now in prvYieldForTask function. */
+                    if( ( uxPrevCoreAffinityMask & uxCoreAffinityMask ) != 0U )
+                    {
+                        prvYieldForTask( pxTCB, pdTRUE );
                     }
                 }
             }
