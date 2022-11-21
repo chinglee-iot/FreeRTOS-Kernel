@@ -46,6 +46,10 @@
  * because the MPU ports require MPU_WRAPPERS_INCLUDED_FROM_API_FILE to be defined
  * for the header files above, but not in this file, in order to generate the
  * correct privileged Vs unprivileged linkage and placement. */
+/* 
+ * The rule 20.5 is "#undef should not be used."
+ */
+/* coverity[misra_c_2012_rule_20_5_violation] */
 #undef MPU_WRAPPERS_INCLUDED_FROM_API_FILE /*lint !e961 !e750 !e9021. */
 
 
@@ -165,7 +169,7 @@ typedef xQUEUE Queue_t;
 /* The queue registry is simply an array of QueueRegistryItem_t structures.
  * The pcQueueName member of a structure being NULL is indicative of the
  * array position being vacant. */
-    PRIVILEGED_DATA QueueRegistryItem_t xQueueRegistry[ configQUEUE_REGISTRY_SIZE ];
+    PRIVILEGED_DATA static QueueRegistryItem_t xQueueRegistry[ configQUEUE_REGISTRY_SIZE ];
 
 #endif /* configQUEUE_REGISTRY_SIZE */
 
@@ -492,7 +496,7 @@ BaseType_t xQueueGenericReset( QueueHandle_t xQueue,
         return pxNewQueue;
     }
 
-#endif /* configSUPPORT_STATIC_ALLOCATION */
+#endif /* configSUPPORT_DYNAMIC_ALLOCATION */
 /*-----------------------------------------------------------*/
 
 static void prvInitialiseNewQueue( const UBaseType_t uxQueueLength,
@@ -610,10 +614,10 @@ static void prvInitialiseNewQueue( const UBaseType_t uxQueueLength,
 
 #if ( ( configUSE_MUTEXES == 1 ) && ( INCLUDE_xSemaphoreGetMutexHolder == 1 ) )
 
-    TaskHandle_t xQueueGetMutexHolder( QueueHandle_t xSemaphore )
+    TaskHandle_t xQueueGetMutexHolder( ConstQueueHandle_t xSemaphore )
     {
         TaskHandle_t pxReturn;
-        Queue_t * const pxSemaphore = ( Queue_t * ) xSemaphore;
+        const Queue_t * pxSemaphore = ( const Queue_t * ) xSemaphore;
 
         configASSERT( xSemaphore );
 
@@ -643,7 +647,7 @@ static void prvInitialiseNewQueue( const UBaseType_t uxQueueLength,
 
 #if ( ( configUSE_MUTEXES == 1 ) && ( INCLUDE_xSemaphoreGetMutexHolder == 1 ) )
 
-    TaskHandle_t xQueueGetMutexHolderFromISR( QueueHandle_t xSemaphore )
+    TaskHandle_t xQueueGetMutexHolderFromISR( ConstQueueHandle_t xSemaphore )
     {
         TaskHandle_t pxReturn;
 
@@ -652,9 +656,9 @@ static void prvInitialiseNewQueue( const UBaseType_t uxQueueLength,
         /* Mutexes cannot be used in interrupt service routines, so the mutex
          * holder should not change in an ISR, and therefore a critical section is
          * not required here. */
-        if( ( ( Queue_t * ) xSemaphore )->uxQueueType == queueQUEUE_IS_MUTEX )
+        if( ( ( const Queue_t * ) xSemaphore )->uxQueueType == queueQUEUE_IS_MUTEX )
         {
-            pxReturn = ( ( Queue_t * ) xSemaphore )->u.xSemaphore.xMutexHolder;
+            pxReturn = ( ( const Queue_t * ) xSemaphore )->u.xSemaphore.xMutexHolder;
         }
         else
         {
@@ -2741,7 +2745,7 @@ BaseType_t xQueueIsQueueFullFromISR( const QueueHandle_t xQueue )
 
     BaseType_t xQueueCRReceiveFromISR( QueueHandle_t xQueue,
                                        void * pvBuffer,
-                                       BaseType_t * pxCoRoutineWoken )
+                                       BaseType_t * pxTaskWoken )
     {
         BaseType_t xReturn;
         Queue_t * const pxQueue = xQueue;
@@ -2765,13 +2769,13 @@ BaseType_t xQueueIsQueueFullFromISR( const QueueHandle_t xQueue )
             --( pxQueue->uxMessagesWaiting );
             ( void ) memcpy( ( void * ) pvBuffer, ( void * ) pxQueue->u.xQueue.pcReadFrom, ( unsigned ) pxQueue->uxItemSize );
 
-            if( ( *pxCoRoutineWoken ) == pdFALSE )
+            if( ( *pxTaskWoken ) == pdFALSE )
             {
                 if( listLIST_IS_EMPTY( &( pxQueue->xTasksWaitingToSend ) ) == pdFALSE )
                 {
                     if( xCoRoutineRemoveFromEventList( &( pxQueue->xTasksWaitingToSend ) ) != pdFALSE )
                     {
-                        *pxCoRoutineWoken = pdTRUE;
+                        *pxTaskWoken = pdTRUE;
                     }
                     else
                     {

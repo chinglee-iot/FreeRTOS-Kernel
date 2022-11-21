@@ -51,7 +51,7 @@
     static List_t xPendingReadyCoRoutineList;                               /*< Holds co-routines that have been readied by an external event.  They cannot be added directly to the ready lists as the ready lists cannot be accessed by interrupts. */
 
 /* Other file private variables. --------------------------------*/
-    CRCB_t * pxCurrentCoRoutine = NULL;
+    static CRCB_t * pxCurrentCoRoutine = NULL;
     static UBaseType_t uxTopCoRoutineReadyPriority = 0;
     static TickType_t xCoRoutineTickCount = 0, xLastTickCount = 0, xPassedTicks = 0;
 
@@ -106,11 +106,13 @@
     {
         BaseType_t xReturn;
         CRCB_t * pxCoRoutine;
+        /* Declare to confort MISRA C 2012 Rule 17.8 - "A function parameter should not be modified" */
+        UBaseType_t uxLocalPriority = uxPriority;
 
         /* Allocate the memory that will store the co-routine control block. */
         pxCoRoutine = ( CRCB_t * ) pvPortMalloc( sizeof( CRCB_t ) );
 
-        if( pxCoRoutine )
+        if( pxCoRoutine != NULL )
         {
             /* If pxCurrentCoRoutine is NULL then this is the first co-routine to
             * be created and the co-routine data structures need initialising. */
@@ -121,14 +123,14 @@
             }
 
             /* Check the priority is within limits. */
-            if( uxPriority >= configMAX_CO_ROUTINE_PRIORITIES )
+            if( uxLocalPriority >= configMAX_CO_ROUTINE_PRIORITIES )
             {
-                uxPriority = configMAX_CO_ROUTINE_PRIORITIES - 1;
+                uxLocalPriority = configMAX_CO_ROUTINE_PRIORITIES - 1U;
             }
 
             /* Fill out the co-routine control block from the function parameters. */
             pxCoRoutine->uxState = corINITIAL_STATE;
-            pxCoRoutine->uxPriority = uxPriority;
+            pxCoRoutine->uxPriority = uxLocalPriority;
             pxCoRoutine->uxIndex = uxIndex;
             pxCoRoutine->pxCoRoutineFunction = pxCoRoutineCode;
 
@@ -143,7 +145,7 @@
             listSET_LIST_ITEM_OWNER( &( pxCoRoutine->xEventListItem ), pxCoRoutine );
 
             /* Event lists are always in priority order. */
-            listSET_LIST_ITEM_VALUE( &( pxCoRoutine->xEventListItem ), ( ( TickType_t ) configMAX_CO_ROUTINE_PRIORITIES - ( TickType_t ) uxPriority ) );
+            listSET_LIST_ITEM_VALUE( &( pxCoRoutine->xEventListItem ), ( ( TickType_t ) configMAX_CO_ROUTINE_PRIORITIES - ( TickType_t ) uxLocalPriority ) );
 
             /* Now the co-routine has been initialised it can be added to the ready
              * list at the correct priority. */
@@ -190,7 +192,7 @@
             vListInsert( ( List_t * ) pxDelayedCoRoutineList, ( ListItem_t * ) &( pxCurrentCoRoutine->xGenericListItem ) );
         }
 
-        if( pxEventList )
+        if( pxEventList != NULL )
         {
             /* Also add the co-routine to an event list.  If this is done then the
              * function must be called with interrupts disabled. */
@@ -204,7 +206,7 @@
         /* Are there any co-routines waiting to get moved to the ready list?  These
          * are co-routines that have been readied by an ISR.  The ISR cannot access
          * the ready lists itself. */
-        while( listLIST_IS_EMPTY( &xPendingReadyCoRoutineList ) == pdFALSE )
+        while( !listLIST_IS_EMPTY( &xPendingReadyCoRoutineList ) )
         {
             CRCB_t * pxUnblockedCRCB;
 
@@ -228,13 +230,13 @@
 
         xPassedTicks = xTaskGetTickCount() - xLastTickCount;
 
-        while( xPassedTicks )
+        while( xPassedTicks > ( TickType_t ) 0 )
         {
             xCoRoutineTickCount++;
             xPassedTicks--;
 
             /* If the tick count has overflowed we need to swap the ready lists. */
-            if( xCoRoutineTickCount == 0 )
+            if( xCoRoutineTickCount == 0U )
             {
                 List_t * pxTemp;
 
@@ -246,7 +248,7 @@
             }
 
             /* See if this tick has made a timeout expire. */
-            while( listLIST_IS_EMPTY( pxDelayedCoRoutineList ) == pdFALSE )
+            while( !listLIST_IS_EMPTY( pxDelayedCoRoutineList ) )
             {
                 pxCRCB = ( CRCB_t * ) listGET_OWNER_OF_HEAD_ENTRY( pxDelayedCoRoutineList );
 
@@ -266,7 +268,7 @@
                     ( void ) uxListRemove( &( pxCRCB->xGenericListItem ) );
 
                     /* Is the co-routine waiting on an event also? */
-                    if( pxCRCB->xEventListItem.pxContainer )
+                    if( pxCRCB->xEventListItem.pxContainer != NULL )
                     {
                         ( void ) uxListRemove( &( pxCRCB->xEventListItem ) );
                     }
@@ -283,6 +285,17 @@
 
     void vCoRoutineSchedule( void )
     {
+        /*
+         * The rule 10.5 is The value of an expression should not be cast to an inappropriate essential type. 
+         * Because pdTRUE/pdFALSE are defined by FreeRTOS-Kernel are 0 and 1, which results in a signed integer.
+         * This means that our implementation conforms to the exception provided by MISRA
+         * To quote MISRA: "An integer constant expression with the value 0 or 1 of either signedness
+         * may be cast to a type which is defined as essentially Boolean.
+         * This allows the implementation of non-C99 Boolean models."
+         */
+        /* coverity[misra_c_2012_rule_10_5_violation] */
+        BaseType_t noMoreToCheck = ( BaseType_t ) pdFALSE;
+
         /* Only run a co-routine after prvInitialiseCoRoutineLists() has been
          * called.  prvInitialiseCoRoutineLists() is called automatically when a
          * co-routine is created. */
@@ -295,23 +308,58 @@
             prvCheckDelayedList();
 
             /* Find the highest priority queue that contains ready co-routines. */
-            while( listLIST_IS_EMPTY( &( pxReadyCoRoutineLists[ uxTopCoRoutineReadyPriority ] ) ) )
+            /*
+             * The rule 10.5 is The value of an expression should not be cast to an inappropriate essential type. 
+             * Because pdTRUE/pdFALSE are defined by FreeRTOS-Kernel are 0 and 1, which results in a signed integer.
+             * This means that our implementation conforms to the exception provided by MISRA
+             * To quote MISRA: "An integer constant expression with the value 0 or 1 of either signedness
+             * may be cast to a type which is defined as essentially Boolean.
+             * This allows the implementation of non-C99 Boolean models."
+             */
+            /* coverity[misra_c_2012_rule_10_5_violation] */
+            while( listLIST_IS_EMPTY( &( pxReadyCoRoutineLists[ uxTopCoRoutineReadyPriority ] ) ) == ( BaseType_t ) pdTRUE )
             {
-                if( uxTopCoRoutineReadyPriority == 0 )
+                if( uxTopCoRoutineReadyPriority == 0U )
                 {
                     /* No more co-routines to check. */
-                    return;
+                    /*
+                     * The rule 10.5 is The value of an expression should not be cast to an inappropriate essential type. 
+                     * Because pdTRUE/pdFALSE are defined by FreeRTOS-Kernel are 0 and 1, which results in a signed integer.
+                     * This means that our implementation conforms to the exception provided by MISRA
+                     * To quote MISRA: "An integer constant expression with the value 0 or 1 of either signedness
+                     * may be cast to a type which is defined as essentially Boolean.
+                     * This allows the implementation of non-C99 Boolean models."
+                     */
+                    /* coverity[misra_c_2012_rule_10_5_violation] */
+                    noMoreToCheck = ( BaseType_t ) pdTRUE;
+                    break;
                 }
 
                 --uxTopCoRoutineReadyPriority;
             }
 
-            /* listGET_OWNER_OF_NEXT_ENTRY walks through the list, so the co-routines
-             * of the same priority get an equal share of the processor time. */
-            listGET_OWNER_OF_NEXT_ENTRY( pxCurrentCoRoutine, &( pxReadyCoRoutineLists[ uxTopCoRoutineReadyPriority ] ) );
+            /*
+             * The rule 10.5 is The value of an expression should not be cast to an inappropriate essential type. 
+             * Because pdTRUE/pdFALSE are defined by FreeRTOS-Kernel are 0 and 1, which results in a signed integer.
+             * This means that our implementation conforms to the exception provided by MISRA
+             * To quote MISRA: "An integer constant expression with the value 0 or 1 of either signedness
+             * may be cast to a type which is defined as essentially Boolean.
+             * This allows the implementation of non-C99 Boolean models."
+             */
+            /* coverity[misra_c_2012_rule_10_5_violation] */
+            if( noMoreToCheck == ( BaseType_t ) pdFALSE )
+            {
+                /* listGET_OWNER_OF_NEXT_ENTRY walks through the list, so the co-routines
+                 * of the same priority get an equal share of the processor time. */
+                listGET_OWNER_OF_NEXT_ENTRY( pxCurrentCoRoutine, &( pxReadyCoRoutineLists[ uxTopCoRoutineReadyPriority ] ) );
 
-            /* Call the co-routine. */
-            ( pxCurrentCoRoutine->pxCoRoutineFunction )( pxCurrentCoRoutine, pxCurrentCoRoutine->uxIndex );
+                /* Call the co-routine. */
+                ( pxCurrentCoRoutine->pxCoRoutineFunction )( pxCurrentCoRoutine, pxCurrentCoRoutine->uxIndex );
+            }
+            else
+            {
+                /* Nothing to do if no more co-routines to check. */
+            }
         }
     }
 /*-----------------------------------------------------------*/
@@ -350,11 +398,29 @@
 
         if( pxUnblockedCRCB->uxPriority >= pxCurrentCoRoutine->uxPriority )
         {
-            xReturn = pdTRUE;
+            /*
+             * The rule 10.5 is The value of an expression should not be cast to an inappropriate essential type. 
+             * Because pdTRUE/pdFALSE are defined by FreeRTOS-Kernel are 0 and 1, which results in a signed integer.
+             * This means that our implementation conforms to the exception provided by MISRA
+             * To quote MISRA: "An integer constant expression with the value 0 or 1 of either signedness
+             * may be cast to a type which is defined as essentially Boolean.
+             * This allows the implementation of non-C99 Boolean models."
+             */
+            /* coverity[misra_c_2012_rule_10_5_violation] */
+            xReturn = ( BaseType_t ) pdTRUE;
         }
         else
         {
-            xReturn = pdFALSE;
+            /*
+             * The rule 10.5 is The value of an expression should not be cast to an inappropriate essential type. 
+             * Because pdTRUE/pdFALSE are defined by FreeRTOS-Kernel are 0 and 1, which results in a signed integer.
+             * This means that our implementation conforms to the exception provided by MISRA
+             * To quote MISRA: "An integer constant expression with the value 0 or 1 of either signedness
+             * may be cast to a type which is defined as essentially Boolean.
+             * This allows the implementation of non-C99 Boolean models."
+             */
+            /* coverity[misra_c_2012_rule_10_5_violation] */
+            xReturn = ( BaseType_t ) pdFALSE;
         }
 
         return xReturn;

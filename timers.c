@@ -47,6 +47,10 @@
  * because the MPU ports require MPU_WRAPPERS_INCLUDED_FROM_API_FILE to be defined
  * for the header files above, but not in this file, in order to generate the
  * correct privileged Vs unprivileged linkage and placement. */
+/* 
+ * The rule 20.5 is "#undef should not be used."
+ */
+/* coverity[misra_c_2012_rule_20_5_violation] */
 #undef MPU_WRAPPERS_INCLUDED_FROM_API_FILE /*lint !e9021 !e961 !e750. */
 
 
@@ -254,7 +258,7 @@
                                                       configTIMER_SERVICE_TASK_NAME,
                                                       ulTimerTaskStackSize,
                                                       NULL,
-                                                      ( ( UBaseType_t ) configTIMER_TASK_PRIORITY ) | portPRIVILEGE_BIT,
+                                                      ( UBaseType_t ) ( ( uint8_t ) configTIMER_TASK_PRIORITY ) | portPRIVILEGE_BIT,
                                                       pxTimerTaskStackBuffer,
                                                       pxTimerTaskTCBBuffer );
 
@@ -335,6 +339,10 @@
 
             /* A pointer to a StaticTimer_t structure MUST be provided, use it. */
             configASSERT( pxTimerBuffer );
+            
+            /* MISRA Rule 11.3 prohibits casting a pointer to a different type.
+             * Allow to convert from StaticTimer_t to Timer_t. */
+            /* coverity[misra_c_2012_rule_11_3_violation] */
             pxNewTimer = ( Timer_t * ) pxTimerBuffer; /*lint !e740 !e9087 StaticTimer_t is a pointer to a Timer_t, so guaranteed to be aligned and sized correctly (checked by an assert()), so this is safe. */
 
             if( pxNewTimer != NULL )
@@ -375,7 +383,16 @@
         pxNewTimer->pxCallbackFunction = pxCallbackFunction;
         vListInitialiseItem( &( pxNewTimer->xTimerListItem ) );
 
-        if( xAutoReload != pdFALSE )
+        /*
+         * The rule 10.5 is The value of an expression should not be cast to an inappropriate essential type. 
+         * Because pdTRUE/pdFALSE are defined by FreeRTOS-Kernel are 0 and 1, which results in a signed integer.
+         * This means that our implementation conforms to the exception provided by MISRA
+         * To quote MISRA: "An integer constant expression with the value 0 or 1 of either signedness
+         * may be cast to a type which is defined as essentially Boolean.
+         * This allows the implementation of non-C99 Boolean models."
+         */
+        /* coverity[misra_c_2012_rule_10_5_violation] */
+        if( xAutoReload == ( BaseType_t ) pdTRUE )
         {
             pxNewTimer->ucStatus |= tmrSTATUS_IS_AUTORELOAD;
         }
@@ -387,7 +404,7 @@
     BaseType_t xTimerGenericCommandFromTask( TimerHandle_t xTimer,
                                              const BaseType_t xCommandID,
                                              const TickType_t xOptionalValue,
-                                             BaseType_t * const pxHigherPriorityTaskWoken,
+                                             const BaseType_t * pxHigherPriorityTaskWoken,
                                              const TickType_t xTicksToWait )
     {
         BaseType_t xReturn = pdFAIL;
@@ -480,9 +497,9 @@
     }
 /*-----------------------------------------------------------*/
 
-    TickType_t xTimerGetPeriod( TimerHandle_t xTimer )
+    TickType_t xTimerGetPeriod( ConstTimerHandle_t xTimer )
     {
-        Timer_t * pxTimer = xTimer;
+        const Timer_t * pxTimer = xTimer;
 
         configASSERT( xTimer );
         return pxTimer->xTimerPeriodInTicks;
@@ -497,7 +514,16 @@
         configASSERT( xTimer );
         taskENTER_CRITICAL();
         {
-            if( xAutoReload != pdFALSE )
+            /*
+             * The rule 10.5 is The value of an expression should not be cast to an inappropriate essential type. 
+             * Because pdTRUE/pdFALSE are defined by FreeRTOS-Kernel are 0 and 1, which results in a signed integer.
+             * This means that our implementation conforms to the exception provided by MISRA
+             * To quote MISRA: "An integer constant expression with the value 0 or 1 of either signedness
+             * may be cast to a type which is defined as essentially Boolean.
+             * This allows the implementation of non-C99 Boolean models."
+             */
+            /* coverity[misra_c_2012_rule_10_5_violation] */
+            if( xAutoReload == ( BaseType_t ) pdTRUE )
             {
                 pxTimer->ucStatus |= tmrSTATUS_IS_AUTORELOAD;
             }
@@ -510,23 +536,41 @@
     }
 /*-----------------------------------------------------------*/
 
-    BaseType_t xTimerGetReloadMode( TimerHandle_t xTimer )
+    BaseType_t xTimerGetReloadMode( ConstTimerHandle_t xTimer )
     {
-        Timer_t * pxTimer = xTimer;
+        const Timer_t * pxTimer = xTimer;
         BaseType_t xReturn;
 
         configASSERT( xTimer );
         taskENTER_CRITICAL();
         {
-            if( ( pxTimer->ucStatus & tmrSTATUS_IS_AUTORELOAD ) == 0 )
+            if( ( pxTimer->ucStatus & tmrSTATUS_IS_AUTORELOAD ) == 0U )
             {
                 /* Not an auto-reload timer. */
-                xReturn = pdFALSE;
+                /*
+                 * The rule 10.5 is The value of an expression should not be cast to an inappropriate essential type. 
+                 * Because pdTRUE/pdFALSE are defined by FreeRTOS-Kernel are 0 and 1, which results in a signed integer.
+                 * This means that our implementation conforms to the exception provided by MISRA
+                 * To quote MISRA: "An integer constant expression with the value 0 or 1 of either signedness
+                 * may be cast to a type which is defined as essentially Boolean.
+                 * This allows the implementation of non-C99 Boolean models."
+                 */
+                /* coverity[misra_c_2012_rule_10_5_violation] */
+                xReturn = ( BaseType_t ) pdFALSE;
             }
             else
             {
                 /* Is an auto-reload timer. */
-                xReturn = pdTRUE;
+                /*
+                 * The rule 10.5 is The value of an expression should not be cast to an inappropriate essential type. 
+                 * Because pdTRUE/pdFALSE are defined by FreeRTOS-Kernel are 0 and 1, which results in a signed integer.
+                 * This means that our implementation conforms to the exception provided by MISRA
+                 * To quote MISRA: "An integer constant expression with the value 0 or 1 of either signedness
+                 * may be cast to a type which is defined as essentially Boolean.
+                 * This allows the implementation of non-C99 Boolean models."
+                 */
+                /* coverity[misra_c_2012_rule_10_5_violation] */
+                xReturn = ( BaseType_t ) pdTRUE;
             }
         }
         taskEXIT_CRITICAL();
@@ -534,15 +578,15 @@
         return xReturn;
     }
 
-    UBaseType_t uxTimerGetReloadMode( TimerHandle_t xTimer )
+    UBaseType_t uxTimerGetReloadMode( ConstTimerHandle_t xTimer )
     {
         return ( UBaseType_t ) xTimerGetReloadMode( xTimer );
     }
 /*-----------------------------------------------------------*/
 
-    TickType_t xTimerGetExpiryTime( TimerHandle_t xTimer )
+    TickType_t xTimerGetExpiryTime( ConstTimerHandle_t xTimer )
     {
-        Timer_t * pxTimer = xTimer;
+        const Timer_t * pxTimer = xTimer;
         TickType_t xReturn;
 
         configASSERT( xTimer );
@@ -551,9 +595,9 @@
     }
 /*-----------------------------------------------------------*/
 
-    const char * pcTimerGetName( TimerHandle_t xTimer ) /*lint !e971 Unqualified char types are allowed for strings and single characters only. */
+    const char * pcTimerGetName( ConstTimerHandle_t xTimer ) /*lint !e971 Unqualified char types are allowed for strings and single characters only. */
     {
-        Timer_t * pxTimer = xTimer;
+        const Timer_t * pxTimer = xTimer;
 
         configASSERT( xTimer );
         return pxTimer->pcTimerName;
@@ -564,13 +608,25 @@
                                 TickType_t xExpiredTime,
                                 const TickType_t xTimeNow )
     {
+        /* Declare to confort MISRA C 2012 Rule 17.8 - "A function parameter should not be modified" */
+        TickType_t xLocalExpiredTime = xExpiredTime;
+
         /* Insert the timer into the appropriate list for the next expiry time.
          * If the next expiry time has already passed, advance the expiry time,
          * call the callback function, and try again. */
-        while( prvInsertTimerInActiveList( pxTimer, ( xExpiredTime + pxTimer->xTimerPeriodInTicks ), xTimeNow, xExpiredTime ) != pdFALSE )
+        /*
+         * The rule 10.5 is The value of an expression should not be cast to an inappropriate essential type. 
+         * Because pdTRUE/pdFALSE are defined by FreeRTOS-Kernel are 0 and 1, which results in a signed integer.
+         * This means that our implementation conforms to the exception provided by MISRA
+         * To quote MISRA: "An integer constant expression with the value 0 or 1 of either signedness
+         * may be cast to a type which is defined as essentially Boolean.
+         * This allows the implementation of non-C99 Boolean models."
+         */
+        /* coverity[misra_c_2012_rule_10_5_violation] */
+        while( prvInsertTimerInActiveList( pxTimer, ( xLocalExpiredTime + pxTimer->xTimerPeriodInTicks ), xTimeNow, xLocalExpiredTime ) == ( BaseType_t ) pdTRUE )
         {
             /* Advance the expiry time. */
-            xExpiredTime += pxTimer->xTimerPeriodInTicks;
+            xLocalExpiredTime += pxTimer->xTimerPeriodInTicks;
 
             /* Call the timer callback. */
             traceTIMER_EXPIRED( pxTimer );
@@ -591,7 +647,7 @@
 
         /* If the timer is an auto-reload timer then calculate the next
          * expiry time and re-insert the timer in the list of active timers. */
-        if( ( pxTimer->ucStatus & tmrSTATUS_IS_AUTORELOAD ) != 0 )
+        if( ( pxTimer->ucStatus & tmrSTATUS_IS_AUTORELOAD ) != 0U )
         {
             prvReloadTimer( pxTimer, xNextExpireTime, xTimeNow );
         }
@@ -647,6 +703,8 @@
     {
         TickType_t xTimeNow;
         BaseType_t xTimerListsWereSwitched;
+        /* Declare to confort MISRA C 2012 Rule 17.8 - "A function parameter should not be modified" */
+        BaseType_t xLocalListWasEmpty = xListWasEmpty;
 
         vTaskSuspendAll();
         {
@@ -657,10 +715,28 @@
              * prvSampleTimeNow() function. */
             xTimeNow = prvSampleTimeNow( &xTimerListsWereSwitched );
 
-            if( xTimerListsWereSwitched == pdFALSE )
+            /*
+             * The rule 10.5 is The value of an expression should not be cast to an inappropriate essential type. 
+             * Because pdTRUE/pdFALSE are defined by FreeRTOS-Kernel are 0 and 1, which results in a signed integer.
+             * This means that our implementation conforms to the exception provided by MISRA
+             * To quote MISRA: "An integer constant expression with the value 0 or 1 of either signedness
+             * may be cast to a type which is defined as essentially Boolean.
+             * This allows the implementation of non-C99 Boolean models."
+             */
+            /* coverity[misra_c_2012_rule_10_5_violation] */
+            if( xTimerListsWereSwitched == ( BaseType_t ) pdFALSE )
             {
                 /* The tick count has not overflowed, has the timer expired? */
-                if( ( xListWasEmpty == pdFALSE ) && ( xNextExpireTime <= xTimeNow ) )
+                /*
+                 * The rule 10.5 is The value of an expression should not be cast to an inappropriate essential type. 
+                 * Because pdTRUE/pdFALSE are defined by FreeRTOS-Kernel are 0 and 1, which results in a signed integer.
+                 * This means that our implementation conforms to the exception provided by MISRA
+                 * To quote MISRA: "An integer constant expression with the value 0 or 1 of either signedness
+                 * may be cast to a type which is defined as essentially Boolean.
+                 * This allows the implementation of non-C99 Boolean models."
+                 */
+                /* coverity[misra_c_2012_rule_10_5_violation] */
+                if( ( xLocalListWasEmpty == ( BaseType_t ) pdFALSE ) && ( xNextExpireTime <= xTimeNow ) )
                 {
                     ( void ) xTaskResumeAll();
                     prvProcessExpiredTimer( xNextExpireTime, xTimeNow );
@@ -673,16 +749,34 @@
                      * received - whichever comes first.  The following line cannot
                      * be reached unless xNextExpireTime > xTimeNow, except in the
                      * case when the current timer list is empty. */
-                    if( xListWasEmpty != pdFALSE )
+                    /*
+                     * The rule 10.5 is The value of an expression should not be cast to an inappropriate essential type. 
+                     * Because pdTRUE/pdFALSE are defined by FreeRTOS-Kernel are 0 and 1, which results in a signed integer.
+                     * This means that our implementation conforms to the exception provided by MISRA
+                     * To quote MISRA: "An integer constant expression with the value 0 or 1 of either signedness
+                     * may be cast to a type which is defined as essentially Boolean.
+                     * This allows the implementation of non-C99 Boolean models."
+                     */
+                    /* coverity[misra_c_2012_rule_10_5_violation] */
+                    if( xLocalListWasEmpty == ( BaseType_t ) pdTRUE )
                     {
                         /* The current timer list is empty - is the overflow list
                          * also empty? */
-                        xListWasEmpty = listLIST_IS_EMPTY( pxOverflowTimerList );
+                        xLocalListWasEmpty = listLIST_IS_EMPTY( pxOverflowTimerList );
                     }
 
-                    vQueueWaitForMessageRestricted( xTimerQueue, ( xNextExpireTime - xTimeNow ), xListWasEmpty );
+                    vQueueWaitForMessageRestricted( xTimerQueue, ( xNextExpireTime - xTimeNow ), xLocalListWasEmpty );
 
-                    if( xTaskResumeAll() == pdFALSE )
+                    /*
+                     * The rule 10.5 is The value of an expression should not be cast to an inappropriate essential type. 
+                     * Because pdTRUE/pdFALSE are defined by FreeRTOS-Kernel are 0 and 1, which results in a signed integer.
+                     * This means that our implementation conforms to the exception provided by MISRA
+                     * To quote MISRA: "An integer constant expression with the value 0 or 1 of either signedness
+                     * may be cast to a type which is defined as essentially Boolean.
+                     * This allows the implementation of non-C99 Boolean models."
+                     */
+                    /* coverity[misra_c_2012_rule_10_5_violation] */
+                    if( xTaskResumeAll() == ( BaseType_t ) pdFALSE )
                     {
                         /* Yield to wait for either a command to arrive, or the
                          * block time to expire.  If a command arrived between the
@@ -725,7 +819,16 @@
          * re-assessed.  */
         *pxListWasEmpty = listLIST_IS_EMPTY( pxCurrentTimerList );
 
-        if( *pxListWasEmpty == pdFALSE )
+        /*
+         * The rule 10.5 is The value of an expression should not be cast to an inappropriate essential type. 
+         * Because pdTRUE/pdFALSE are defined by FreeRTOS-Kernel are 0 and 1, which results in a signed integer.
+         * This means that our implementation conforms to the exception provided by MISRA
+         * To quote MISRA: "An integer constant expression with the value 0 or 1 of either signedness
+         * may be cast to a type which is defined as essentially Boolean.
+         * This allows the implementation of non-C99 Boolean models."
+         */
+        /* coverity[misra_c_2012_rule_10_5_violation] */
+        if( *pxListWasEmpty == ( BaseType_t ) pdFALSE )
         {
             xNextExpireTime = listGET_ITEM_VALUE_OF_HEAD_ENTRY( pxCurrentTimerList );
         }
@@ -749,11 +852,30 @@
         if( xTimeNow < xLastTime )
         {
             prvSwitchTimerLists();
-            *pxTimerListsWereSwitched = pdTRUE;
+            
+            /*
+             * The rule 10.5 is The value of an expression should not be cast to an inappropriate essential type. 
+             * Because pdTRUE/pdFALSE are defined by FreeRTOS-Kernel are 0 and 1, which results in a signed integer.
+             * This means that our implementation conforms to the exception provided by MISRA
+             * To quote MISRA: "An integer constant expression with the value 0 or 1 of either signedness
+             * may be cast to a type which is defined as essentially Boolean.
+             * This allows the implementation of non-C99 Boolean models."
+             */
+            /* coverity[misra_c_2012_rule_10_5_violation] */
+            *pxTimerListsWereSwitched = ( BaseType_t ) pdTRUE;
         }
         else
         {
-            *pxTimerListsWereSwitched = pdFALSE;
+            /*
+             * The rule 10.5 is The value of an expression should not be cast to an inappropriate essential type. 
+             * Because pdTRUE/pdFALSE are defined by FreeRTOS-Kernel are 0 and 1, which results in a signed integer.
+             * This means that our implementation conforms to the exception provided by MISRA
+             * To quote MISRA: "An integer constant expression with the value 0 or 1 of either signedness
+             * may be cast to a type which is defined as essentially Boolean.
+             * This allows the implementation of non-C99 Boolean models."
+             */
+            /* coverity[misra_c_2012_rule_10_5_violation] */
+            *pxTimerListsWereSwitched = ( BaseType_t ) pdFALSE;
         }
 
         xLastTime = xTimeNow;
@@ -767,7 +889,16 @@
                                                   const TickType_t xTimeNow,
                                                   const TickType_t xCommandTime )
     {
-        BaseType_t xProcessTimerNow = pdFALSE;
+        /*
+         * The rule 10.5 is The value of an expression should not be cast to an inappropriate essential type. 
+         * Because pdTRUE/pdFALSE are defined by FreeRTOS-Kernel are 0 and 1, which results in a signed integer.
+         * This means that our implementation conforms to the exception provided by MISRA
+         * To quote MISRA: "An integer constant expression with the value 0 or 1 of either signedness
+         * may be cast to a type which is defined as essentially Boolean.
+         * This allows the implementation of non-C99 Boolean models."
+         */
+        /* coverity[misra_c_2012_rule_10_5_violation] */
+        BaseType_t xProcessTimerNow = ( BaseType_t ) pdFALSE;
 
         listSET_LIST_ITEM_VALUE( &( pxTimer->xTimerListItem ), xNextExpiryTime );
         listSET_LIST_ITEM_OWNER( &( pxTimer->xTimerListItem ), pxTimer );
@@ -779,8 +910,17 @@
             if( ( ( TickType_t ) ( xTimeNow - xCommandTime ) ) >= pxTimer->xTimerPeriodInTicks ) /*lint !e961 MISRA exception as the casts are only redundant for some ports. */
             {
                 /* The time between a command being issued and the command being
-                 * processed actually exceeds the timers period.  */
-                xProcessTimerNow = pdTRUE;
+                 * processed actually exceeds the timers period. */
+                /*
+                 * The rule 10.5 is The value of an expression should not be cast to an inappropriate essential type. 
+                 * Because pdTRUE/pdFALSE are defined by FreeRTOS-Kernel are 0 and 1, which results in a signed integer.
+                 * This means that our implementation conforms to the exception provided by MISRA
+                 * To quote MISRA: "An integer constant expression with the value 0 or 1 of either signedness
+                 * may be cast to a type which is defined as essentially Boolean.
+                 * This allows the implementation of non-C99 Boolean models."
+                 */
+                /* coverity[misra_c_2012_rule_10_5_violation] */
+                xProcessTimerNow = ( BaseType_t ) pdTRUE;
             }
             else
             {
@@ -794,7 +934,16 @@
                 /* If, since the command was issued, the tick count has overflowed
                  * but the expiry time has not, then the timer must have already passed
                  * its expiry time and should be processed immediately. */
-                xProcessTimerNow = pdTRUE;
+                /*
+                 * The rule 10.5 is The value of an expression should not be cast to an inappropriate essential type. 
+                 * Because pdTRUE/pdFALSE are defined by FreeRTOS-Kernel are 0 and 1, which results in a signed integer.
+                 * This means that our implementation conforms to the exception provided by MISRA
+                 * To quote MISRA: "An integer constant expression with the value 0 or 1 of either signedness
+                 * may be cast to a type which is defined as essentially Boolean.
+                 * This allows the implementation of non-C99 Boolean models."
+                 */
+                /* coverity[misra_c_2012_rule_10_5_violation] */
+                xProcessTimerNow = ( BaseType_t ) pdTRUE;
             }
             else
             {
@@ -845,7 +994,7 @@
                  * software timer. */
                 pxTimer = xMessage.u.xTimerParameters.pxTimer;
 
-                if( listIS_CONTAINED_WITHIN( NULL, &( pxTimer->xTimerListItem ) ) == pdFALSE ) /*lint !e961. The cast is only redundant when NULL is passed into the macro. */
+                if( !listIS_CONTAINED_WITHIN( NULL, &( pxTimer->xTimerListItem ) ) ) /*lint !e961. The cast is only redundant when NULL is passed into the macro. */
                 {
                     /* The timer is in a list, remove it. */
                     ( void ) uxListRemove( &( pxTimer->xTimerListItem ) );
@@ -874,11 +1023,20 @@
                         /* Start or restart a timer. */
                         pxTimer->ucStatus |= tmrSTATUS_IS_ACTIVE;
 
-                        if( prvInsertTimerInActiveList( pxTimer, xMessage.u.xTimerParameters.xMessageValue + pxTimer->xTimerPeriodInTicks, xTimeNow, xMessage.u.xTimerParameters.xMessageValue ) != pdFALSE )
+                        /*
+                         * The rule 10.5 is The value of an expression should not be cast to an inappropriate essential type. 
+                         * Because pdTRUE/pdFALSE are defined by FreeRTOS-Kernel are 0 and 1, which results in a signed integer.
+                         * This means that our implementation conforms to the exception provided by MISRA
+                         * To quote MISRA: "An integer constant expression with the value 0 or 1 of either signedness
+                         * may be cast to a type which is defined as essentially Boolean.
+                         * This allows the implementation of non-C99 Boolean models."
+                         */
+                        /* coverity[misra_c_2012_rule_10_5_violation] */
+                        if( prvInsertTimerInActiveList( pxTimer, xMessage.u.xTimerParameters.xMessageValue + pxTimer->xTimerPeriodInTicks, xTimeNow, xMessage.u.xTimerParameters.xMessageValue ) == ( BaseType_t ) pdTRUE )
                         {
                             /* The timer expired before it was added to the active
                              * timer list.  Process it now. */
-                            if( ( pxTimer->ucStatus & tmrSTATUS_IS_AUTORELOAD ) != 0 )
+                            if( ( pxTimer->ucStatus & tmrSTATUS_IS_AUTORELOAD ) != 0U )
                             {
                                 prvReloadTimer( pxTimer, xMessage.u.xTimerParameters.xMessageValue + pxTimer->xTimerPeriodInTicks, xTimeNow );
                             }
@@ -963,7 +1121,7 @@
          * If there are any timers still referenced from the current timer list
          * then they must have expired and should be processed before the lists
          * are switched. */
-        while( listLIST_IS_EMPTY( pxCurrentTimerList ) == pdFALSE )
+        while( !listLIST_IS_EMPTY( pxCurrentTimerList ) )
         {
             xNextExpireTime = listGET_ITEM_VALUE_OF_HEAD_ENTRY( pxCurrentTimerList );
 
@@ -1030,23 +1188,41 @@
     }
 /*-----------------------------------------------------------*/
 
-    BaseType_t xTimerIsTimerActive( TimerHandle_t xTimer )
+    BaseType_t xTimerIsTimerActive( ConstTimerHandle_t xTimer )
     {
         BaseType_t xReturn;
-        Timer_t * pxTimer = xTimer;
+        const Timer_t * pxTimer = xTimer;
 
         configASSERT( xTimer );
 
         /* Is the timer in the list of active timers? */
         taskENTER_CRITICAL();
         {
-            if( ( pxTimer->ucStatus & tmrSTATUS_IS_ACTIVE ) == 0 )
+            if( ( pxTimer->ucStatus & tmrSTATUS_IS_ACTIVE ) == 0U )
             {
-                xReturn = pdFALSE;
+                /*
+                 * The rule 10.5 is The value of an expression should not be cast to an inappropriate essential type. 
+                 * Because pdTRUE/pdFALSE are defined by FreeRTOS-Kernel are 0 and 1, which results in a signed integer.
+                 * This means that our implementation conforms to the exception provided by MISRA
+                 * To quote MISRA: "An integer constant expression with the value 0 or 1 of either signedness
+                 * may be cast to a type which is defined as essentially Boolean.
+                 * This allows the implementation of non-C99 Boolean models."
+                 */
+                /* coverity[misra_c_2012_rule_10_5_violation] */
+                xReturn = ( BaseType_t ) pdFALSE;
             }
             else
             {
-                xReturn = pdTRUE;
+                /*
+                 * The rule 10.5 is The value of an expression should not be cast to an inappropriate essential type. 
+                 * Because pdTRUE/pdFALSE are defined by FreeRTOS-Kernel are 0 and 1, which results in a signed integer.
+                 * This means that our implementation conforms to the exception provided by MISRA
+                 * To quote MISRA: "An integer constant expression with the value 0 or 1 of either signedness
+                 * may be cast to a type which is defined as essentially Boolean.
+                 * This allows the implementation of non-C99 Boolean models."
+                 */
+                /* coverity[misra_c_2012_rule_10_5_violation] */
+                xReturn = ( BaseType_t ) pdTRUE;
             }
         }
         taskEXIT_CRITICAL();
@@ -1055,9 +1231,9 @@
     } /*lint !e818 Can't be pointer to const due to the typedef. */
 /*-----------------------------------------------------------*/
 
-    void * pvTimerGetTimerID( const TimerHandle_t xTimer )
+    void * pvTimerGetTimerID( const ConstTimerHandle_t xTimer )
     {
-        Timer_t * const pxTimer = xTimer;
+        const Timer_t * const pxTimer = xTimer;
         void * pvReturn;
 
         configASSERT( xTimer );
@@ -1148,9 +1324,9 @@
 
     #if ( configUSE_TRACE_FACILITY == 1 )
 
-        UBaseType_t uxTimerGetTimerNumber( TimerHandle_t xTimer )
+        UBaseType_t uxTimerGetTimerNumber( ConstTimerHandle_t xTimer )
         {
-            return ( ( Timer_t * ) xTimer )->uxTimerNumber;
+            return ( ( const Timer_t * ) xTimer )->uxTimerNumber;
         }
 
     #endif /* configUSE_TRACE_FACILITY */

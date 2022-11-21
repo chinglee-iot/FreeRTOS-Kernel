@@ -44,6 +44,10 @@
  * because the MPU ports require MPU_WRAPPERS_INCLUDED_FROM_API_FILE to be defined
  * for the header files above, but not in this file, in order to generate the
  * correct privileged Vs unprivileged linkage and placement. */
+/* 
+ * The rule 20.5 is "#undef should not be used."
+ */
+/* coverity[misra_c_2012_rule_20_5_violation] */
 #undef MPU_WRAPPERS_INCLUDED_FROM_API_FILE /*lint !e961 !e750 !e9021 See comment above. */
 
 /* The following bit fields convey control information in a task's event list
@@ -111,6 +115,9 @@ static BaseType_t prvTestWaitCondition( const EventBits_t uxCurrentEventBits,
         #endif /* configASSERT_DEFINED */
 
         /* The user has provided a statically allocated event group - use it. */
+        /* MISRA Rule 11.3 prohibits casting a pointer to a different type.
+         * Allow to convert from StaticEventGroup_t to EventGroup_t. */
+        /* coverity[misra_c_2012_rule_11_3_violation] */
         pxEventBits = ( EventGroup_t * ) pxEventGroupBuffer; /*lint !e740 !e9087 EventGroup_t and StaticEventGroup_t are deliberately aliased for data hiding purposes and guaranteed to have the same size and alignment requirement - checked by configASSERT(). */
 
         if( pxEventBits != NULL )
@@ -123,7 +130,16 @@ static BaseType_t prvTestWaitCondition( const EventBits_t uxCurrentEventBits,
                 /* Both static and dynamic allocation can be used, so note that
                  * this event group was created statically in case the event group
                  * is later deleted. */
-                pxEventBits->ucStaticallyAllocated = pdTRUE;
+                /*
+                 * The rule 10.5 is The value of an expression should not be cast to an inappropriate essential type. 
+                 * Because pdTRUE/pdFALSE are defined by FreeRTOS-Kernel are 0 and 1, which results in a signed integer.
+                 * This means that our implementation conforms to the exception provided by MISRA
+                 * To quote MISRA: "An integer constant expression with the value 0 or 1 of either signedness
+                 * may be cast to a type which is defined as essentially Boolean.
+                 * This allows the implementation of non-C99 Boolean models."
+                 */
+                /* coverity[misra_c_2012_rule_10_5_violation] */
+                pxEventBits->ucStaticallyAllocated = ( uint8_t ) pdTRUE;
             }
             #endif /* configSUPPORT_DYNAMIC_ALLOCATION */
 
@@ -174,7 +190,16 @@ static BaseType_t prvTestWaitCondition( const EventBits_t uxCurrentEventBits,
                 /* Both static and dynamic allocation can be used, so note this
                  * event group was allocated statically in case the event group is
                  * later deleted. */
-                pxEventBits->ucStaticallyAllocated = pdFALSE;
+                /*
+                 * The rule 10.5 is The value of an expression should not be cast to an inappropriate essential type. 
+                 * Because pdTRUE/pdFALSE are defined by FreeRTOS-Kernel are 0 and 1, which results in a signed integer.
+                 * This means that our implementation conforms to the exception provided by MISRA
+                 * To quote MISRA: "An integer constant expression with the value 0 or 1 of either signedness
+                 * may be cast to a type which is defined as essentially Boolean.
+                 * This allows the implementation of non-C99 Boolean models."
+                 */
+                /* coverity[misra_c_2012_rule_10_5_violation] */
+                pxEventBits->ucStaticallyAllocated = ( uint8_t ) pdFALSE;
             }
             #endif /* configSUPPORT_STATIC_ALLOCATION */
 
@@ -199,13 +224,24 @@ EventBits_t xEventGroupSync( EventGroupHandle_t xEventGroup,
     EventBits_t uxOriginalBitValue, uxReturn;
     EventGroup_t * pxEventBits = xEventGroup;
     BaseType_t xAlreadyYielded;
-    BaseType_t xTimeoutOccurred = pdFALSE;
+    /*
+     * The rule 10.5 is The value of an expression should not be cast to an inappropriate essential type. 
+     * Because pdTRUE/pdFALSE are defined by FreeRTOS-Kernel are 0 and 1, which results in a signed integer.
+     * This means that our implementation conforms to the exception provided by MISRA
+     * To quote MISRA: "An integer constant expression with the value 0 or 1 of either signedness
+     * may be cast to a type which is defined as essentially Boolean.
+     * This allows the implementation of non-C99 Boolean models."
+     */
+    /* coverity[misra_c_2012_rule_10_5_violation] */
+    BaseType_t xTimeoutOccurred = ( BaseType_t ) pdFALSE;
+    /* Declare to confort MISRA C 2012 Rule 17.8 - "A function parameter should not be modified" */
+    TickType_t xLocalTicksToWait = xTicksToWait;
 
     configASSERT( ( uxBitsToWaitFor & eventEVENT_BITS_CONTROL_BYTES ) == 0 );
     configASSERT( uxBitsToWaitFor != 0 );
     #if ( ( INCLUDE_xTaskGetSchedulerState == 1 ) || ( configUSE_TIMERS == 1 ) )
     {
-        configASSERT( !( ( xTaskGetSchedulerState() == taskSCHEDULER_SUSPENDED ) && ( xTicksToWait != 0 ) ) );
+        configASSERT( !( ( xTaskGetSchedulerState() == taskSCHEDULER_SUSPENDED ) && ( xLocalTicksToWait != 0 ) ) );
     }
     #endif
 
@@ -224,18 +260,18 @@ EventBits_t xEventGroupSync( EventGroupHandle_t xEventGroup,
              * already unless this is the only task in the rendezvous. */
             pxEventBits->uxEventBits &= ~uxBitsToWaitFor;
 
-            xTicksToWait = 0;
+            xLocalTicksToWait = 0;
         }
         else
         {
-            if( xTicksToWait != ( TickType_t ) 0 )
+            if( xLocalTicksToWait != ( TickType_t ) 0 )
             {
                 traceEVENT_GROUP_SYNC_BLOCK( xEventGroup, uxBitsToSet, uxBitsToWaitFor );
 
                 /* Store the bits that the calling task is waiting for in the
                  * task's event list item so the kernel knows when a match is
                  * found.  Then enter the blocked state. */
-                vTaskPlaceOnUnorderedEventList( &( pxEventBits->xTasksWaitingForBits ), ( uxBitsToWaitFor | eventCLEAR_EVENTS_ON_EXIT_BIT | eventWAIT_FOR_ALL_BITS ), xTicksToWait );
+                vTaskPlaceOnUnorderedEventList( &( pxEventBits->xTasksWaitingForBits ), ( uxBitsToWaitFor | eventCLEAR_EVENTS_ON_EXIT_BIT | eventWAIT_FOR_ALL_BITS ), xLocalTicksToWait );
 
                 /* This assignment is obsolete as uxReturn will get set after
                  * the task unblocks, but some compilers mistakenly generate a
@@ -248,15 +284,34 @@ EventBits_t xEventGroupSync( EventGroupHandle_t xEventGroup,
                 /* The rendezvous bits were not set, but no block time was
                  * specified - just return the current event bit value. */
                 uxReturn = pxEventBits->uxEventBits;
-                xTimeoutOccurred = pdTRUE;
+                
+                /*
+                 * The rule 10.5 is The value of an expression should not be cast to an inappropriate essential type. 
+                 * Because pdTRUE/pdFALSE are defined by FreeRTOS-Kernel are 0 and 1, which results in a signed integer.
+                 * This means that our implementation conforms to the exception provided by MISRA
+                 * To quote MISRA: "An integer constant expression with the value 0 or 1 of either signedness
+                 * may be cast to a type which is defined as essentially Boolean.
+                 * This allows the implementation of non-C99 Boolean models."
+                 */
+                /* coverity[misra_c_2012_rule_10_5_violation] */
+                xTimeoutOccurred = ( BaseType_t ) pdTRUE;
             }
         }
     }
     xAlreadyYielded = xTaskResumeAll();
 
-    if( xTicksToWait != ( TickType_t ) 0 )
+    if( xLocalTicksToWait != ( TickType_t ) 0 )
     {
-        if( xAlreadyYielded == pdFALSE )
+        /*
+         * The rule 10.5 is The value of an expression should not be cast to an inappropriate essential type. 
+         * Because pdTRUE/pdFALSE are defined by FreeRTOS-Kernel are 0 and 1, which results in a signed integer.
+         * This means that our implementation conforms to the exception provided by MISRA
+         * To quote MISRA: "An integer constant expression with the value 0 or 1 of either signedness
+         * may be cast to a type which is defined as essentially Boolean.
+         * This allows the implementation of non-C99 Boolean models."
+         */
+        /* coverity[misra_c_2012_rule_10_5_violation] */
+        if( xAlreadyYielded == ( BaseType_t ) pdFALSE )
         {
             #if ( configNUM_CORES == 1 )
             {
@@ -301,7 +356,16 @@ EventBits_t xEventGroupSync( EventGroupHandle_t xEventGroup,
             }
             taskEXIT_CRITICAL();
 
-            xTimeoutOccurred = pdTRUE;
+            /*
+             * The rule 10.5 is The value of an expression should not be cast to an inappropriate essential type. 
+             * Because pdTRUE/pdFALSE are defined by FreeRTOS-Kernel are 0 and 1, which results in a signed integer.
+             * This means that our implementation conforms to the exception provided by MISRA
+             * To quote MISRA: "An integer constant expression with the value 0 or 1 of either signedness
+             * may be cast to a type which is defined as essentially Boolean.
+             * This allows the implementation of non-C99 Boolean models."
+             */
+            /* coverity[misra_c_2012_rule_10_5_violation] */
+            xTimeoutOccurred = ( BaseType_t ) pdTRUE;
         }
         else
         {
@@ -331,7 +395,18 @@ EventBits_t xEventGroupWaitBits( EventGroupHandle_t xEventGroup,
     EventGroup_t * pxEventBits = xEventGroup;
     EventBits_t uxReturn, uxControlBits = 0;
     BaseType_t xWaitConditionMet, xAlreadyYielded;
-    BaseType_t xTimeoutOccurred = pdFALSE;
+    /*
+     * The rule 10.5 is The value of an expression should not be cast to an inappropriate essential type. 
+     * Because pdTRUE/pdFALSE are defined by FreeRTOS-Kernel are 0 and 1, which results in a signed integer.
+     * This means that our implementation conforms to the exception provided by MISRA
+     * To quote MISRA: "An integer constant expression with the value 0 or 1 of either signedness
+     * may be cast to a type which is defined as essentially Boolean.
+     * This allows the implementation of non-C99 Boolean models."
+     */
+    /* coverity[misra_c_2012_rule_10_5_violation] */
+    BaseType_t xTimeoutOccurred = ( BaseType_t ) pdFALSE;
+    /* Declare to confort MISRA C 2012 Rule 17.8 - "A function parameter should not be modified" */
+    TickType_t xLocalTicksToWait = xTicksToWait;
 
     /* Check the user is not attempting to wait on the bits used by the kernel
      * itself, and that at least one bit is being requested. */
@@ -340,7 +415,7 @@ EventBits_t xEventGroupWaitBits( EventGroupHandle_t xEventGroup,
     configASSERT( uxBitsToWaitFor != 0 );
     #if ( ( INCLUDE_xTaskGetSchedulerState == 1 ) || ( configUSE_TIMERS == 1 ) )
     {
-        configASSERT( !( ( xTaskGetSchedulerState() == taskSCHEDULER_SUSPENDED ) && ( xTicksToWait != 0 ) ) );
+        configASSERT( !( ( xTaskGetSchedulerState() == taskSCHEDULER_SUSPENDED ) && ( xLocalTicksToWait != 0 ) ) );
     }
     #endif
 
@@ -351,15 +426,33 @@ EventBits_t xEventGroupWaitBits( EventGroupHandle_t xEventGroup,
         /* Check to see if the wait condition is already met or not. */
         xWaitConditionMet = prvTestWaitCondition( uxCurrentEventBits, uxBitsToWaitFor, xWaitForAllBits );
 
-        if( xWaitConditionMet != pdFALSE )
+        /*
+         * The rule 10.5 is The value of an expression should not be cast to an inappropriate essential type. 
+         * Because pdTRUE/pdFALSE are defined by FreeRTOS-Kernel are 0 and 1, which results in a signed integer.
+         * This means that our implementation conforms to the exception provided by MISRA
+         * To quote MISRA: "An integer constant expression with the value 0 or 1 of either signedness
+         * may be cast to a type which is defined as essentially Boolean.
+         * This allows the implementation of non-C99 Boolean models."
+         */
+        /* coverity[misra_c_2012_rule_10_5_violation] */
+        if( xWaitConditionMet == ( BaseType_t ) pdTRUE )
         {
             /* The wait condition has already been met so there is no need to
              * block. */
             uxReturn = uxCurrentEventBits;
-            xTicksToWait = ( TickType_t ) 0;
+            xLocalTicksToWait = ( TickType_t ) 0;
 
             /* Clear the wait bits if requested to do so. */
-            if( xClearOnExit != pdFALSE )
+            /*
+             * The rule 10.5 is The value of an expression should not be cast to an inappropriate essential type. 
+             * Because pdTRUE/pdFALSE are defined by FreeRTOS-Kernel are 0 and 1, which results in a signed integer.
+             * This means that our implementation conforms to the exception provided by MISRA
+             * To quote MISRA: "An integer constant expression with the value 0 or 1 of either signedness
+             * may be cast to a type which is defined as essentially Boolean.
+             * This allows the implementation of non-C99 Boolean models."
+             */
+            /* coverity[misra_c_2012_rule_10_5_violation] */
+            if( xClearOnExit == ( BaseType_t ) pdTRUE )
             {
                 pxEventBits->uxEventBits &= ~uxBitsToWaitFor;
             }
@@ -368,12 +461,22 @@ EventBits_t xEventGroupWaitBits( EventGroupHandle_t xEventGroup,
                 mtCOVERAGE_TEST_MARKER();
             }
         }
-        else if( xTicksToWait == ( TickType_t ) 0 )
+        else if( xLocalTicksToWait == ( TickType_t ) 0 )
         {
             /* The wait condition has not been met, but no block time was
              * specified, so just return the current value. */
             uxReturn = uxCurrentEventBits;
-            xTimeoutOccurred = pdTRUE;
+
+            /*
+             * The rule 10.5 is The value of an expression should not be cast to an inappropriate essential type. 
+             * Because pdTRUE/pdFALSE are defined by FreeRTOS-Kernel are 0 and 1, which results in a signed integer.
+             * This means that our implementation conforms to the exception provided by MISRA
+             * To quote MISRA: "An integer constant expression with the value 0 or 1 of either signedness
+             * may be cast to a type which is defined as essentially Boolean.
+             * This allows the implementation of non-C99 Boolean models."
+             */
+            /* coverity[misra_c_2012_rule_10_5_violation] */
+            xTimeoutOccurred = ( BaseType_t ) pdTRUE;
         }
         else
         {
@@ -381,7 +484,16 @@ EventBits_t xEventGroupWaitBits( EventGroupHandle_t xEventGroup,
              * set.  uxControlBits are used to remember the specified behaviour of
              * this call to xEventGroupWaitBits() - for use when the event bits
              * unblock the task. */
-            if( xClearOnExit != pdFALSE )
+            /*
+             * The rule 10.5 is The value of an expression should not be cast to an inappropriate essential type. 
+             * Because pdTRUE/pdFALSE are defined by FreeRTOS-Kernel are 0 and 1, which results in a signed integer.
+             * This means that our implementation conforms to the exception provided by MISRA
+             * To quote MISRA: "An integer constant expression with the value 0 or 1 of either signedness
+             * may be cast to a type which is defined as essentially Boolean.
+             * This allows the implementation of non-C99 Boolean models."
+             */
+            /* coverity[misra_c_2012_rule_10_5_violation] */
+            if( xClearOnExit == ( BaseType_t ) pdTRUE )
             {
                 uxControlBits |= eventCLEAR_EVENTS_ON_EXIT_BIT;
             }
@@ -390,7 +502,16 @@ EventBits_t xEventGroupWaitBits( EventGroupHandle_t xEventGroup,
                 mtCOVERAGE_TEST_MARKER();
             }
 
-            if( xWaitForAllBits != pdFALSE )
+            /*
+             * The rule 10.5 is The value of an expression should not be cast to an inappropriate essential type. 
+             * Because pdTRUE/pdFALSE are defined by FreeRTOS-Kernel are 0 and 1, which results in a signed integer.
+             * This means that our implementation conforms to the exception provided by MISRA
+             * To quote MISRA: "An integer constant expression with the value 0 or 1 of either signedness
+             * may be cast to a type which is defined as essentially Boolean.
+             * This allows the implementation of non-C99 Boolean models."
+             */
+            /* coverity[misra_c_2012_rule_10_5_violation] */
+            if( xWaitForAllBits == ( BaseType_t ) pdTRUE )
             {
                 uxControlBits |= eventWAIT_FOR_ALL_BITS;
             }
@@ -402,7 +523,7 @@ EventBits_t xEventGroupWaitBits( EventGroupHandle_t xEventGroup,
             /* Store the bits that the calling task is waiting for in the
              * task's event list item so the kernel knows when a match is
              * found.  Then enter the blocked state. */
-            vTaskPlaceOnUnorderedEventList( &( pxEventBits->xTasksWaitingForBits ), ( uxBitsToWaitFor | uxControlBits ), xTicksToWait );
+            vTaskPlaceOnUnorderedEventList( &( pxEventBits->xTasksWaitingForBits ), ( uxBitsToWaitFor | uxControlBits ), xLocalTicksToWait );
 
             /* This is obsolete as it will get set after the task unblocks, but
              * some compilers mistakenly generate a warning about the variable
@@ -414,9 +535,18 @@ EventBits_t xEventGroupWaitBits( EventGroupHandle_t xEventGroup,
     }
     xAlreadyYielded = xTaskResumeAll();
 
-    if( xTicksToWait != ( TickType_t ) 0 )
+    if( xLocalTicksToWait != ( TickType_t ) 0 )
     {
-        if( xAlreadyYielded == pdFALSE )
+        /*
+         * The rule 10.5 is The value of an expression should not be cast to an inappropriate essential type. 
+         * Because pdTRUE/pdFALSE are defined by FreeRTOS-Kernel are 0 and 1, which results in a signed integer.
+         * This means that our implementation conforms to the exception provided by MISRA
+         * To quote MISRA: "An integer constant expression with the value 0 or 1 of either signedness
+         * may be cast to a type which is defined as essentially Boolean.
+         * This allows the implementation of non-C99 Boolean models."
+         */
+        /* coverity[misra_c_2012_rule_10_5_violation] */
+        if( xAlreadyYielded == ( BaseType_t ) pdFALSE )
         {
             #if ( configNUM_CORES == 1 )
             {
@@ -448,9 +578,27 @@ EventBits_t xEventGroupWaitBits( EventGroupHandle_t xEventGroup,
 
                 /* It is possible that the event bits were updated between this
                  * task leaving the Blocked state and running again. */
-                if( prvTestWaitCondition( uxReturn, uxBitsToWaitFor, xWaitForAllBits ) != pdFALSE )
+                /*
+                 * The rule 10.5 is The value of an expression should not be cast to an inappropriate essential type. 
+                 * Because pdTRUE/pdFALSE are defined by FreeRTOS-Kernel are 0 and 1, which results in a signed integer.
+                 * This means that our implementation conforms to the exception provided by MISRA
+                 * To quote MISRA: "An integer constant expression with the value 0 or 1 of either signedness
+                 * may be cast to a type which is defined as essentially Boolean.
+                 * This allows the implementation of non-C99 Boolean models."
+                 */
+                /* coverity[misra_c_2012_rule_10_5_violation] */
+                if( prvTestWaitCondition( uxReturn, uxBitsToWaitFor, xWaitForAllBits ) == ( BaseType_t ) pdTRUE )
                 {
-                    if( xClearOnExit != pdFALSE )
+                    /*
+                     * The rule 10.5 is The value of an expression should not be cast to an inappropriate essential type. 
+                     * Because pdTRUE/pdFALSE are defined by FreeRTOS-Kernel are 0 and 1, which results in a signed integer.
+                     * This means that our implementation conforms to the exception provided by MISRA
+                     * To quote MISRA: "An integer constant expression with the value 0 or 1 of either signedness
+                     * may be cast to a type which is defined as essentially Boolean.
+                     * This allows the implementation of non-C99 Boolean models."
+                     */
+                    /* coverity[misra_c_2012_rule_10_5_violation] */
+                    if( xClearOnExit == ( BaseType_t ) pdTRUE )
                     {
                         pxEventBits->uxEventBits &= ~uxBitsToWaitFor;
                     }
@@ -464,7 +612,16 @@ EventBits_t xEventGroupWaitBits( EventGroupHandle_t xEventGroup,
                     mtCOVERAGE_TEST_MARKER();
                 }
 
-                xTimeoutOccurred = pdTRUE;
+                /*
+                 * The rule 10.5 is The value of an expression should not be cast to an inappropriate essential type. 
+                 * Because pdTRUE/pdFALSE are defined by FreeRTOS-Kernel are 0 and 1, which results in a signed integer.
+                 * This means that our implementation conforms to the exception provided by MISRA
+                 * To quote MISRA: "An integer constant expression with the value 0 or 1 of either signedness
+                 * may be cast to a type which is defined as essentially Boolean.
+                 * This allows the implementation of non-C99 Boolean models."
+                 */
+                /* coverity[misra_c_2012_rule_10_5_violation] */
+                xTimeoutOccurred = ( BaseType_t ) pdTRUE;
             }
             taskEXIT_CRITICAL();
         }
@@ -530,7 +687,7 @@ EventBits_t xEventGroupClearBits( EventGroupHandle_t xEventGroup,
 #endif /* if ( ( configUSE_TRACE_FACILITY == 1 ) && ( INCLUDE_xTimerPendFunctionCall == 1 ) && ( configUSE_TIMERS == 1 ) ) */
 /*-----------------------------------------------------------*/
 
-EventBits_t xEventGroupGetBitsFromISR( EventGroupHandle_t xEventGroup )
+EventBits_t xEventGroupGetBitsFromISR( ConstEventGroupHandle_t xEventGroup )
 {
     UBaseType_t uxSavedInterruptStatus;
     EventGroup_t const * const pxEventBits = xEventGroup;
@@ -555,7 +712,16 @@ EventBits_t xEventGroupSetBits( EventGroupHandle_t xEventGroup,
     List_t const * pxList;
     EventBits_t uxBitsToClear = 0, uxBitsWaitedFor, uxControlBits;
     EventGroup_t * pxEventBits = xEventGroup;
-    BaseType_t xMatchFound = pdFALSE;
+    /*
+     * The rule 10.5 is The value of an expression should not be cast to an inappropriate essential type. 
+     * Because pdTRUE/pdFALSE are defined by FreeRTOS-Kernel are 0 and 1, which results in a signed integer.
+     * This means that our implementation conforms to the exception provided by MISRA
+     * To quote MISRA: "An integer constant expression with the value 0 or 1 of either signedness
+     * may be cast to a type which is defined as essentially Boolean.
+     * This allows the implementation of non-C99 Boolean models."
+     */
+    /* coverity[misra_c_2012_rule_10_5_violation] */
+    BaseType_t xMatchFound = ( BaseType_t ) pdFALSE;
 
     /* Check the user is not attempting to set the bits used by the kernel
      * itself. */
@@ -563,6 +729,10 @@ EventBits_t xEventGroupSetBits( EventGroupHandle_t xEventGroup,
     configASSERT( ( uxBitsToSet & eventEVENT_BITS_CONTROL_BYTES ) == 0 );
 
     pxList = &( pxEventBits->xTasksWaitingForBits );
+
+    /* MISRA Rule 11.3 prohibits casting a pointer to a different type.
+     * Allow to convert from MiniListItem_t to ListItem_t const. */
+    /* coverity[misra_c_2012_rule_11_3_violation] */
     pxListEnd = listGET_END_MARKER( pxList ); /*lint !e826 !e740 !e9087 The mini list structure is used as the list end to save RAM.  This is checked and valid. */
     vTaskSuspendAll();
     {
@@ -578,7 +748,16 @@ EventBits_t xEventGroupSetBits( EventGroupHandle_t xEventGroup,
         {
             pxNext = listGET_NEXT( pxListItem );
             uxBitsWaitedFor = listGET_LIST_ITEM_VALUE( pxListItem );
-            xMatchFound = pdFALSE;
+            /*
+             * The rule 10.5 is The value of an expression should not be cast to an inappropriate essential type. 
+             * Because pdTRUE/pdFALSE are defined by FreeRTOS-Kernel are 0 and 1, which results in a signed integer.
+             * This means that our implementation conforms to the exception provided by MISRA
+             * To quote MISRA: "An integer constant expression with the value 0 or 1 of either signedness
+             * may be cast to a type which is defined as essentially Boolean.
+             * This allows the implementation of non-C99 Boolean models."
+             */
+            /* coverity[misra_c_2012_rule_10_5_violation] */
+            xMatchFound = ( BaseType_t ) pdFALSE;
 
             /* Split the bits waited for from the control bits. */
             uxControlBits = uxBitsWaitedFor & eventEVENT_BITS_CONTROL_BYTES;
@@ -589,7 +768,16 @@ EventBits_t xEventGroupSetBits( EventGroupHandle_t xEventGroup,
                 /* Just looking for single bit being set. */
                 if( ( uxBitsWaitedFor & pxEventBits->uxEventBits ) != ( EventBits_t ) 0 )
                 {
-                    xMatchFound = pdTRUE;
+                    /*
+                     * The rule 10.5 is The value of an expression should not be cast to an inappropriate essential type. 
+                     * Because pdTRUE/pdFALSE are defined by FreeRTOS-Kernel are 0 and 1, which results in a signed integer.
+                     * This means that our implementation conforms to the exception provided by MISRA
+                     * To quote MISRA: "An integer constant expression with the value 0 or 1 of either signedness
+                     * may be cast to a type which is defined as essentially Boolean.
+                     * This allows the implementation of non-C99 Boolean models."
+                     */
+                    /* coverity[misra_c_2012_rule_10_5_violation] */
+                    xMatchFound = ( BaseType_t ) pdTRUE;
                 }
                 else
                 {
@@ -599,14 +787,32 @@ EventBits_t xEventGroupSetBits( EventGroupHandle_t xEventGroup,
             else if( ( uxBitsWaitedFor & pxEventBits->uxEventBits ) == uxBitsWaitedFor )
             {
                 /* All bits are set. */
-                xMatchFound = pdTRUE;
+                /*
+                 * The rule 10.5 is The value of an expression should not be cast to an inappropriate essential type. 
+                 * Because pdTRUE/pdFALSE are defined by FreeRTOS-Kernel are 0 and 1, which results in a signed integer.
+                 * This means that our implementation conforms to the exception provided by MISRA
+                 * To quote MISRA: "An integer constant expression with the value 0 or 1 of either signedness
+                 * may be cast to a type which is defined as essentially Boolean.
+                 * This allows the implementation of non-C99 Boolean models."
+                 */
+                /* coverity[misra_c_2012_rule_10_5_violation] */
+                xMatchFound = ( BaseType_t ) pdTRUE;
             }
             else
             {
                 /* Need all bits to be set, but not all the bits were set. */
             }
 
-            if( xMatchFound != pdFALSE )
+            /*
+             * The rule 10.5 is The value of an expression should not be cast to an inappropriate essential type. 
+             * Because pdTRUE/pdFALSE are defined by FreeRTOS-Kernel are 0 and 1, which results in a signed integer.
+             * This means that our implementation conforms to the exception provided by MISRA
+             * To quote MISRA: "An integer constant expression with the value 0 or 1 of either signedness
+             * may be cast to a type which is defined as essentially Boolean.
+             * This allows the implementation of non-C99 Boolean models."
+             */
+            /* coverity[misra_c_2012_rule_10_5_violation] */
+            if( xMatchFound == ( BaseType_t ) pdTRUE )
             {
                 /* The bits match.  Should the bits be cleared on exit? */
                 if( ( uxControlBits & eventCLEAR_EVENTS_ON_EXIT_BIT ) != ( EventBits_t ) 0 )
@@ -675,6 +881,15 @@ void vEventGroupDelete( EventGroupHandle_t xEventGroup )
     {
         /* The event group could have been allocated statically or
          * dynamically, so check before attempting to free the memory. */
+        /*
+         * The rule 10.5 is The value of an expression should not be cast to an inappropriate essential type. 
+         * Because pdTRUE/pdFALSE are defined by FreeRTOS-Kernel are 0 and 1, which results in a signed integer.
+         * This means that our implementation conforms to the exception provided by MISRA
+         * To quote MISRA: "An integer constant expression with the value 0 or 1 of either signedness
+         * may be cast to a type which is defined as essentially Boolean.
+         * This allows the implementation of non-C99 Boolean models."
+         */
+        /* coverity[misra_c_2012_rule_10_5_violation] */
         if( pxEventBits->ucStaticallyAllocated == ( uint8_t ) pdFALSE )
         {
             vPortFree( pxEventBits );
@@ -710,15 +925,42 @@ static BaseType_t prvTestWaitCondition( const EventBits_t uxCurrentEventBits,
                                         const EventBits_t uxBitsToWaitFor,
                                         const BaseType_t xWaitForAllBits )
 {
-    BaseType_t xWaitConditionMet = pdFALSE;
+    /*
+     * The rule 10.5 is The value of an expression should not be cast to an inappropriate essential type. 
+     * Because pdTRUE/pdFALSE are defined by FreeRTOS-Kernel are 0 and 1, which results in a signed integer.
+     * This means that our implementation conforms to the exception provided by MISRA
+     * To quote MISRA: "An integer constant expression with the value 0 or 1 of either signedness
+     * may be cast to a type which is defined as essentially Boolean.
+     * This allows the implementation of non-C99 Boolean models."
+     */
+    /* coverity[misra_c_2012_rule_10_5_violation] */
+    BaseType_t xWaitConditionMet = ( BaseType_t ) pdFALSE;
 
-    if( xWaitForAllBits == pdFALSE )
+    /*
+     * The rule 10.5 is The value of an expression should not be cast to an inappropriate essential type. 
+     * Because pdTRUE/pdFALSE are defined by FreeRTOS-Kernel are 0 and 1, which results in a signed integer.
+     * This means that our implementation conforms to the exception provided by MISRA
+     * To quote MISRA: "An integer constant expression with the value 0 or 1 of either signedness
+     * may be cast to a type which is defined as essentially Boolean.
+     * This allows the implementation of non-C99 Boolean models."
+     */
+    /* coverity[misra_c_2012_rule_10_5_violation] */
+    if( xWaitForAllBits == ( BaseType_t ) pdFALSE )
     {
         /* Task only has to wait for one bit within uxBitsToWaitFor to be
          * set.  Is one already set? */
         if( ( uxCurrentEventBits & uxBitsToWaitFor ) != ( EventBits_t ) 0 )
         {
-            xWaitConditionMet = pdTRUE;
+            /*
+             * The rule 10.5 is The value of an expression should not be cast to an inappropriate essential type. 
+             * Because pdTRUE/pdFALSE are defined by FreeRTOS-Kernel are 0 and 1, which results in a signed integer.
+             * This means that our implementation conforms to the exception provided by MISRA
+             * To quote MISRA: "An integer constant expression with the value 0 or 1 of either signedness
+             * may be cast to a type which is defined as essentially Boolean.
+             * This allows the implementation of non-C99 Boolean models."
+             */
+            /* coverity[misra_c_2012_rule_10_5_violation] */
+            xWaitConditionMet = ( BaseType_t ) pdTRUE;
         }
         else
         {
@@ -731,7 +973,16 @@ static BaseType_t prvTestWaitCondition( const EventBits_t uxCurrentEventBits,
          * Are they set already? */
         if( ( uxCurrentEventBits & uxBitsToWaitFor ) == uxBitsToWaitFor )
         {
-            xWaitConditionMet = pdTRUE;
+            /*
+             * The rule 10.5 is The value of an expression should not be cast to an inappropriate essential type. 
+             * Because pdTRUE/pdFALSE are defined by FreeRTOS-Kernel are 0 and 1, which results in a signed integer.
+             * This means that our implementation conforms to the exception provided by MISRA
+             * To quote MISRA: "An integer constant expression with the value 0 or 1 of either signedness
+             * may be cast to a type which is defined as essentially Boolean.
+             * This allows the implementation of non-C99 Boolean models."
+             */
+            /* coverity[misra_c_2012_rule_10_5_violation] */
+            xWaitConditionMet = ( BaseType_t ) pdTRUE;
         }
         else
         {
@@ -762,10 +1013,10 @@ static BaseType_t prvTestWaitCondition( const EventBits_t uxCurrentEventBits,
 
 #if ( configUSE_TRACE_FACILITY == 1 )
 
-    UBaseType_t uxEventGroupGetNumber( void * xEventGroup )
+    UBaseType_t uxEventGroupGetNumber( const void * xEventGroup )
     {
         UBaseType_t xReturn;
-        EventGroup_t const * pxEventBits = ( EventGroup_t * ) xEventGroup; /*lint !e9087 !e9079 EventGroupHandle_t is a pointer to an EventGroup_t, but EventGroupHandle_t is kept opaque outside of this file for data hiding purposes. */
+        const EventGroup_t * pxEventBits = ( const EventGroup_t * ) xEventGroup; /*lint !e9087 !e9079 EventGroupHandle_t is a pointer to an EventGroup_t, but EventGroupHandle_t is kept opaque outside of this file for data hiding purposes. */
 
         if( xEventGroup == NULL )
         {

@@ -45,6 +45,10 @@
  * because the MPU ports require MPU_WRAPPERS_INCLUDED_FROM_API_FILE to be defined
  * for the header files above, but not in this file, in order to generate the
  * correct privileged Vs unprivileged linkage and placement. */
+/* 
+ * The rule 20.5 is "#undef should not be used."
+ */
+/* coverity[misra_c_2012_rule_20_5_violation] */
 #undef MPU_WRAPPERS_INCLUDED_FROM_API_FILE /*lint !e961 !e750 !e9021. */
 
 /* Set configUSE_STATS_FORMATTING_FUNCTIONS to 2 to include the stats formatting
@@ -270,11 +274,11 @@ typedef BaseType_t TaskRunning_t;
  *                        but scheduled to yield.
  */
 #if ( configNUM_CORES == 1 )
-    #define taskTASK_IS_RUNNING( pxTCB )     ( pxTCB == pxCurrentTCB )
+    #define taskTASK_IS_RUNNING( pxTCB )     ( ( pxTCB ) == pxCurrentTCB )
     #define taskTASK_IS_YIELDING( pxTCB )    ( pdFALSE )
 #else
-    #define taskTASK_IS_RUNNING( pxTCB )     ( ( pxTCB->xTaskRunState >= 0 ) && ( pxTCB->xTaskRunState < configNUM_CORES ) )
-    #define taskTASK_IS_YIELDING( pxTCB )    ( pxTCB->xTaskRunState == taskTASK_YIELDING )
+    #define taskTASK_IS_RUNNING( pxTCB )     ( ( ( pxTCB )->xTaskRunState >= 0 ) && ( ( pxTCB )->xTaskRunState < configNUM_CORES ) )
+    #define taskTASK_IS_YIELDING( pxTCB )    ( ( pxTCB )->xTaskRunState == taskTASK_YIELDING )
 #endif
 
 /* Indicates that the task is an Idle task. */
@@ -287,9 +291,19 @@ typedef BaseType_t TaskRunning_t;
  */
 typedef struct tskTaskControlBlock       /* The old naming convention is used to prevent breaking kernel aware debuggers. */
 {
+    /* 
+     * The rule 2.2 is "There shall be no dead code."
+     * pxTopOfStack is actually used in some ports, so we suppress the violation here.
+     */
+    /* coverity[misra_c_2012_rule_2_2_violation] */
     volatile StackType_t * pxTopOfStack; /*< Points to the location of the last item placed on the tasks stack.  THIS MUST BE THE FIRST MEMBER OF THE TCB STRUCT. */
 
     #if ( portUSING_MPU_WRAPPERS == 1 )
+        /* 
+         * The rule 2.2 is "There shall be no dead code."
+         * xMPUSettings is actually used when vPortStoreTaskMPUSettings is defined, so we suppress the violation here.
+         */
+        /* coverity[misra_c_2012_rule_2_2_violation] */
         xMPU_SETTINGS xMPUSettings; /*< The MPU settings are defined as part of the port layer.  THIS MUST BE THE SECOND MEMBER OF THE TCB STRUCT. */
     #endif
 
@@ -297,7 +311,17 @@ typedef struct tskTaskControlBlock       /* The old naming convention is used to
         UBaseType_t uxCoreAffinityMask; /*< Used to link the task to certain cores.  UBaseType_t must have greater than or equal to the number of bits as confNUM_CORES. */
     #endif
 
+    /* 
+     * The rule 2.2 is "There shall be no dead code."
+     * This is a false alarm, xStateListItem is actually used.
+     */
+    /* coverity[misra_c_2012_rule_2_2_violation] */
     ListItem_t xStateListItem;                  /*< The list that the state list item of a task is reference from denotes the state of that task (Ready, Blocked, Suspended ). */
+    /* 
+     * The rule 2.2 is "There shall be no dead code."
+     * This is a false alarm, xEventListItem is actually used.
+     */
+    /* coverity[misra_c_2012_rule_2_2_violation] */
     ListItem_t xEventListItem;                  /*< Used to reference a task from an event list. */
     UBaseType_t uxPriority;                     /*< The priority of the task.  0 is the lowest priority. */
     StackType_t * pxStack;                      /*< Points to the start of the stack. */
@@ -305,6 +329,11 @@ typedef struct tskTaskControlBlock       /* The old naming convention is used to
         volatile TaskRunning_t xTaskRunState;   /*< Used to identify the core the task is running on, if the task is running. Otherwise, identifies the task's state - not running or yielding. */
         UBaseType_t uxTaskAttributes;           /*< Task's attributes - currently used to identify the idle tasks. */
     #endif
+    /* 
+     * The rule 2.2 is "There shall be no dead code."
+     * pcTaskName is actually used in some ports, so we suppress the violation here.
+     */
+    /* coverity[misra_c_2012_rule_2_2_violation] */
     char pcTaskName[ configMAX_TASK_NAME_LEN ]; /*< Descriptive name given to the task when created.  Facilitates debugging only. */ /*lint !e971 Unqualified char types are allowed for strings and single characters only. */
 
     #if ( configUSE_TASK_PREEMPTION_DISABLE == 1 )
@@ -334,6 +363,11 @@ typedef struct tskTaskControlBlock       /* The old naming convention is used to
     #endif
 
     #if ( configNUM_THREAD_LOCAL_STORAGE_POINTERS > 0 )
+        /* 
+         * The rule 2.2 is "There shall be no dead code."
+         * pvThreadLocalStoragePointers is actually used in some ports, so we suppress the violation here.
+         */
+        /* coverity[misra_c_2012_rule_2_2_violation] */
         void * pvThreadLocalStoragePointers[ configNUM_THREAD_LOCAL_STORAGE_POINTERS ];
     #endif
 
@@ -363,18 +397,27 @@ typedef struct tskTaskControlBlock       /* The old naming convention is used to
     #if ( configUSE_POSIX_ERRNO == 1 )
         int iTaskErrno;
     #endif
-} tskTCB;
+};
 
 /* The old tskTCB name is maintained above then typedefed to the new TCB_t name
  * below to enable the use of older kernel aware debuggers. */
+typedef struct tskTaskControlBlock tskTCB;
 typedef tskTCB TCB_t;
 
 /*lint -save -e956 A manual analysis and inspection has been used to determine
  * which static variables must be declared volatile. */
 #if ( configNUM_CORES == 1 )
+    /* Declare an extern here to confort MISRA C 2012 Rule 8.4 - 
+     * "A compatible declaration shall be visible when an object or function with external linkage is defined"
+     * This variable is used in some ports. */
+    extern portDONT_DISCARD PRIVILEGED_DATA TCB_t * volatile pxCurrentTCB;
     portDONT_DISCARD PRIVILEGED_DATA TCB_t * volatile pxCurrentTCB = NULL;
 #else
-portDONT_DISCARD PRIVILEGED_DATA TCB_t * volatile pxCurrentTCBs[ configNUM_CORES ] = { NULL };
+    /* Declare an extern here to confort MISRA C 2012 Rule 8.4 - 
+     * "A compatible declaration shall be visible when an object or function with external linkage is defined"
+     * This variable is used in some ports. */
+    extern portDONT_DISCARD PRIVILEGED_DATA TCB_t * volatile pxCurrentTCBs[ configNUM_CORES ];
+    portDONT_DISCARD PRIVILEGED_DATA TCB_t * volatile pxCurrentTCBs[ configNUM_CORES ] = { NULL };
     #define pxCurrentTCB    xTaskGetCurrentTaskHandle()
 #endif
 
@@ -423,6 +466,10 @@ PRIVILEGED_DATA static TaskHandle_t xIdleTaskHandles[ configNUM_CORES ] = { NULL
 /* Improve support for OpenOCD. The kernel tracks Ready tasks via priority lists.
  * For tracking the state of remote threads, OpenOCD uses uxTopUsedPriority
  * to determine the number of priority lists to read back from the remote target. */
+/* Declare an extern here to confort MISRA C 2012 Rule 8.4 - 
+ * "A compatible declaration shall be visible when an object or function with external linkage is defined"
+ * This variable is used in OpenOCD. */
+extern const volatile UBaseType_t uxTopUsedPriority;
 const volatile UBaseType_t uxTopUsedPriority = configMAX_PRIORITIES - 1U;
 
 /* Context switches are held pending while the scheduler is suspended.  Also,
@@ -2170,7 +2217,7 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
                              * suspended. */
                             eReturn = eSuspended;
 
-                            for( x = 0; x < configTASK_NOTIFICATION_ARRAY_ENTRIES; x++ )
+                            for( x = 0; x < ( BaseType_t ) configTASK_NOTIFICATION_ARRAY_ENTRIES; x++ )
                             {
                                 if( pxTCB->ucNotifyState[ x ] == taskWAITING_NOTIFICATION )
                                 {
@@ -2660,7 +2707,7 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
             {
                 BaseType_t x;
 
-                for( x = 0; x < configTASK_NOTIFICATION_ARRAY_ENTRIES; x++ )
+                for( x = 0; x < ( BaseType_t ) configTASK_NOTIFICATION_ARRAY_ENTRIES; x++ )
                 {
                     if( pxTCB->ucNotifyState[ x ] == taskWAITING_NOTIFICATION )
                     {
@@ -5169,7 +5216,7 @@ static portTASK_FUNCTION( prvIdleTask, pvParameters )
         TCB_t * pxTCB;
 
         if( ( xIndex >= 0 ) &&
-            ( xIndex < configNUM_THREAD_LOCAL_STORAGE_POINTERS ) )
+            ( xIndex < ( BaseType_t ) configNUM_THREAD_LOCAL_STORAGE_POINTERS ) )
         {
             pxTCB = prvGetTCBFromHandle( xTaskToSet );
             configASSERT( pxTCB != NULL );
@@ -5189,7 +5236,7 @@ static portTASK_FUNCTION( prvIdleTask, pvParameters )
         TCB_t * pxTCB;
 
         if( ( xIndex >= 0 ) &&
-            ( xIndex < configNUM_THREAD_LOCAL_STORAGE_POINTERS ) )
+            ( xIndex < ( BaseType_t ) configNUM_THREAD_LOCAL_STORAGE_POINTERS ) )
         {
             pxTCB = prvGetTCBFromHandle( xTaskToQuery );
             pvReturn = pxTCB->pvThreadLocalStoragePointers[ xIndex ];
@@ -5207,16 +5254,16 @@ static portTASK_FUNCTION( prvIdleTask, pvParameters )
 
 #if ( portUSING_MPU_WRAPPERS == 1 )
 
-    void vTaskAllocateMPURegions( TaskHandle_t xTaskToModify,
-                                  const MemoryRegion_t * const xRegions )
+    void vTaskAllocateMPURegions( TaskHandle_t xTask,
+                                  const MemoryRegion_t * const pxRegions )
     {
         TCB_t * pxTCB;
 
         /* If null is passed in here then we are modifying the MPU settings of
          * the calling task. */
-        pxTCB = prvGetTCBFromHandle( xTaskToModify );
+        pxTCB = prvGetTCBFromHandle( xTask );
 
-        vPortStoreTaskMPUSettings( &( pxTCB->xMPUSettings ), xRegions, NULL, 0 );
+        vPortStoreTaskMPUSettings( &( pxTCB->xMPUSettings ), pxRegions, NULL, 0 );
     }
 
 #endif /* portUSING_MPU_WRAPPERS */
@@ -6220,11 +6267,11 @@ static void prvResetNextTaskUnblockTime( void )
         size_t x;
 
         /* Start by copying the entire string. */
-        strcpy( pcBuffer, pcTaskName );
+        ( void ) strcpy( pcBuffer, pcTaskName );
 
         /* Pad the end of the string with spaces to ensure columns line up when
          * printed out. */
-        for( x = strlen( pcBuffer ); x < ( size_t ) ( configMAX_TASK_NAME_LEN - 1 ); x++ )
+        for( x = strlen( pcBuffer ); x < ( ( size_t ) configMAX_TASK_NAME_LEN - ( size_t ) 1 ); x++ )
         {
             pcBuffer[ x ] = ' ';
         }
@@ -6498,27 +6545,26 @@ TickType_t uxTaskResetEventItemValue( void )
 /*-----------------------------------------------------------*/
 
 #if ( configUSE_TASK_NOTIFICATIONS == 1 )
-
-    uint32_t ulTaskGenericNotifyTake( UBaseType_t uxIndexToWait,
+    uint32_t ulTaskGenericNotifyTake( UBaseType_t uxIndexToWaitOn,
                                       BaseType_t xClearCountOnExit,
                                       TickType_t xTicksToWait )
     {
         uint32_t ulReturn;
 
-        configASSERT( uxIndexToWait < configTASK_NOTIFICATION_ARRAY_ENTRIES );
+        configASSERT( uxIndexToWaitOn < configTASK_NOTIFICATION_ARRAY_ENTRIES );
 
         taskENTER_CRITICAL();
         {
             /* Only block if the notification count is not already non-zero. */
-            if( pxCurrentTCB->ulNotifiedValue[ uxIndexToWait ] == 0UL )
+            if( pxCurrentTCB->ulNotifiedValue[ uxIndexToWaitOn ] == 0UL )
             {
                 /* Mark this task as waiting for a notification. */
-                pxCurrentTCB->ucNotifyState[ uxIndexToWait ] = taskWAITING_NOTIFICATION;
+                pxCurrentTCB->ucNotifyState[ uxIndexToWaitOn ] = taskWAITING_NOTIFICATION;
 
                 if( xTicksToWait > ( TickType_t ) 0 )
                 {
                     prvAddCurrentTaskToDelayedList( xTicksToWait, pdTRUE );
-                    traceTASK_NOTIFY_TAKE_BLOCK( uxIndexToWait );
+                    traceTASK_NOTIFY_TAKE_BLOCK( uxIndexToWaitOn );
 
                     /* All ports are written to allow a yield in a critical
                      * section (some will yield immediately, others wait until the
@@ -6548,18 +6594,18 @@ TickType_t uxTaskResetEventItemValue( void )
 
         taskENTER_CRITICAL();
         {
-            traceTASK_NOTIFY_TAKE( uxIndexToWait );
-            ulReturn = pxCurrentTCB->ulNotifiedValue[ uxIndexToWait ];
+            traceTASK_NOTIFY_TAKE( uxIndexToWaitOn );
+            ulReturn = pxCurrentTCB->ulNotifiedValue[ uxIndexToWaitOn ];
 
             if( ulReturn != 0UL )
             {
                 if( xClearCountOnExit != pdFALSE )
                 {
-                    pxCurrentTCB->ulNotifiedValue[ uxIndexToWait ] = 0UL;
+                    pxCurrentTCB->ulNotifiedValue[ uxIndexToWaitOn ] = 0UL;
                 }
                 else
                 {
-                    pxCurrentTCB->ulNotifiedValue[ uxIndexToWait ] = ulReturn - ( uint32_t ) 1;
+                    pxCurrentTCB->ulNotifiedValue[ uxIndexToWaitOn ] = ulReturn - ( uint32_t ) 1;
                 }
             }
             else
@@ -6567,7 +6613,7 @@ TickType_t uxTaskResetEventItemValue( void )
                 mtCOVERAGE_TEST_MARKER();
             }
 
-            pxCurrentTCB->ucNotifyState[ uxIndexToWait ] = taskNOT_WAITING_NOTIFICATION;
+            pxCurrentTCB->ucNotifyState[ uxIndexToWaitOn ] = taskNOT_WAITING_NOTIFICATION;
         }
         taskEXIT_CRITICAL();
 
@@ -6579,7 +6625,7 @@ TickType_t uxTaskResetEventItemValue( void )
 
 #if ( configUSE_TASK_NOTIFICATIONS == 1 )
 
-    BaseType_t xTaskGenericNotifyWait( UBaseType_t uxIndexToWait,
+    BaseType_t xTaskGenericNotifyWait( UBaseType_t uxIndexToWaitOn,
                                        uint32_t ulBitsToClearOnEntry,
                                        uint32_t ulBitsToClearOnExit,
                                        uint32_t * pulNotificationValue,
@@ -6587,25 +6633,25 @@ TickType_t uxTaskResetEventItemValue( void )
     {
         BaseType_t xReturn;
 
-        configASSERT( uxIndexToWait < configTASK_NOTIFICATION_ARRAY_ENTRIES );
+        configASSERT( uxIndexToWaitOn < configTASK_NOTIFICATION_ARRAY_ENTRIES );
 
         taskENTER_CRITICAL();
         {
             /* Only block if a notification is not already pending. */
-            if( pxCurrentTCB->ucNotifyState[ uxIndexToWait ] != taskNOTIFICATION_RECEIVED )
+            if( pxCurrentTCB->ucNotifyState[ uxIndexToWaitOn ] != taskNOTIFICATION_RECEIVED )
             {
                 /* Clear bits in the task's notification value as bits may get
                  * set  by the notifying task or interrupt.  This can be used to
                  * clear the value to zero. */
-                pxCurrentTCB->ulNotifiedValue[ uxIndexToWait ] &= ~ulBitsToClearOnEntry;
+                pxCurrentTCB->ulNotifiedValue[ uxIndexToWaitOn ] &= ~ulBitsToClearOnEntry;
 
                 /* Mark this task as waiting for a notification. */
-                pxCurrentTCB->ucNotifyState[ uxIndexToWait ] = taskWAITING_NOTIFICATION;
+                pxCurrentTCB->ucNotifyState[ uxIndexToWaitOn ] = taskWAITING_NOTIFICATION;
 
                 if( xTicksToWait > ( TickType_t ) 0 )
                 {
                     prvAddCurrentTaskToDelayedList( xTicksToWait, pdTRUE );
-                    traceTASK_NOTIFY_WAIT_BLOCK( uxIndexToWait );
+                    traceTASK_NOTIFY_WAIT_BLOCK( uxIndexToWaitOn );
 
                     /* All ports are written to allow a yield in a critical
                      * section (some will yield immediately, others wait until the
@@ -6635,20 +6681,20 @@ TickType_t uxTaskResetEventItemValue( void )
 
         taskENTER_CRITICAL();
         {
-            traceTASK_NOTIFY_WAIT( uxIndexToWait );
+            traceTASK_NOTIFY_WAIT( uxIndexToWaitOn );
 
             if( pulNotificationValue != NULL )
             {
                 /* Output the current notification value, which may or may not
                  * have changed. */
-                *pulNotificationValue = pxCurrentTCB->ulNotifiedValue[ uxIndexToWait ];
+                *pulNotificationValue = pxCurrentTCB->ulNotifiedValue[ uxIndexToWaitOn ];
             }
 
             /* If ucNotifyValue is set then either the task never entered the
              * blocked state (because a notification was already pending) or the
              * task unblocked because of a notification.  Otherwise the task
              * unblocked because of a timeout. */
-            if( pxCurrentTCB->ucNotifyState[ uxIndexToWait ] != taskNOTIFICATION_RECEIVED )
+            if( pxCurrentTCB->ucNotifyState[ uxIndexToWaitOn ] != taskNOTIFICATION_RECEIVED )
             {
                 /* A notification was not received. */
                 xReturn = pdFALSE;
@@ -6657,11 +6703,11 @@ TickType_t uxTaskResetEventItemValue( void )
             {
                 /* A notification was already pending or a notification was
                  * received while the task was waiting. */
-                pxCurrentTCB->ulNotifiedValue[ uxIndexToWait ] &= ~ulBitsToClearOnExit;
+                pxCurrentTCB->ulNotifiedValue[ uxIndexToWaitOn ] &= ~ulBitsToClearOnExit;
                 xReturn = pdTRUE;
             }
 
-            pxCurrentTCB->ucNotifyState[ uxIndexToWait ] = taskNOT_WAITING_NOTIFICATION;
+            pxCurrentTCB->ucNotifyState[ uxIndexToWaitOn ] = taskNOT_WAITING_NOTIFICATION;
         }
         taskEXIT_CRITICAL();
 
@@ -7141,8 +7187,9 @@ TickType_t uxTaskResetEventItemValue( void )
     configRUN_TIME_COUNTER_TYPE ulTaskGetIdleRunTimeCounter( void )
     {
         configRUN_TIME_COUNTER_TYPE ulReturn = 0;
+        BaseType_t i = 0;
 
-        for( BaseType_t i = 0; i < configNUM_CORES; i++ )
+        for( i = 0; i < ( BaseType_t ) configNUM_CORES; i++ )
         {
             ulReturn += xIdleTaskHandles[ i ]->ulRunTimeCounter;
         }
@@ -7168,7 +7215,9 @@ TickType_t uxTaskResetEventItemValue( void )
         /* Avoid divide by zero errors. */
         if( ulTotalTime > ( configRUN_TIME_COUNTER_TYPE ) 0 )
         {
-            for( BaseType_t i = 0; i < configNUM_CORES; i++ )
+            BaseType_t i = 0;
+
+            for( i = 0; i < ( BaseType_t ) configNUM_CORES; i++ )
             {
                 ulRunTimeCounter += xIdleTaskHandles[ i ]->ulRunTimeCounter;
             }

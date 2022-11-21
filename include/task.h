@@ -90,7 +90,12 @@ typedef struct tskTaskControlBlock * TaskHandle_t;
  * Defines the prototype to which the application task hook function must
  * conform.
  */
-typedef BaseType_t (* TaskHookFunction_t)( void * );
+/* 
+ * The rule 8.2 is "Function types shall be in prototype form with named parameters."
+ * Parameter name is defined but the MISRA violation still exists. Suppress the violation for the false alarm.
+ */
+/* coverity[misra_c_2012_rule_8_2_violation] */
+typedef BaseType_t (* TaskHookFunction_t)( void * pvParameter );
 
 /* Task states returned by eTaskGetState. */
 typedef enum
@@ -711,7 +716,7 @@ typedef enum
  *
  * @param xTask The handle of the task being updated.
  *
- * @param xRegions A pointer to a MemoryRegion_t structure that contains the
+ * @param pxRegions A pointer to a MemoryRegion_t structure that contains the
  * new memory region definitions.
  *
  * Example usage:
@@ -1776,6 +1781,11 @@ UBaseType_t uxTaskGetStackHighWaterMark( TaskHandle_t xTask ) PRIVILEGED_FUNCTIO
  * actual spaces on the stack rather than bytes) since the task referenced by
  * xTask was created.
  */
+/* 
+ * The rule 5.1 is "External identifiers shall be distinct."
+ * To keep consistency, we name uxTaskGetStackHighWaterMark2 as an interface which is enabled by INCLUDE_uxTaskGetStackHighWaterMark2.
+ */
+/* coverity[misra_c_2012_rule_5_1_violation] */
 configSTACK_DEPTH_TYPE uxTaskGetStackHighWaterMark2( TaskHandle_t xTask ) PRIVILEGED_FUNCTION;
 
 /* When using trace macros it is sometimes necessary to include task.h before

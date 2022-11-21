@@ -49,6 +49,7 @@
  */
 struct QueueDefinition; /* Using old naming convention so as not to break kernel aware debuggers. */
 typedef struct QueueDefinition   * QueueHandle_t;
+typedef const struct QueueDefinition   * ConstQueueHandle_t;
 
 /**
  * Type by which queue sets are referenced.  For example, a call to
@@ -1463,8 +1464,8 @@ QueueHandle_t xQueueCreateCountingSemaphoreStatic( const UBaseType_t uxMaxCount,
                                                    StaticQueue_t * pxStaticQueue ) PRIVILEGED_FUNCTION;
 BaseType_t xQueueSemaphoreTake( QueueHandle_t xQueue,
                                 TickType_t xTicksToWait ) PRIVILEGED_FUNCTION;
-TaskHandle_t xQueueGetMutexHolder( QueueHandle_t xSemaphore ) PRIVILEGED_FUNCTION;
-TaskHandle_t xQueueGetMutexHolderFromISR( QueueHandle_t xSemaphore ) PRIVILEGED_FUNCTION;
+TaskHandle_t xQueueGetMutexHolder( ConstQueueHandle_t xSemaphore ) PRIVILEGED_FUNCTION;
+TaskHandle_t xQueueGetMutexHolderFromISR( ConstQueueHandle_t xSemaphore ) PRIVILEGED_FUNCTION;
 
 /*
  * For internal use only.  Use xSemaphoreTakeMutexRecursive() or
