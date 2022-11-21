@@ -6051,6 +6051,11 @@ static void prvResetNextTaskUnblockTime( void )
 
 #if ( portCRITICAL_NESTING_IN_TCB == 1 )
 
+/* 
+ * The rule 8.4 is "A compatible declaration shall be visible when an object or function with 
+ * external linkage is defined." vTaskEnterCritical might be used by port layer.
+ */
+/* coverity[misra_c_2012_rule_8_4_violation] */
     void vTaskEnterCritical( void )
     {
         portDISABLE_INTERRUPTS();
@@ -6144,6 +6149,11 @@ static void prvResetNextTaskUnblockTime( void )
 
 #if ( portCRITICAL_NESTING_IN_TCB == 1 )
 
+/* 
+ * The rule 8.4 is "A compatible declaration shall be visible when an object or function with 
+ * external linkage is defined." vTaskExitCritical might be used by port layer.
+ */
+/* coverity[misra_c_2012_rule_8_4_violation] */
     void vTaskExitCritical( void )
     {
         if( xSchedulerRunning != pdFALSE )

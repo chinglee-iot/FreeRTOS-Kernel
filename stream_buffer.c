@@ -213,7 +213,7 @@
 #endif /* if ( configUSE_SB_COMPLETED_CALLBACK == 1 ) */
 
 /* 
- * The rule 20.5 is "Sections of code should not be 'commented out'"
+ * The rule 4.4 is "Sections of code should not be 'commented out'"
  */
 /* coverity[misra_c_2012_directive_4_4_violation] */
 /*lint -restore (9026) */
