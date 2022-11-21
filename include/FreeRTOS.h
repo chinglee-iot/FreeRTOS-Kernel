@@ -888,6 +888,12 @@
 #endif
 
 #ifndef traceBLOCKING_ON_STREAM_BUFFER_SEND
+/* 
+ * The rule 5.4 is "Macro identifiers shall be distinct."
+ * This rule is suppressed for paired macro functions traceBLOCKING_ON_STREAM_BUFFER_SEND is tagged 'identical' 
+ * to traceBLOCKING_ON_STREAM_BUFFER_RECEIVE.
+ */
+/* coverity[misra_c_2012_rule_5_4_violation] */
     #define traceBLOCKING_ON_STREAM_BUFFER_SEND( xStreamBuffer )
 #endif
 
@@ -904,6 +910,12 @@
 #endif
 
 #ifndef traceBLOCKING_ON_STREAM_BUFFER_RECEIVE
+/* 
+ * The rule 5.4 is "Macro identifiers shall be distinct."
+ * This rule is suppressed for paired macro functions traceBLOCKING_ON_STREAM_BUFFER_RECEIVE is tagged 'identical' 
+ * to traceBLOCKING_ON_STREAM_BUFFER_SEND.
+ */
+/* coverity[misra_c_2012_rule_5_4_violation] */
     #define traceBLOCKING_ON_STREAM_BUFFER_RECEIVE( xStreamBuffer )
 #endif
 
