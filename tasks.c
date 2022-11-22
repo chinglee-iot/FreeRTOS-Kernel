@@ -1189,6 +1189,9 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
         {
             /* The memory used for the task's TCB and stack are passed into this
              * function - use them. */
+            /* MISRA Rule 11.3 prohibits casting a pointer to a different type.
+             * Allow to convert from StaticTask_t to TCB_t. */
+            /* coverity[misra_c_2012_rule_11_3_violation] */
             pxNewTCB = ( TCB_t * ) pxTaskBuffer; /*lint !e740 !e9087 Unusual cast is ok as the structures are designed to have the same alignment, and the size is checked by an assert. */
             memset( ( void * ) pxNewTCB, 0x00, sizeof( TCB_t ) );
             pxNewTCB->pxStack = ( StackType_t * ) puxStackBuffer;
@@ -1248,6 +1251,9 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
             /* Allocate space for the TCB.  Where the memory comes from depends
              * on the implementation of the port malloc function and whether or
              * not static allocation is being used. */
+            /* MISRA Rule 11.3 prohibits casting a pointer to a different type.
+             * Allow to convert from StaticTask_t to TCB_t. */
+            /* coverity[misra_c_2012_rule_11_3_violation] */
             pxNewTCB = ( TCB_t * ) pxTaskDefinition->pxTaskBuffer;
             memset( ( void * ) pxNewTCB, 0x00, sizeof( TCB_t ) );
 

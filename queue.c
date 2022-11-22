@@ -406,6 +406,9 @@ BaseType_t xQueueGenericReset( QueueHandle_t xQueue,
             /* The address of a statically allocated queue was passed in, use it.
              * The address of a statically allocated storage area was also passed in
              * but is already set. */
+            /* MISRA Rule 11.3 prohibits casting a pointer to a different type.
+             * Allow to convert from StaticQueue_t to Queue_t. */
+            /* coverity[misra_c_2012_rule_11_3_violation] */
             pxNewQueue = ( Queue_t * ) pxStaticQueue; /*lint !e740 !e9087 Unusual cast is ok as the structures are designed to have the same alignment, and the size is checked by an assert. */
 
             #if ( configSUPPORT_DYNAMIC_ALLOCATION == 1 )

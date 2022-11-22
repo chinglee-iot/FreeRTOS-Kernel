@@ -381,6 +381,9 @@ static void prvInitialiseNewStreamBuffer( StreamBuffer_t * const pxStreamBuffer,
 
         if( pucAllocatedMemory != NULL )
         {
+            /* MISRA Rule 11.3 prohibits casting a pointer to a different type.
+             * Allow to convert from uint8_t to StreamBuffer_t. */
+            /* coverity[misra_c_2012_rule_11_3_violation] */
             prvInitialiseNewStreamBuffer( ( StreamBuffer_t * ) pucAllocatedMemory,       /* Structure at the start of the allocated memory. */ /*lint !e9087 Safe cast as allocated memory is aligned. */ /*lint !e826 Area is not too small and alignment is guaranteed provided malloc() behaves as expected and returns aligned buffer. */
                                           pucAllocatedMemory + sizeof( StreamBuffer_t ), /* Storage area follows. */ /*lint !e9016 Indexing past structure valid for uint8_t pointer, also storage area has no alignment requirement. */
                                           xBufferSizeBytes,
@@ -396,6 +399,9 @@ static void prvInitialiseNewStreamBuffer( StreamBuffer_t * const pxStreamBuffer,
             traceSTREAM_BUFFER_CREATE_FAILED( xIsMessageBuffer );
         }
 
+        /* MISRA Rule 11.3 prohibits casting a pointer to a different type.
+         * Allow to convert from uint8_t to StreamBufferHandle_t. */
+        /* coverity[misra_c_2012_rule_11_3_violation] */
         return ( StreamBufferHandle_t ) pucAllocatedMemory; /*lint !e9087 !e826 Safe cast as allocated memory is aligned. */
     }
 #endif /* configSUPPORT_DYNAMIC_ALLOCATION */
@@ -411,6 +417,9 @@ static void prvInitialiseNewStreamBuffer( StreamBuffer_t * const pxStreamBuffer,
                                                            StreamBufferCallbackFunction_t pxSendCompletedCallback,
                                                            StreamBufferCallbackFunction_t pxReceiveCompletedCallback )
     {
+        /* MISRA Rule 11.3 prohibits casting a pointer to a different type.
+         * Allow to convert from StaticStreamBuffer_t to StreamBuffer_t. */
+        /* coverity[misra_c_2012_rule_11_3_violation] */
         StreamBuffer_t * const pxStreamBuffer = ( StreamBuffer_t * ) pxStaticStreamBuffer; /*lint !e740 !e9087 Safe cast as StaticStreamBuffer_t is opaque Streambuffer_t. */
         StreamBufferHandle_t xReturn;
         uint8_t ucFlags;
@@ -469,6 +478,9 @@ static void prvInitialiseNewStreamBuffer( StreamBuffer_t * const pxStreamBuffer,
 
             traceSTREAM_BUFFER_CREATE( pxStreamBuffer, xIsMessageBuffer );
 
+            /* MISRA Rule 11.3 prohibits casting a pointer to a different type.
+             * Allow to convert from StaticStreamBuffer_t to StreamBufferHandle_t. */
+            /* coverity[misra_c_2012_rule_11_3_violation] */
             xReturn = ( StreamBufferHandle_t ) pxStaticStreamBuffer; /*lint !e9087 Data hiding requires cast to opaque type. */
         }
         else
