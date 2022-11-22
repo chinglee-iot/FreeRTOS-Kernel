@@ -339,7 +339,7 @@ static void prvInitialiseNewStreamBuffer( StreamBuffer_t * const pxStreamBuffer,
          * (that is, it will hold discrete messages with a little meta data that
          * says how big the next message is) check the buffer will be large enough
          * to hold at least one message. */
-        if( xIsMessageBuffer == pdTRUE )
+        if( xIsMessageBuffer == ( BaseType_t ) pdTRUE )
         {
             /* Is a message buffer but not statically allocated. */
             ucFlags = sbFLAGS_IS_MESSAGE_BUFFER;
@@ -369,7 +369,7 @@ static void prvInitialiseNewStreamBuffer( StreamBuffer_t * const pxStreamBuffer,
          * this is a quirk of the implementation that means otherwise the free
          * space would be reported as one byte smaller than would be logically
          * expected. */
-        if( xBufferSizeBytes < ( xBufferSizeBytes + 1 + sizeof( StreamBuffer_t ) ) )
+        if( xBufferSizeBytes < ( xBufferSizeBytes + 1U + sizeof( StreamBuffer_t ) ) )
         {
             xBufferSizeBytes++;
             pucAllocatedMemory = ( uint8_t * ) pvPortMalloc( xBufferSizeBytes + sizeof( StreamBuffer_t ) ); /*lint !e9079 malloc() only returns void*. */
@@ -426,7 +426,7 @@ static void prvInitialiseNewStreamBuffer( StreamBuffer_t * const pxStreamBuffer,
             xTriggerLevelBytes = ( size_t ) 1;
         }
 
-        if( xIsMessageBuffer != pdFALSE )
+        if( xIsMessageBuffer != ( BaseType_t ) pdFALSE )
         {
             /* Statically allocated message buffer. */
             ucFlags = sbFLAGS_IS_MESSAGE_BUFFER | sbFLAGS_IS_STATICALLY_ALLOCATED;
@@ -736,7 +736,7 @@ size_t xStreamBufferSend( StreamBufferHandle_t xStreamBuffer,
             traceBLOCKING_ON_STREAM_BUFFER_SEND( xStreamBuffer );
             ( void ) xTaskNotifyWait( ( uint32_t ) 0, ( uint32_t ) 0, NULL, xTicksToWait );
             pxStreamBuffer->xTaskWaitingToSend = NULL;
-        } while( xTaskCheckForTimeOut( &xTimeOut, &xTicksToWait ) == pdFALSE );
+        } while( xTaskCheckForTimeOut( &xTimeOut, &xTicksToWait ) == ( BaseType_t ) pdFALSE );
     }
     else
     {
@@ -1217,7 +1217,7 @@ BaseType_t xStreamBufferSendCompletedFromISR( StreamBufferHandle_t xStreamBuffer
         }
         else
         {
-            xReturn = ( BaseType_t ) ;
+            xReturn = ( BaseType_t ) pdFALSE;
         }
     }
     taskEXIT_CRITICAL_FROM_ISR( uxSavedInterruptStatus );

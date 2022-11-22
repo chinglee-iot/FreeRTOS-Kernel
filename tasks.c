@@ -1504,7 +1504,7 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
     #if ( tskSET_NEW_STACKS_TO_KNOWN_VALUE == 1 )
     {
         /* Fill the stack with a known value to assist debugging. */
-        ( void ) memset( pxNewTCB->pxStack, ( BaseType_t ) tskSTACK_FILL_BYTE, ( BaseType_t ) ulStackDepth * sizeof( StackType_t ) );
+        ( void ) memset( pxNewTCB->pxStack, ( BaseType_t ) tskSTACK_FILL_BYTE, ( UBaseType_t ) ulStackDepth * sizeof( StackType_t ) );
     }
     #endif /* tskSET_NEW_STACKS_TO_KNOWN_VALUE */
 
@@ -1741,7 +1741,7 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
                 /* If the scheduler is not already running, make this task the
                  * current task if it is the highest priority task to be created
                  * so far. */
-                if( xSchedulerRunning == pdFALSE )
+                if( xSchedulerRunning == ( BaseType_t ) pdFALSE )
                 {
                     if( pxCurrentTCB->uxPriority <= pxNewTCB->uxPriority )
                     {
@@ -1774,7 +1774,7 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
         }
         taskEXIT_CRITICAL();
 
-        if( xSchedulerRunning != pdFALSE )
+        if( xSchedulerRunning != ( BaseType_t ) pdFALSE )
         {
             /* If the created task is of a higher priority than the current task
              * then it should run now. */
@@ -1975,7 +1975,7 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
 
             /* Force a reschedule if it is the currently running task that has just
              * been deleted. */
-            if( xSchedulerRunning != pdFALSE )
+            if( xSchedulerRunning != ( BaseType_t ) pdFALSE )
             {
                 if( pxTCB == pxCurrentTCB )
                 {
@@ -2076,7 +2076,7 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
             /* Update the wake time ready for the next call. */
             *pxPreviousWakeTime = xTimeToWake;
 
-            if( xShouldDelay != pdFALSE )
+            if( xShouldDelay != ( BaseType_t ) pdFALSE )
             {
                 traceTASK_DELAY_UNTIL( xTimeToWake );
 
@@ -2093,7 +2093,7 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
 
         /* Force a reschedule if xTaskResumeAll has not already done so, we may
          * have put ourselves to sleep. */
-        if( xAlreadyYielded == pdFALSE )
+        if( xAlreadyYielded == ( BaseType_t ) pdFALSE )
         {
             #if ( configNUM_CORES == 1 )
                 portYIELD_WITHIN_API();
@@ -2145,7 +2145,7 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
 
         /* Force a reschedule if xTaskResumeAll has not already done so, we may
          * have put ourselves to sleep. */
-        if( xAlreadyYielded == pdFALSE )
+        if( xAlreadyYielded == ( BaseType_t ) pdFALSE )
         {
             #if ( configNUM_CORES == 1 )
                 portYIELD_WITHIN_API();
@@ -2514,14 +2514,14 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
                         /* It's possible that xYieldForTask was already set to pdTRUE because
                          * its priority is being raised. However, since it is not in a ready list
                          * we don't actually need to yield for it. */
-                        xYieldForTask = pdFALSE;
+                        xYieldForTask = ( BaseType_t ) pdFALSE;
                     }
                     #endif
                 }
 
                 #if ( configNUM_CORES == 1 )
                 {
-                    if( xYieldRequired != pdFALSE )
+                    if( xYieldRequired != ( BaseType_t ) pdFALSE )
                     {
                         taskYIELD_IF_USING_PREEMPTION();
                     }
@@ -2534,11 +2534,11 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
                 {
                     #if ( configUSE_PREEMPTION == 1 )
                     {
-                        if( xYieldRequired != pdFALSE )
+                        if( xYieldRequired != ( BaseType_t ) pdFALSE )
                         {
                             prvYieldCore( pxTCB->xTaskRunState );
                         }
-                        else if( xYieldForTask != pdFALSE )
+                        else if( xYieldForTask != ( BaseType_t ) pdFALSE )
                         {
                             prvYieldForTask( pxTCB, pdTRUE );
                         }
@@ -2724,7 +2724,7 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
         {
             taskEXIT_CRITICAL();
 
-            if( xSchedulerRunning != pdFALSE )
+            if( xSchedulerRunning != ( BaseType_t ) pdFALSE )
             {
                 /* Reset the next expected unblock time in case it referred to the
                  * task that is now in the Suspended state. */
@@ -2741,7 +2741,7 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
 
             if( pxTCB == pxCurrentTCB )
             {
-                if( xSchedulerRunning != pdFALSE )
+                if( xSchedulerRunning != ( BaseType_t ) pdFALSE )
                 {
                     /* The current task has just been suspended. */
                     configASSERT( uxSchedulerSuspended == 0 );
@@ -2915,7 +2915,7 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
         {
             taskENTER_CRITICAL();
             {
-                if( prvTaskIsTaskSuspended( pxTCB ) != pdFALSE )
+                if( prvTaskIsTaskSuspended( pxTCB ) != ( BaseType_t ) pdFALSE )
                 {
                     traceTASK_RESUME( pxTCB );
 
@@ -2996,7 +2996,7 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
 
         uxSavedInterruptStatus = taskENTER_CRITICAL_FROM_ISR();
         {
-            if( prvTaskIsTaskSuspended( pxTCB ) != pdFALSE )
+            if( prvTaskIsTaskSuspended( pxTCB ) != ( BaseType_t ) pdFALSE )
             {
                 traceTASK_RESUME_FROM_ISR( pxTCB );
 
@@ -3411,14 +3411,14 @@ void vTaskSuspendAll( void )
         {
             xReturn = 0;
         }
-        else if( listCURRENT_LIST_LENGTH( &( pxReadyTasksLists[ tskIDLE_PRIORITY ] ) ) > 1 )
+        else if( listCURRENT_LIST_LENGTH( &( pxReadyTasksLists[ tskIDLE_PRIORITY ] ) ) > 1U )
         {
             /* There are other idle priority tasks in the ready state.  If
              * time slicing is used then the very next tick interrupt must be
              * processed. */
             xReturn = 0;
         }
-        else if( uxHigherPriorityReadyTasks != pdFALSE )
+        else if( uxHigherPriorityReadyTasks != ( UBaseType_t ) pdFALSE )
         {
             /* There are tasks in the Ready state that have a priority above the
              * idle priority.  This path can only be reached if
@@ -3525,7 +3525,7 @@ BaseType_t xTaskResumeAll( void )
                         {
                             do
                             {
-                                if( xTaskIncrementTick() != pdFALSE )
+                                if( xTaskIncrementTick() != ( BaseType_t ) pdFALSE )
                                 {
                                     /* Other cores are interrupted from
                                      * within xTaskIncrementTick(). */
@@ -3547,7 +3547,7 @@ BaseType_t xTaskResumeAll( void )
                         }
                     }
 
-                    if( xYieldPendings[ xCoreID ] != pdFALSE )
+                    if( xYieldPendings[ xCoreID ] != ( BaseType_t ) pdFALSE )
                     {
                         #if ( configUSE_PREEMPTION != 0 )
                         {
@@ -4218,7 +4218,7 @@ BaseType_t xTaskIncrementTick( void )
                 #if ( configNUM_CORES == 1 )
                 {
                     /* For single core the core ID is always 0. */
-                    if( xYieldPendings[ 0 ] != pdFALSE )
+                    if( xYieldPendings[ 0 ] != ( BaseType_t ) pdFALSE )
                     {
                         xSwitchRequired = ( BaseType_t ) pdTRUE;
                     }
@@ -4635,7 +4635,7 @@ void vTaskPlaceOnUnorderedEventList( List_t * pxEventList,
         /* If the task should block indefinitely then set the block time to a
          * value that will be recognised as an indefinite delay inside the
          * prvAddCurrentTaskToDelayedList() function. */
-        if( xWaitIndefinitely != pdFALSE )
+        if( xWaitIndefinitely != ( BaseType_t ) pdFALSE )
         {
             xTicksToWait = portMAX_DELAY;
         }
@@ -5169,17 +5169,17 @@ static portTASK_FUNCTION( prvIdleTask, pvParameters )
 
         /* This function must be called from a critical section. */
 
-        if( listCURRENT_LIST_LENGTH( &xPendingReadyList ) != 0 )
+        if( listCURRENT_LIST_LENGTH( &xPendingReadyList ) != 0U )
         {
             /* A task was made ready while the scheduler was suspended. */
             eReturn = eAbortSleep;
         }
-        else if( xYieldPendings[ portGET_CORE_ID() ] != pdFALSE )
+        else if( xYieldPendings[ portGET_CORE_ID() ] != ( BaseType_t ) pdFALSE )
         {
             /* A yield was pended while the scheduler was suspended. */
             eReturn = eAbortSleep;
         }
-        else if( xPendedTicks != 0 )
+        else if( xPendedTicks != 0U )
         {
             /* A tick interrupt has already occurred but was held pending
              * because the scheduler is suspended. */
@@ -5450,7 +5450,7 @@ static void prvCheckTasksWaitingTermination( void )
 
         /* Obtaining the stack space takes some time, so the xGetFreeStackSpace
          * parameter is provided to allow it to be skipped. */
-        if( xGetFreeStackSpace != pdFALSE )
+        if( xGetFreeStackSpace != ( BaseType_t ) pdFALSE )
         {
             #if ( portSTACK_GROWTH > 0 )
             {
@@ -5722,7 +5722,7 @@ static void prvResetNextTaskUnblockTime( void )
     {
         BaseType_t xReturn;
 
-        if( xSchedulerRunning == pdFALSE )
+        if( xSchedulerRunning == ( BaseType_t ) pdFALSE )
         {
             xReturn = taskSCHEDULER_NOT_STARTED;
         }
@@ -6060,7 +6060,7 @@ static void prvResetNextTaskUnblockTime( void )
     {
         portDISABLE_INTERRUPTS();
 
-        if( xSchedulerRunning != pdFALSE )
+        if( xSchedulerRunning != ( BaseType_t ) pdFALSE )
         {
             #if ( configNUM_CORES == 1 )
             {
@@ -6072,7 +6072,7 @@ static void prvResetNextTaskUnblockTime( void )
                  * interrupt.  Only assert if the critical nesting count is 1 to
                  * protect against recursive calls if the assert function also uses a
                  * critical section. */
-                if( pxCurrentTCB->uxCriticalNesting == 1 )
+                if( pxCurrentTCB->uxCriticalNesting == 1U )
                 {
                     portASSERT_IF_IN_ISR();
                 }
@@ -6156,7 +6156,7 @@ static void prvResetNextTaskUnblockTime( void )
 /* coverity[misra_c_2012_rule_8_4_violation] */
     void vTaskExitCritical( void )
     {
-        if( xSchedulerRunning != pdFALSE )
+        if( xSchedulerRunning != ( BaseType_t ) pdFALSE )
         {
             /* If pxCurrentTCB->uxCriticalNesting is zero then this function
              * does not match a previous call to vTaskEnterCritical(). */
@@ -6609,7 +6609,7 @@ TickType_t uxTaskResetEventItemValue( void )
 
             if( ulReturn != 0UL )
             {
-                if( xClearCountOnExit != pdFALSE )
+                if( xClearCountOnExit != ( BaseType_t ) pdFALSE )
                 {
                     pxCurrentTCB->ulNotifiedValue[ uxIndexToWaitOn ] = 0U;
                 }
@@ -7275,7 +7275,7 @@ static void prvAddCurrentTaskToDelayedList( TickType_t xTicksToWait,
 
     #if ( INCLUDE_vTaskSuspend == 1 )
     {
-        if( ( xTicksToWait == portMAX_DELAY ) && ( xCanBlockIndefinitely != pdFALSE ) )
+        if( ( xTicksToWait == portMAX_DELAY ) && ( xCanBlockIndefinitely != ( BaseType_t ) pdFALSE ) )
         {
             /* Add the task to the suspended task list instead of a delayed task
              * list to ensure it is not woken by a timing event.  It will block

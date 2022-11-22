@@ -323,7 +323,7 @@ BaseType_t xQueueGenericReset( QueueHandle_t xQueue,
             pxQueue->cRxLock = queueUNLOCKED;
             pxQueue->cTxLock = queueUNLOCKED;
 
-            if( xNewQueue == pdFALSE )
+            if( xNewQueue == ( BaseType_t ) pdFALSE )
             {
                 /* If there are tasks blocked waiting to read from the queue, then
                  * the tasks will remain blocked as after this function exits the queue
@@ -332,7 +332,7 @@ BaseType_t xQueueGenericReset( QueueHandle_t xQueue,
                  * it will be possible to write to it. */
                 if( listLIST_IS_EMPTY( &( pxQueue->xTasksWaitingToSend ) ) == pdFALSE )
                 {
-                    if( xTaskRemoveFromEventList( &( pxQueue->xTasksWaitingToSend ) ) != pdFALSE )
+                    if( xTaskRemoveFromEventList( &( pxQueue->xTasksWaitingToSend ) ) != ( BaseType_t ) pdFALSE )
                     {
                         queueYIELD_IF_USING_PREEMPTION();
                     }
@@ -387,8 +387,8 @@ BaseType_t xQueueGenericReset( QueueHandle_t xQueue,
 
             /* A queue storage area should be provided if the item size is not 0, and
              * should not be provided if the item size is 0. */
-            ( !( ( pucQueueStorage != NULL ) && ( uxItemSize == 0 ) ) ) &&
-            ( !( ( pucQueueStorage == NULL ) && ( uxItemSize != 0 ) ) ) )
+            ( !( ( pucQueueStorage != NULL ) && ( uxItemSize == 0U ) ) ) &&
+            ( !( ( pucQueueStorage == NULL ) && ( uxItemSize != 0U ) ) ) )
         {
             #if ( configASSERT_DEFINED == 1 )
             {
@@ -777,7 +777,7 @@ static void prvInitialiseNewQueue( const UBaseType_t uxQueueLength,
     {
         QueueHandle_t xHandle = NULL;
 
-        if( ( uxMaxCount != 0 ) &&
+        if( ( uxMaxCount != 0U ) &&
             ( uxInitialCount <= uxMaxCount ) )
         {
             xHandle = xQueueGenericCreateStatic( uxMaxCount, queueSEMAPHORE_QUEUE_ITEM_LENGTH, NULL, pxStaticQueue, queueQUEUE_TYPE_COUNTING_SEMAPHORE );
@@ -812,7 +812,7 @@ static void prvInitialiseNewQueue( const UBaseType_t uxQueueLength,
     {
         QueueHandle_t xHandle = NULL;
 
-        if( ( uxMaxCount != 0 ) &&
+        if( ( uxMaxCount != 0U ) &&
             ( uxInitialCount <= uxMaxCount ) )
         {
             xHandle = xQueueGenericCreate( uxMaxCount, queueSEMAPHORE_QUEUE_ITEM_LENGTH, queueQUEUE_TYPE_COUNTING_SEMAPHORE );
@@ -888,7 +888,7 @@ BaseType_t xQueueGenericSend( QueueHandle_t xQueue,
                              * in the queue has not changed. */
                             mtCOVERAGE_TEST_MARKER();
                         }
-                        else if( prvNotifyQueueSetContainer( pxQueue ) != pdFALSE )
+                        else if( prvNotifyQueueSetContainer( pxQueue ) != ( BaseType_t ) pdFALSE )
                         {
                             /* The queue is a member of a queue set, and posting
                              * to the queue set caused a higher priority task to
@@ -906,7 +906,7 @@ BaseType_t xQueueGenericSend( QueueHandle_t xQueue,
                          * queue then unblock it now. */
                         if( listLIST_IS_EMPTY( &( pxQueue->xTasksWaitingToReceive ) ) == pdFALSE )
                         {
-                            if( xTaskRemoveFromEventList( &( pxQueue->xTasksWaitingToReceive ) ) != pdFALSE )
+                            if( xTaskRemoveFromEventList( &( pxQueue->xTasksWaitingToReceive ) ) != ( BaseType_t ) pdFALSE )
                             {
                                 /* The unblocked task has a priority higher than
                                  * our own so yield immediately.  Yes it is ok to
@@ -919,7 +919,7 @@ BaseType_t xQueueGenericSend( QueueHandle_t xQueue,
                                 mtCOVERAGE_TEST_MARKER();
                             }
                         }
-                        else if( xYieldRequired != pdFALSE )
+                        else if( xYieldRequired != ( BaseType_t ) pdFALSE )
                         {
                             /* This path is a special case that will only get
                              * executed if the task was holding multiple mutexes
@@ -985,7 +985,7 @@ BaseType_t xQueueGenericSend( QueueHandle_t xQueue,
                     traceQUEUE_SEND_FAILED( pxQueue );
                     return errQUEUE_FULL;
                 }
-                else if( xEntryTimeSet == pdFALSE )
+                else if( xEntryTimeSet == ( BaseType_t ) pdFALSE )
                 {
                     /* The queue was full and a block time was specified so
                      * configure the timeout structure. */
@@ -1008,9 +1008,9 @@ BaseType_t xQueueGenericSend( QueueHandle_t xQueue,
         prvLockQueue( pxQueue );
 
         /* Update the timeout state to see if it has expired yet. */
-        if( xTaskCheckForTimeOut( &xTimeOut, &xTicksToWait ) == pdFALSE )
+        if( xTaskCheckForTimeOut( &xTimeOut, &xTicksToWait ) == ( BaseType_t ) pdFALSE )
         {
-            if( prvIsQueueFull( pxQueue ) != pdFALSE )
+            if( prvIsQueueFull( pxQueue ) != ( BaseType_t ) pdFALSE )
             {
                 traceBLOCKING_ON_QUEUE_SEND( pxQueue );
                 vTaskPlaceOnEventList( &( pxQueue->xTasksWaitingToSend ), xTicksToWait );
@@ -1027,7 +1027,7 @@ BaseType_t xQueueGenericSend( QueueHandle_t xQueue,
                  * task is already in the ready list before it yields - in which
                  * case the yield will not cause a context switch unless there
                  * is also a higher priority task in the pending ready list. */
-                if( xTaskResumeAll() == pdFALSE )
+                if( xTaskResumeAll() == ( BaseType_t ) pdFALSE )
                 {
                     #if ( configNUM_CORES == 1 )
                     {
@@ -1125,7 +1125,7 @@ BaseType_t xQueueGenericSendFromISR( QueueHandle_t xQueue,
                              * in the queue has not changed. */
                             mtCOVERAGE_TEST_MARKER();
                         }
-                        else if( prvNotifyQueueSetContainer( pxQueue ) != pdFALSE )
+                        else if( prvNotifyQueueSetContainer( pxQueue ) != ( BaseType_t ) pdFALSE )
                         {
                             /* The queue is a member of a queue set, and posting
                              * to the queue set caused a higher priority task to
@@ -1148,7 +1148,7 @@ BaseType_t xQueueGenericSendFromISR( QueueHandle_t xQueue,
                     {
                         if( listLIST_IS_EMPTY( &( pxQueue->xTasksWaitingToReceive ) ) == pdFALSE )
                         {
-                            if( xTaskRemoveFromEventList( &( pxQueue->xTasksWaitingToReceive ) ) != pdFALSE )
+                            if( xTaskRemoveFromEventList( &( pxQueue->xTasksWaitingToReceive ) ) != ( BaseType_t ) pdFALSE )
                             {
                                 /* The task waiting has a higher priority so
                                  *  record that a context switch is required. */
@@ -1294,7 +1294,7 @@ BaseType_t xQueueGiveFromISR( QueueHandle_t xQueue,
                 {
                     if( pxQueue->pxQueueSetContainer != NULL )
                     {
-                        if( prvNotifyQueueSetContainer( pxQueue ) != pdFALSE )
+                        if( prvNotifyQueueSetContainer( pxQueue ) != ( BaseType_t ) pdFALSE )
                         {
                             /* The semaphore is a member of a queue set, and
                              * posting to the queue set caused a higher priority
@@ -1317,7 +1317,7 @@ BaseType_t xQueueGiveFromISR( QueueHandle_t xQueue,
                     {
                         if( listLIST_IS_EMPTY( &( pxQueue->xTasksWaitingToReceive ) ) == pdFALSE )
                         {
-                            if( xTaskRemoveFromEventList( &( pxQueue->xTasksWaitingToReceive ) ) != pdFALSE )
+                            if( xTaskRemoveFromEventList( &( pxQueue->xTasksWaitingToReceive ) ) != ( BaseType_t ) pdFALSE )
                             {
                                 /* The task waiting has a higher priority so
                                  *  record that a context switch is required. */
@@ -1434,9 +1434,9 @@ BaseType_t xQueueReceive( QueueHandle_t xQueue,
                 /* There is now space in the queue, were any tasks waiting to
                  * post to the queue?  If so, unblock the highest priority waiting
                  * task. */
-                if( listLIST_IS_EMPTY( &( pxQueue->xTasksWaitingToSend ) ) == pdFALSE )
+                if( listLIST_IS_EMPTY( &( pxQueue->xTasksWaitingToSend ) ) == ( BaseType_t ) pdFALSE )
                 {
-                    if( xTaskRemoveFromEventList( &( pxQueue->xTasksWaitingToSend ) ) != pdFALSE )
+                    if( xTaskRemoveFromEventList( &( pxQueue->xTasksWaitingToSend ) ) != ( BaseType_t ) pdFALSE )
                     {
                         queueYIELD_IF_USING_PREEMPTION();
                     }
@@ -1463,7 +1463,7 @@ BaseType_t xQueueReceive( QueueHandle_t xQueue,
                     traceQUEUE_RECEIVE_FAILED( pxQueue );
                     return errQUEUE_EMPTY;
                 }
-                else if( xEntryTimeSet == pdFALSE )
+                else if( xEntryTimeSet == ( BaseType_t ) pdFALSE )
                 {
                     /* The queue was empty and a block time was specified so
                      * configure the timeout structure. */
@@ -1486,17 +1486,17 @@ BaseType_t xQueueReceive( QueueHandle_t xQueue,
         prvLockQueue( pxQueue );
 
         /* Update the timeout state to see if it has expired yet. */
-        if( xTaskCheckForTimeOut( &xTimeOut, &xTicksToWait ) == pdFALSE )
+        if( xTaskCheckForTimeOut( &xTimeOut, &xTicksToWait ) == ( BaseType_t ) pdFALSE )
         {
             /* The timeout has not expired.  If the queue is still empty place
              * the task on the list of tasks waiting to receive from the queue. */
-            if( prvIsQueueEmpty( pxQueue ) != pdFALSE )
+            if( prvIsQueueEmpty( pxQueue ) != ( BaseType_t ) pdFALSE )
             {
                 traceBLOCKING_ON_QUEUE_RECEIVE( pxQueue );
                 vTaskPlaceOnEventList( &( pxQueue->xTasksWaitingToReceive ), xTicksToWait );
                 prvUnlockQueue( pxQueue );
 
-                if( xTaskResumeAll() == pdFALSE )
+                if( xTaskResumeAll() == ( BaseType_t ) pdFALSE )
                 {
                     #if ( configNUM_CORES == 1 )
                     {
@@ -1528,7 +1528,7 @@ BaseType_t xQueueReceive( QueueHandle_t xQueue,
             prvUnlockQueue( pxQueue );
             ( void ) xTaskResumeAll();
 
-            if( prvIsQueueEmpty( pxQueue ) != pdFALSE )
+            if( prvIsQueueEmpty( pxQueue ) != ( BaseType_t ) pdFALSE )
             {
                 traceQUEUE_RECEIVE_FAILED( pxQueue );
                 return errQUEUE_EMPTY;
@@ -1607,7 +1607,7 @@ BaseType_t xQueueSemaphoreTake( QueueHandle_t xQueue,
                  * semaphore, and if so, unblock the highest priority such task. */
                 if( listLIST_IS_EMPTY( &( pxQueue->xTasksWaitingToSend ) ) == pdFALSE )
                 {
-                    if( xTaskRemoveFromEventList( &( pxQueue->xTasksWaitingToSend ) ) != pdFALSE )
+                    if( xTaskRemoveFromEventList( &( pxQueue->xTasksWaitingToSend ) ) != ( BaseType_t ) pdFALSE )
                     {
                         queueYIELD_IF_USING_PREEMPTION();
                     }
@@ -1634,7 +1634,7 @@ BaseType_t xQueueSemaphoreTake( QueueHandle_t xQueue,
                     traceQUEUE_RECEIVE_FAILED( pxQueue );
                     return errQUEUE_EMPTY;
                 }
-                else if( xEntryTimeSet == pdFALSE )
+                else if( xEntryTimeSet == ( BaseType_t ) pdFALSE )
                 {
                     /* The semaphore count was 0 and a block time was specified
                      * so configure the timeout structure ready to block. */
@@ -1657,13 +1657,13 @@ BaseType_t xQueueSemaphoreTake( QueueHandle_t xQueue,
         prvLockQueue( pxQueue );
 
         /* Update the timeout state to see if it has expired yet. */
-        if( xTaskCheckForTimeOut( &xTimeOut, &xTicksToWait ) == pdFALSE )
+        if( xTaskCheckForTimeOut( &xTimeOut, &xTicksToWait ) == ( BaseType_t ) pdFALSE )
         {
             /* A block time is specified and not expired.  If the semaphore
              * count is 0 then enter the Blocked state to wait for a semaphore to
              * become available.  As semaphores are implemented with queues the
              * queue being empty is equivalent to the semaphore count being 0. */
-            if( prvIsQueueEmpty( pxQueue ) != pdFALSE )
+            if( prvIsQueueEmpty( pxQueue ) != ( BaseType_t ) pdFALSE )
             {
                 traceBLOCKING_ON_QUEUE_RECEIVE( pxQueue );
 
@@ -1687,7 +1687,7 @@ BaseType_t xQueueSemaphoreTake( QueueHandle_t xQueue,
                 vTaskPlaceOnEventList( &( pxQueue->xTasksWaitingToReceive ), xTicksToWait );
                 prvUnlockQueue( pxQueue );
 
-                if( xTaskResumeAll() == pdFALSE )
+                if( xTaskResumeAll() == ( BaseType_t ) pdFALSE )
                 {
                     #if ( configNUM_CORES == 1 )
                     {
@@ -1722,14 +1722,14 @@ BaseType_t xQueueSemaphoreTake( QueueHandle_t xQueue,
              * expired.  Otherwise return to attempt to take the semaphore that is
              * known to be available.  As semaphores are implemented by queues the
              * queue being empty is equivalent to the semaphore count being 0. */
-            if( prvIsQueueEmpty( pxQueue ) != pdFALSE )
+            if( prvIsQueueEmpty( pxQueue ) != ( BaseType_t ) pdFALSE )
             {
                 #if ( configUSE_MUTEXES == 1 )
                 {
                     /* xInheritanceOccurred could only have be set if
                      * pxQueue->uxQueueType == queueQUEUE_IS_MUTEX so no need to
                      * test the mutex type again to check it is actually a mutex. */
-                    if( xInheritanceOccurred != pdFALSE )
+                    if( xInheritanceOccurred != ( BaseType_t ) pdFALSE )
                     {
                         taskENTER_CRITICAL();
                         {
@@ -1811,7 +1811,7 @@ BaseType_t xQueuePeek( QueueHandle_t xQueue,
                  * any other tasks waiting for the data. */
                 if( listLIST_IS_EMPTY( &( pxQueue->xTasksWaitingToReceive ) ) == pdFALSE )
                 {
-                    if( xTaskRemoveFromEventList( &( pxQueue->xTasksWaitingToReceive ) ) != pdFALSE )
+                    if( xTaskRemoveFromEventList( &( pxQueue->xTasksWaitingToReceive ) ) != ( BaseType_t ) pdFALSE )
                     {
                         /* The task waiting has a higher priority than this task. */
                         queueYIELD_IF_USING_PREEMPTION();
@@ -1839,7 +1839,7 @@ BaseType_t xQueuePeek( QueueHandle_t xQueue,
                     traceQUEUE_PEEK_FAILED( pxQueue );
                     return errQUEUE_EMPTY;
                 }
-                else if( xEntryTimeSet == pdFALSE )
+                else if( xEntryTimeSet == ( BaseType_t ) pdFALSE )
                 {
                     /* The queue was empty and a block time was specified so
                      * configure the timeout structure ready to enter the blocked
@@ -1863,17 +1863,17 @@ BaseType_t xQueuePeek( QueueHandle_t xQueue,
         prvLockQueue( pxQueue );
 
         /* Update the timeout state to see if it has expired yet. */
-        if( xTaskCheckForTimeOut( &xTimeOut, &xTicksToWait ) == pdFALSE )
+        if( xTaskCheckForTimeOut( &xTimeOut, &xTicksToWait ) == ( BaseType_t ) pdFALSE )
         {
             /* Timeout has not expired yet, check to see if there is data in the
             * queue now, and if not enter the Blocked state to wait for data. */
-            if( prvIsQueueEmpty( pxQueue ) != pdFALSE )
+            if( prvIsQueueEmpty( pxQueue ) != ( BaseType_t ) pdFALSE )
             {
                 traceBLOCKING_ON_QUEUE_PEEK( pxQueue );
                 vTaskPlaceOnEventList( &( pxQueue->xTasksWaitingToReceive ), xTicksToWait );
                 prvUnlockQueue( pxQueue );
 
-                if( xTaskResumeAll() == pdFALSE )
+                if( xTaskResumeAll() == ( BaseType_t ) pdFALSE )
                 {
                     #if ( configNUM_CORES == 1 )
                     {
@@ -1905,7 +1905,7 @@ BaseType_t xQueuePeek( QueueHandle_t xQueue,
             prvUnlockQueue( pxQueue );
             ( void ) xTaskResumeAll();
 
-            if( prvIsQueueEmpty( pxQueue ) != pdFALSE )
+            if( prvIsQueueEmpty( pxQueue ) != ( BaseType_t ) pdFALSE )
             {
                 traceQUEUE_PEEK_FAILED( pxQueue );
                 return errQUEUE_EMPTY;
@@ -1968,7 +1968,7 @@ BaseType_t xQueueReceiveFromISR( QueueHandle_t xQueue,
             {
                 if( listLIST_IS_EMPTY( &( pxQueue->xTasksWaitingToSend ) ) == pdFALSE )
                 {
-                    if( xTaskRemoveFromEventList( &( pxQueue->xTasksWaitingToSend ) ) != pdFALSE )
+                    if( xTaskRemoveFromEventList( &( pxQueue->xTasksWaitingToSend ) ) != ( BaseType_t ) pdFALSE )
                     {
                         /* The task waiting has a higher priority than us so
                          * force a context switch. */
@@ -2337,7 +2337,7 @@ static void prvUnlockQueue( Queue_t * const pxQueue )
             {
                 if( pxQueue->pxQueueSetContainer != NULL )
                 {
-                    if( prvNotifyQueueSetContainer( pxQueue ) != pdFALSE )
+                    if( prvNotifyQueueSetContainer( pxQueue ) != ( BaseType_t ) pdFALSE )
                     {
                         /* The queue is a member of a queue set, and posting to
                          * the queue set caused a higher priority task to unblock.
@@ -2356,7 +2356,7 @@ static void prvUnlockQueue( Queue_t * const pxQueue )
                      * suspended. */
                     if( listLIST_IS_EMPTY( &( pxQueue->xTasksWaitingToReceive ) ) == pdFALSE )
                     {
-                        if( xTaskRemoveFromEventList( &( pxQueue->xTasksWaitingToReceive ) ) != pdFALSE )
+                        if( xTaskRemoveFromEventList( &( pxQueue->xTasksWaitingToReceive ) ) != ( BaseType_t ) pdFALSE )
                         {
                             /* The task waiting has a higher priority so record that a
                              * context switch is required. */
@@ -2413,7 +2413,7 @@ static void prvUnlockQueue( Queue_t * const pxQueue )
         {
             if( listLIST_IS_EMPTY( &( pxQueue->xTasksWaitingToSend ) ) == pdFALSE )
             {
-                if( xTaskRemoveFromEventList( &( pxQueue->xTasksWaitingToSend ) ) != pdFALSE )
+                if( xTaskRemoveFromEventList( &( pxQueue->xTasksWaitingToSend ) ) != ( BaseType_t ) pdFALSE )
                 {
                     vTaskMissedYield();
                 }
@@ -2532,7 +2532,7 @@ BaseType_t xQueueIsQueueFullFromISR( const QueueHandle_t xQueue )
          * between the check to see if the queue is full and blocking on the queue. */
         portDISABLE_INTERRUPTS();
         {
-            if( prvIsQueueFull( pxQueue ) != pdFALSE )
+            if( prvIsQueueFull( pxQueue ) != ( BaseType_t ) pdFALSE )
             {
                 /* The queue is full - do we want to block or just leave without
                  * posting? */
@@ -2568,7 +2568,7 @@ BaseType_t xQueueIsQueueFullFromISR( const QueueHandle_t xQueue )
                      * into the ready list as we are within a critical section.
                      * Instead the same pending ready list mechanism is used as if
                      * the event were caused from within an interrupt. */
-                    if( xCoRoutineRemoveFromEventList( &( pxQueue->xTasksWaitingToReceive ) ) != pdFALSE )
+                    if( xCoRoutineRemoveFromEventList( &( pxQueue->xTasksWaitingToReceive ) ) != ( BaseType_t ) pdFALSE )
                     {
                         /* The co-routine waiting has a higher priority so record
                          * that a yield might be appropriate. */
@@ -2664,7 +2664,7 @@ BaseType_t xQueueIsQueueFullFromISR( const QueueHandle_t xQueue )
                      * into the ready list as we are within a critical section.
                      * Instead the same pending ready list mechanism is used as if
                      * the event were caused from within an interrupt. */
-                    if( xCoRoutineRemoveFromEventList( &( pxQueue->xTasksWaitingToSend ) ) != pdFALSE )
+                    if( xCoRoutineRemoveFromEventList( &( pxQueue->xTasksWaitingToSend ) ) != ( BaseType_t ) pdFALSE )
                     {
                         xReturn = errQUEUE_YIELD;
                     }
@@ -2707,11 +2707,11 @@ BaseType_t xQueueIsQueueFullFromISR( const QueueHandle_t xQueue )
 
             /* We only want to wake one co-routine per ISR, so check that a
              * co-routine has not already been woken. */
-            if( xCoRoutinePreviouslyWoken == pdFALSE )
+            if( xCoRoutinePreviouslyWoken == ( BaseType_t ) pdFALSE )
             {
                 if( listLIST_IS_EMPTY( &( pxQueue->xTasksWaitingToReceive ) ) == pdFALSE )
                 {
-                    if( xCoRoutineRemoveFromEventList( &( pxQueue->xTasksWaitingToReceive ) ) != pdFALSE )
+                    if( xCoRoutineRemoveFromEventList( &( pxQueue->xTasksWaitingToReceive ) ) != ( BaseType_t ) pdFALSE )
                     {
                         return ( BaseType_t ) pdTRUE;
                     }
@@ -2769,11 +2769,11 @@ BaseType_t xQueueIsQueueFullFromISR( const QueueHandle_t xQueue )
             --( pxQueue->uxMessagesWaiting );
             ( void ) memcpy( ( void * ) pvBuffer, ( void * ) pxQueue->u.xQueue.pcReadFrom, ( UBaseType_t ) pxQueue->uxItemSize );
 
-            if( ( *pxTaskWoken ) == pdFALSE )
+            if( ( *pxTaskWoken ) == ( BaseType_t ) pdFALSE )
             {
                 if( listLIST_IS_EMPTY( &( pxQueue->xTasksWaitingToSend ) ) == pdFALSE )
                 {
-                    if( xCoRoutineRemoveFromEventList( &( pxQueue->xTasksWaitingToSend ) ) != pdFALSE )
+                    if( xCoRoutineRemoveFromEventList( &( pxQueue->xTasksWaitingToSend ) ) != ( BaseType_t ) pdFALSE )
                     {
                         *pxTaskWoken = ( BaseType_t ) pdTRUE;
                     }
@@ -3096,7 +3096,7 @@ BaseType_t xQueueIsQueueFullFromISR( const QueueHandle_t xQueue )
             {
                 if( listLIST_IS_EMPTY( &( pxQueueSetContainer->xTasksWaitingToReceive ) ) == pdFALSE )
                 {
-                    if( xTaskRemoveFromEventList( &( pxQueueSetContainer->xTasksWaitingToReceive ) ) != pdFALSE )
+                    if( xTaskRemoveFromEventList( &( pxQueueSetContainer->xTasksWaitingToReceive ) ) != ( BaseType_t ) pdFALSE )
                     {
                         /* The task waiting has a higher priority. */
                         xReturn = ( BaseType_t ) pdTRUE;
