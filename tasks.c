@@ -1521,6 +1521,11 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
     #if ( portSTACK_GROWTH < 0 )
     {
         pxTopOfStack = &( pxNewTCB->pxStack[ ulStackDepth - ( uint32_t ) 1 ] );
+        /* 
+         * The rule 11.4 is "A conversion should not be performed between a pointer to object and an 
+         * integer type." We use type UBaseType_t to do byte alignment. Then check error by configASSERT.
+         */
+        /* coverity[misra_c_2012_rule_11_4_violation] */
         pxTopOfStack = ( StackType_t * ) ( ( ( UBaseType_t ) pxTopOfStack ) & ( ~( ( UBaseType_t ) portBYTE_ALIGNMENT_MASK ) ) ); /*lint !e923 !e9033 !e9078 MISRA exception.  Avoiding casts between pointers and integers is not practical.  Size differences accounted for using portPOINTER_SIZE_TYPE type.  Checked by assert(). */
 
         /* Check the alignment of the calculated top of stack is correct. */
