@@ -4104,6 +4104,7 @@ BaseType_t xTaskIncrementTick( void )
              * look any further down the list. */
             if( xConstTickCount >= xNextTaskUnblockTime )
             {
+                BaseType_t isEnd = ( BaseType_t ) pdFALSE;
                 for( ; ; )
                 {
                     if( listLIST_IS_EMPTY( pxDelayedTaskList ) != pdFALSE )
@@ -4114,7 +4115,8 @@ BaseType_t xTaskIncrementTick( void )
                          * if( xTickCount >= xNextTaskUnblockTime ) test will pass
                          * next time through. */
                         xNextTaskUnblockTime = portMAX_DELAY; /*lint !e961 MISRA exception as the casts are only redundant for some ports. */
-                        break;
+                        
+                        isEnd = ( BaseType_t ) pdTRUE;
                     }
                     else
                     {
@@ -4133,13 +4135,17 @@ BaseType_t xTaskIncrementTick( void )
                              * state -  so record the item value in
                              * xNextTaskUnblockTime. */
                             xNextTaskUnblockTime = xItemValue;
-                            break; /*lint !e9011 Code structure here is deemed easier to understand with multiple breaks. */
+                            
+                            isEnd = ( BaseType_t ) pdTRUE;
                         }
                         else
                         {
                             mtCOVERAGE_TEST_MARKER();
                         }
-
+                    }
+                    
+                    if( isEnd == ( BaseType_t ) pdFALSE )
+                    {
                         /* It is time to remove the item from the Blocked state. */
                         listREMOVE_ITEM( &( pxTCB->xStateListItem ) );
 
@@ -4188,6 +4194,11 @@ BaseType_t xTaskIncrementTick( void )
                             #endif /* #if( configNUM_CORES == 1 ) */
                         }
                         #endif /* #if ( configUSE_PREEMPTION == 1 ) */
+                    }
+                    
+                    if( isEnd == ( BaseType_t ) pdTRUE )
+                    {
+                        break;
                     }
                 }
             }
