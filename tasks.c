@@ -289,7 +289,7 @@ typedef BaseType_t TaskRunning_t;
  * and stores task state information, including a pointer to the task's context
  * (the task's run time environment, including register values)
  */
-typedef struct tskTaskControlBlock       /* The old naming convention is used to prevent breaking kernel aware debuggers. */
+struct tskTaskControlBlock       /* The old naming convention is used to prevent breaking kernel aware debuggers. */
 {
     /* 
      * The rule 2.2 is "There shall be no dead code."
