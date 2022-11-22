@@ -3438,7 +3438,13 @@ void vTaskSuspendAll( void )
         }
         else
         {
-            xReturn = xNextTaskUnblockTime - xTickCount;
+            /* Declare xLocalNextTaskUnblockTime/xLocalTickCount here to confort MISRA C 2012 Rule 13.2 - 
+             * "The value of an expression and its persistent side-effects shall be the same
+             * under all permitted evaluation orders." */
+            TickType_t xLocalNextTaskUnblockTime = xNextTaskUnblockTime;
+            TickType_t xLocalTickCount = xTickCount;
+            
+            xReturn = xLocalNextTaskUnblockTime - xLocalTickCount;
         }
 
         return xReturn;
@@ -3889,14 +3895,20 @@ char * pcTaskGetName( TaskHandle_t xTaskToQuery ) /*lint !e971 Unqualified char 
 
     void vTaskStepTick( TickType_t xTicksToJump )
     {
+        /* Declare xLocalTickCount/xLocalNextTaskUnblockTime here to confort MISRA C 2012 Rule 13.2 - 
+         * "The value of an expression and its persistent side-effects shall be the same
+         * under all permitted evaluation orders." */
+        TickType_t xLocalTickCount = xTickCount;
+        TickType_t xLocalNextTaskUnblockTime = xNextTaskUnblockTime;
+
         /* Correct the tick count value after a period during which the tick
          * was suppressed.  Note this does *not* call the tick hook function for
          * each stepped tick. */
-        configASSERT( ( xTickCount + xTicksToJump ) <= xNextTaskUnblockTime );
+        configASSERT( ( xLocalTickCount + xTicksToJump ) <= xLocalNextTaskUnblockTime );
 
-        if( ( xTickCount + xTicksToJump ) == xNextTaskUnblockTime )
+        if( ( xLocalTickCount + xTicksToJump ) == xLocalNextTaskUnblockTime )
         {
-            /* Arrange for xTickCount to reach xNextTaskUnblockTime in
+            /* Arrange for xLocalTickCount to reach xLocalNextTaskUnblockTime in
              * xTaskIncrementTick() when the scheduler resumes.  This ensures
              * that any delayed tasks are resumed at the correct time. */
             configASSERT( uxSchedulerSuspended );
@@ -7305,15 +7317,27 @@ static void prvAddCurrentTaskToDelayedList( TickType_t xTicksToWait,
 
             if( xTimeToWake < xConstTickCount )
             {
+                /* Declare pxLocalOverflowDelayedTaskList/pxLocalCurrentTCB here to confort MISRA C 2012 Rule 13.2 - 
+                * "The value of an expression and its persistent side-effects shall be the same
+                * under all permitted evaluation orders." */
+                List_t * pxLocalOverflowDelayedTaskList = pxOverflowDelayedTaskList;
+                List_t * pxLocalCurrentTCB = pxCurrentTCB;
+
                 /* Wake time has overflowed.  Place this item in the overflow
                  * list. */
-                vListInsert( pxOverflowDelayedTaskList, &( pxCurrentTCB->xStateListItem ) );
+                vListInsert( pxLocalOverflowDelayedTaskList, &( pxLocalCurrentTCB->xStateListItem ) );
             }
             else
             {
+                /* Declare pxLocalDelayedTaskList/pxLocalCurrentTCB here to confort MISRA C 2012 Rule 13.2 - 
+                * "The value of an expression and its persistent side-effects shall be the same
+                * under all permitted evaluation orders." */
+                List_t * pxLocalDelayedTaskList = pxDelayedTaskList;
+                List_t * pxLocalCurrentTCB = pxCurrentTCB;
+
                 /* The wake time has not overflowed, so the current block list
                  * is used. */
-                vListInsert( pxDelayedTaskList, &( pxCurrentTCB->xStateListItem ) );
+                vListInsert( pxLocalDelayedTaskList, &( pxLocalCurrentTCB->xStateListItem ) );
 
                 /* If the task entering the blocked state was placed at the
                  * head of the list of blocked tasks then xNextTaskUnblockTime
@@ -7341,13 +7365,25 @@ static void prvAddCurrentTaskToDelayedList( TickType_t xTicksToWait,
 
         if( xTimeToWake < xConstTickCount )
         {
+            /* Declare pxLocalOverflowDelayedTaskList/pxLocalCurrentTCB here to confort MISRA C 2012 Rule 13.2 - 
+             * "The value of an expression and its persistent side-effects shall be the same
+             * under all permitted evaluation orders." */
+            List_t * pxLocalOverflowDelayedTaskList = pxOverflowDelayedTaskList;
+            List_t * pxLocalCurrentTCB = pxCurrentTCB;
+
             /* Wake time has overflowed.  Place this item in the overflow list. */
-            vListInsert( pxOverflowDelayedTaskList, &( pxCurrentTCB->xStateListItem ) );
+            vListInsert( pxLocalOverflowDelayedTaskList, &( pxLocalCurrentTCB->xStateListItem ) );
         }
         else
         {
+            /* Declare pxLocalDelayedTaskList/pxLocalCurrentTCB here to confort MISRA C 2012 Rule 13.2 - 
+             * "The value of an expression and its persistent side-effects shall be the same
+             * under all permitted evaluation orders." */
+            List_t * pxLocalDelayedTaskList = pxDelayedTaskList;
+            List_t * pxLocalCurrentTCB = pxCurrentTCB;
+
             /* The wake time has not overflowed, so the current block list is used. */
-            vListInsert( pxDelayedTaskList, &( pxCurrentTCB->xStateListItem ) );
+            vListInsert( pxDelayedTaskList, &( pxLocalCurrentTCB->xStateListItem ) );
 
             /* If the task entering the blocked state was placed at the head of the
              * list of blocked tasks then xNextTaskUnblockTime needs to be updated
