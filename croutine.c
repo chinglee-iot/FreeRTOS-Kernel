@@ -285,15 +285,6 @@
 
     void vCoRoutineSchedule( void )
     {
-        /*
-         * The rule 10.5 is The value of an expression should not be cast to an inappropriate essential type. 
-         * Because pdTRUE/pdFALSE are defined by FreeRTOS-Kernel are 0 and 1, which results in a signed integer.
-         * This means that our implementation conforms to the exception provided by MISRA
-         * To quote MISRA: "An integer constant expression with the value 0 or 1 of either signedness
-         * may be cast to a type which is defined as essentially Boolean.
-         * This allows the implementation of non-C99 Boolean models."
-         */
-        /* coverity[misra_c_2012_rule_10_5_violation] */
         BaseType_t noMoreToCheck = ( BaseType_t ) pdFALSE;
 
         /* Only run a co-routine after prvInitialiseCoRoutineLists() has been
@@ -308,29 +299,11 @@
             prvCheckDelayedList();
 
             /* Find the highest priority queue that contains ready co-routines. */
-            /*
-             * The rule 10.5 is The value of an expression should not be cast to an inappropriate essential type. 
-             * Because pdTRUE/pdFALSE are defined by FreeRTOS-Kernel are 0 and 1, which results in a signed integer.
-             * This means that our implementation conforms to the exception provided by MISRA
-             * To quote MISRA: "An integer constant expression with the value 0 or 1 of either signedness
-             * may be cast to a type which is defined as essentially Boolean.
-             * This allows the implementation of non-C99 Boolean models."
-             */
-            /* coverity[misra_c_2012_rule_10_5_violation] */
             while( listLIST_IS_EMPTY( &( pxReadyCoRoutineLists[ uxTopCoRoutineReadyPriority ] ) ) == ( BaseType_t ) pdTRUE )
             {
                 if( uxTopCoRoutineReadyPriority == 0U )
                 {
                     /* No more co-routines to check. */
-                    /*
-                     * The rule 10.5 is The value of an expression should not be cast to an inappropriate essential type. 
-                     * Because pdTRUE/pdFALSE are defined by FreeRTOS-Kernel are 0 and 1, which results in a signed integer.
-                     * This means that our implementation conforms to the exception provided by MISRA
-                     * To quote MISRA: "An integer constant expression with the value 0 or 1 of either signedness
-                     * may be cast to a type which is defined as essentially Boolean.
-                     * This allows the implementation of non-C99 Boolean models."
-                     */
-                    /* coverity[misra_c_2012_rule_10_5_violation] */
                     noMoreToCheck = ( BaseType_t ) pdTRUE;
                     break;
                 }
@@ -338,15 +311,6 @@
                 --uxTopCoRoutineReadyPriority;
             }
 
-            /*
-             * The rule 10.5 is The value of an expression should not be cast to an inappropriate essential type. 
-             * Because pdTRUE/pdFALSE are defined by FreeRTOS-Kernel are 0 and 1, which results in a signed integer.
-             * This means that our implementation conforms to the exception provided by MISRA
-             * To quote MISRA: "An integer constant expression with the value 0 or 1 of either signedness
-             * may be cast to a type which is defined as essentially Boolean.
-             * This allows the implementation of non-C99 Boolean models."
-             */
-            /* coverity[misra_c_2012_rule_10_5_violation] */
             if( noMoreToCheck == ( BaseType_t ) pdFALSE )
             {
                 /* listGET_OWNER_OF_NEXT_ENTRY walks through the list, so the co-routines
@@ -398,28 +362,10 @@
 
         if( pxUnblockedCRCB->uxPriority >= pxCurrentCoRoutine->uxPriority )
         {
-            /*
-             * The rule 10.5 is The value of an expression should not be cast to an inappropriate essential type. 
-             * Because pdTRUE/pdFALSE are defined by FreeRTOS-Kernel are 0 and 1, which results in a signed integer.
-             * This means that our implementation conforms to the exception provided by MISRA
-             * To quote MISRA: "An integer constant expression with the value 0 or 1 of either signedness
-             * may be cast to a type which is defined as essentially Boolean.
-             * This allows the implementation of non-C99 Boolean models."
-             */
-            /* coverity[misra_c_2012_rule_10_5_violation] */
             xReturn = ( BaseType_t ) pdTRUE;
         }
         else
         {
-            /*
-             * The rule 10.5 is The value of an expression should not be cast to an inappropriate essential type. 
-             * Because pdTRUE/pdFALSE are defined by FreeRTOS-Kernel are 0 and 1, which results in a signed integer.
-             * This means that our implementation conforms to the exception provided by MISRA
-             * To quote MISRA: "An integer constant expression with the value 0 or 1 of either signedness
-             * may be cast to a type which is defined as essentially Boolean.
-             * This allows the implementation of non-C99 Boolean models."
-             */
-            /* coverity[misra_c_2012_rule_10_5_violation] */
             xReturn = ( BaseType_t ) pdFALSE;
         }
 

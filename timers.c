@@ -383,15 +383,6 @@
         pxNewTimer->pxCallbackFunction = pxCallbackFunction;
         vListInitialiseItem( &( pxNewTimer->xTimerListItem ) );
 
-        /*
-         * The rule 10.5 is The value of an expression should not be cast to an inappropriate essential type. 
-         * Because pdTRUE/pdFALSE are defined by FreeRTOS-Kernel are 0 and 1, which results in a signed integer.
-         * This means that our implementation conforms to the exception provided by MISRA
-         * To quote MISRA: "An integer constant expression with the value 0 or 1 of either signedness
-         * may be cast to a type which is defined as essentially Boolean.
-         * This allows the implementation of non-C99 Boolean models."
-         */
-        /* coverity[misra_c_2012_rule_10_5_violation] */
         if( xAutoReload == ( BaseType_t ) pdTRUE )
         {
             pxNewTimer->ucStatus |= tmrSTATUS_IS_AUTORELOAD;
@@ -514,15 +505,6 @@
         configASSERT( xTimer );
         taskENTER_CRITICAL();
         {
-            /*
-             * The rule 10.5 is The value of an expression should not be cast to an inappropriate essential type. 
-             * Because pdTRUE/pdFALSE are defined by FreeRTOS-Kernel are 0 and 1, which results in a signed integer.
-             * This means that our implementation conforms to the exception provided by MISRA
-             * To quote MISRA: "An integer constant expression with the value 0 or 1 of either signedness
-             * may be cast to a type which is defined as essentially Boolean.
-             * This allows the implementation of non-C99 Boolean models."
-             */
-            /* coverity[misra_c_2012_rule_10_5_violation] */
             if( xAutoReload == ( BaseType_t ) pdTRUE )
             {
                 pxTimer->ucStatus |= tmrSTATUS_IS_AUTORELOAD;
@@ -547,29 +529,11 @@
             if( ( pxTimer->ucStatus & tmrSTATUS_IS_AUTORELOAD ) == 0U )
             {
                 /* Not an auto-reload timer. */
-                /*
-                 * The rule 10.5 is The value of an expression should not be cast to an inappropriate essential type. 
-                 * Because pdTRUE/pdFALSE are defined by FreeRTOS-Kernel are 0 and 1, which results in a signed integer.
-                 * This means that our implementation conforms to the exception provided by MISRA
-                 * To quote MISRA: "An integer constant expression with the value 0 or 1 of either signedness
-                 * may be cast to a type which is defined as essentially Boolean.
-                 * This allows the implementation of non-C99 Boolean models."
-                 */
-                /* coverity[misra_c_2012_rule_10_5_violation] */
                 xReturn = ( BaseType_t ) pdFALSE;
             }
             else
             {
                 /* Is an auto-reload timer. */
-                /*
-                 * The rule 10.5 is The value of an expression should not be cast to an inappropriate essential type. 
-                 * Because pdTRUE/pdFALSE are defined by FreeRTOS-Kernel are 0 and 1, which results in a signed integer.
-                 * This means that our implementation conforms to the exception provided by MISRA
-                 * To quote MISRA: "An integer constant expression with the value 0 or 1 of either signedness
-                 * may be cast to a type which is defined as essentially Boolean.
-                 * This allows the implementation of non-C99 Boolean models."
-                 */
-                /* coverity[misra_c_2012_rule_10_5_violation] */
                 xReturn = ( BaseType_t ) pdTRUE;
             }
         }
@@ -614,15 +578,6 @@
         /* Insert the timer into the appropriate list for the next expiry time.
          * If the next expiry time has already passed, advance the expiry time,
          * call the callback function, and try again. */
-        /*
-         * The rule 10.5 is The value of an expression should not be cast to an inappropriate essential type. 
-         * Because pdTRUE/pdFALSE are defined by FreeRTOS-Kernel are 0 and 1, which results in a signed integer.
-         * This means that our implementation conforms to the exception provided by MISRA
-         * To quote MISRA: "An integer constant expression with the value 0 or 1 of either signedness
-         * may be cast to a type which is defined as essentially Boolean.
-         * This allows the implementation of non-C99 Boolean models."
-         */
-        /* coverity[misra_c_2012_rule_10_5_violation] */
         while( prvInsertTimerInActiveList( pxTimer, ( xLocalExpiredTime + pxTimer->xTimerPeriodInTicks ), xTimeNow, xLocalExpiredTime ) == ( BaseType_t ) pdTRUE )
         {
             /* Advance the expiry time. */
@@ -715,27 +670,9 @@
              * prvSampleTimeNow() function. */
             xTimeNow = prvSampleTimeNow( &xTimerListsWereSwitched );
 
-            /*
-             * The rule 10.5 is The value of an expression should not be cast to an inappropriate essential type. 
-             * Because pdTRUE/pdFALSE are defined by FreeRTOS-Kernel are 0 and 1, which results in a signed integer.
-             * This means that our implementation conforms to the exception provided by MISRA
-             * To quote MISRA: "An integer constant expression with the value 0 or 1 of either signedness
-             * may be cast to a type which is defined as essentially Boolean.
-             * This allows the implementation of non-C99 Boolean models."
-             */
-            /* coverity[misra_c_2012_rule_10_5_violation] */
             if( xTimerListsWereSwitched == ( BaseType_t ) pdFALSE )
             {
                 /* The tick count has not overflowed, has the timer expired? */
-                /*
-                 * The rule 10.5 is The value of an expression should not be cast to an inappropriate essential type. 
-                 * Because pdTRUE/pdFALSE are defined by FreeRTOS-Kernel are 0 and 1, which results in a signed integer.
-                 * This means that our implementation conforms to the exception provided by MISRA
-                 * To quote MISRA: "An integer constant expression with the value 0 or 1 of either signedness
-                 * may be cast to a type which is defined as essentially Boolean.
-                 * This allows the implementation of non-C99 Boolean models."
-                 */
-                /* coverity[misra_c_2012_rule_10_5_violation] */
                 if( ( xLocalListWasEmpty == ( BaseType_t ) pdFALSE ) && ( xNextExpireTime <= xTimeNow ) )
                 {
                     ( void ) xTaskResumeAll();
@@ -749,15 +686,6 @@
                      * received - whichever comes first.  The following line cannot
                      * be reached unless xNextExpireTime > xTimeNow, except in the
                      * case when the current timer list is empty. */
-                    /*
-                     * The rule 10.5 is The value of an expression should not be cast to an inappropriate essential type. 
-                     * Because pdTRUE/pdFALSE are defined by FreeRTOS-Kernel are 0 and 1, which results in a signed integer.
-                     * This means that our implementation conforms to the exception provided by MISRA
-                     * To quote MISRA: "An integer constant expression with the value 0 or 1 of either signedness
-                     * may be cast to a type which is defined as essentially Boolean.
-                     * This allows the implementation of non-C99 Boolean models."
-                     */
-                    /* coverity[misra_c_2012_rule_10_5_violation] */
                     if( xLocalListWasEmpty == ( BaseType_t ) pdTRUE )
                     {
                         /* The current timer list is empty - is the overflow list
@@ -767,15 +695,6 @@
 
                     vQueueWaitForMessageRestricted( xTimerQueue, ( xNextExpireTime - xTimeNow ), xLocalListWasEmpty );
 
-                    /*
-                     * The rule 10.5 is The value of an expression should not be cast to an inappropriate essential type. 
-                     * Because pdTRUE/pdFALSE are defined by FreeRTOS-Kernel are 0 and 1, which results in a signed integer.
-                     * This means that our implementation conforms to the exception provided by MISRA
-                     * To quote MISRA: "An integer constant expression with the value 0 or 1 of either signedness
-                     * may be cast to a type which is defined as essentially Boolean.
-                     * This allows the implementation of non-C99 Boolean models."
-                     */
-                    /* coverity[misra_c_2012_rule_10_5_violation] */
                     if( xTaskResumeAll() == ( BaseType_t ) pdFALSE )
                     {
                         /* Yield to wait for either a command to arrive, or the
@@ -819,15 +738,6 @@
          * re-assessed.  */
         *pxListWasEmpty = listLIST_IS_EMPTY( pxCurrentTimerList );
 
-        /*
-         * The rule 10.5 is The value of an expression should not be cast to an inappropriate essential type. 
-         * Because pdTRUE/pdFALSE are defined by FreeRTOS-Kernel are 0 and 1, which results in a signed integer.
-         * This means that our implementation conforms to the exception provided by MISRA
-         * To quote MISRA: "An integer constant expression with the value 0 or 1 of either signedness
-         * may be cast to a type which is defined as essentially Boolean.
-         * This allows the implementation of non-C99 Boolean models."
-         */
-        /* coverity[misra_c_2012_rule_10_5_violation] */
         if( *pxListWasEmpty == ( BaseType_t ) pdFALSE )
         {
             xNextExpireTime = listGET_ITEM_VALUE_OF_HEAD_ENTRY( pxCurrentTimerList );
@@ -852,29 +762,11 @@
         if( xTimeNow < xLastTime )
         {
             prvSwitchTimerLists();
-            
-            /*
-             * The rule 10.5 is The value of an expression should not be cast to an inappropriate essential type. 
-             * Because pdTRUE/pdFALSE are defined by FreeRTOS-Kernel are 0 and 1, which results in a signed integer.
-             * This means that our implementation conforms to the exception provided by MISRA
-             * To quote MISRA: "An integer constant expression with the value 0 or 1 of either signedness
-             * may be cast to a type which is defined as essentially Boolean.
-             * This allows the implementation of non-C99 Boolean models."
-             */
-            /* coverity[misra_c_2012_rule_10_5_violation] */
+
             *pxTimerListsWereSwitched = ( BaseType_t ) pdTRUE;
         }
         else
         {
-            /*
-             * The rule 10.5 is The value of an expression should not be cast to an inappropriate essential type. 
-             * Because pdTRUE/pdFALSE are defined by FreeRTOS-Kernel are 0 and 1, which results in a signed integer.
-             * This means that our implementation conforms to the exception provided by MISRA
-             * To quote MISRA: "An integer constant expression with the value 0 or 1 of either signedness
-             * may be cast to a type which is defined as essentially Boolean.
-             * This allows the implementation of non-C99 Boolean models."
-             */
-            /* coverity[misra_c_2012_rule_10_5_violation] */
             *pxTimerListsWereSwitched = ( BaseType_t ) pdFALSE;
         }
 
@@ -889,15 +781,6 @@
                                                   const TickType_t xTimeNow,
                                                   const TickType_t xCommandTime )
     {
-        /*
-         * The rule 10.5 is The value of an expression should not be cast to an inappropriate essential type. 
-         * Because pdTRUE/pdFALSE are defined by FreeRTOS-Kernel are 0 and 1, which results in a signed integer.
-         * This means that our implementation conforms to the exception provided by MISRA
-         * To quote MISRA: "An integer constant expression with the value 0 or 1 of either signedness
-         * may be cast to a type which is defined as essentially Boolean.
-         * This allows the implementation of non-C99 Boolean models."
-         */
-        /* coverity[misra_c_2012_rule_10_5_violation] */
         BaseType_t xProcessTimerNow = ( BaseType_t ) pdFALSE;
 
         listSET_LIST_ITEM_VALUE( &( pxTimer->xTimerListItem ), xNextExpiryTime );
@@ -911,15 +794,6 @@
             {
                 /* The time between a command being issued and the command being
                  * processed actually exceeds the timers period. */
-                /*
-                 * The rule 10.5 is The value of an expression should not be cast to an inappropriate essential type. 
-                 * Because pdTRUE/pdFALSE are defined by FreeRTOS-Kernel are 0 and 1, which results in a signed integer.
-                 * This means that our implementation conforms to the exception provided by MISRA
-                 * To quote MISRA: "An integer constant expression with the value 0 or 1 of either signedness
-                 * may be cast to a type which is defined as essentially Boolean.
-                 * This allows the implementation of non-C99 Boolean models."
-                 */
-                /* coverity[misra_c_2012_rule_10_5_violation] */
                 xProcessTimerNow = ( BaseType_t ) pdTRUE;
             }
             else
@@ -934,15 +808,6 @@
                 /* If, since the command was issued, the tick count has overflowed
                  * but the expiry time has not, then the timer must have already passed
                  * its expiry time and should be processed immediately. */
-                /*
-                 * The rule 10.5 is The value of an expression should not be cast to an inappropriate essential type. 
-                 * Because pdTRUE/pdFALSE are defined by FreeRTOS-Kernel are 0 and 1, which results in a signed integer.
-                 * This means that our implementation conforms to the exception provided by MISRA
-                 * To quote MISRA: "An integer constant expression with the value 0 or 1 of either signedness
-                 * may be cast to a type which is defined as essentially Boolean.
-                 * This allows the implementation of non-C99 Boolean models."
-                 */
-                /* coverity[misra_c_2012_rule_10_5_violation] */
                 xProcessTimerNow = ( BaseType_t ) pdTRUE;
             }
             else
@@ -1023,15 +888,6 @@
                         /* Start or restart a timer. */
                         pxTimer->ucStatus |= tmrSTATUS_IS_ACTIVE;
 
-                        /*
-                         * The rule 10.5 is The value of an expression should not be cast to an inappropriate essential type. 
-                         * Because pdTRUE/pdFALSE are defined by FreeRTOS-Kernel are 0 and 1, which results in a signed integer.
-                         * This means that our implementation conforms to the exception provided by MISRA
-                         * To quote MISRA: "An integer constant expression with the value 0 or 1 of either signedness
-                         * may be cast to a type which is defined as essentially Boolean.
-                         * This allows the implementation of non-C99 Boolean models."
-                         */
-                        /* coverity[misra_c_2012_rule_10_5_violation] */
                         if( prvInsertTimerInActiveList( pxTimer, xMessage.u.xTimerParameters.xMessageValue + pxTimer->xTimerPeriodInTicks, xTimeNow, xMessage.u.xTimerParameters.xMessageValue ) == ( BaseType_t ) pdTRUE )
                         {
                             /* The timer expired before it was added to the active
@@ -1200,28 +1056,10 @@
         {
             if( ( pxTimer->ucStatus & tmrSTATUS_IS_ACTIVE ) == 0U )
             {
-                /*
-                 * The rule 10.5 is The value of an expression should not be cast to an inappropriate essential type. 
-                 * Because pdTRUE/pdFALSE are defined by FreeRTOS-Kernel are 0 and 1, which results in a signed integer.
-                 * This means that our implementation conforms to the exception provided by MISRA
-                 * To quote MISRA: "An integer constant expression with the value 0 or 1 of either signedness
-                 * may be cast to a type which is defined as essentially Boolean.
-                 * This allows the implementation of non-C99 Boolean models."
-                 */
-                /* coverity[misra_c_2012_rule_10_5_violation] */
                 xReturn = ( BaseType_t ) pdFALSE;
             }
             else
             {
-                /*
-                 * The rule 10.5 is The value of an expression should not be cast to an inappropriate essential type. 
-                 * Because pdTRUE/pdFALSE are defined by FreeRTOS-Kernel are 0 and 1, which results in a signed integer.
-                 * This means that our implementation conforms to the exception provided by MISRA
-                 * To quote MISRA: "An integer constant expression with the value 0 or 1 of either signedness
-                 * may be cast to a type which is defined as essentially Boolean.
-                 * This allows the implementation of non-C99 Boolean models."
-                 */
-                /* coverity[misra_c_2012_rule_10_5_violation] */
                 xReturn = ( BaseType_t ) pdTRUE;
             }
         }
