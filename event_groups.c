@@ -59,10 +59,10 @@
     #define eventWAIT_FOR_ALL_BITS           0x0400U
     #define eventEVENT_BITS_CONTROL_BYTES    0xff00U
 #else
-    #define eventCLEAR_EVENTS_ON_EXIT_BIT    0x01000000UL
-    #define eventUNBLOCKED_DUE_TO_BIT_SET    0x02000000UL
-    #define eventWAIT_FOR_ALL_BITS           0x04000000UL
-    #define eventEVENT_BITS_CONTROL_BYTES    0xff000000UL
+    #define eventCLEAR_EVENTS_ON_EXIT_BIT    0x01000000U
+    #define eventUNBLOCKED_DUE_TO_BIT_SET    0x02000000U
+    #define eventWAIT_FOR_ALL_BITS           0x04000000U
+    #define eventEVENT_BITS_CONTROL_BYTES    0xff000000U
 #endif
 
 typedef struct EventGroupDef_t

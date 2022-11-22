@@ -413,7 +413,7 @@ BaseType_t xQueueGenericReset( QueueHandle_t xQueue,
                 /* Queues can be allocated wither statically or dynamically, so
                  * note this queue was allocated statically in case the queue is
                  * later deleted. */
-                pxNewQueue->ucStaticallyAllocated = pdTRUE;
+                pxNewQueue->ucStaticallyAllocated = ( uint8_t ) pdTRUE;
             }
             #endif /* configSUPPORT_DYNAMIC_ALLOCATION */
 
@@ -475,7 +475,7 @@ BaseType_t xQueueGenericReset( QueueHandle_t xQueue,
                     /* Queues can be created either statically or dynamically, so
                      * note this task was created dynamically in case it is later
                      * deleted. */
-                    pxNewQueue->ucStaticallyAllocated = pdFALSE;
+                    pxNewQueue->ucStaticallyAllocated = ( uint8_t ) pdFALSE;
                 }
                 #endif /* configSUPPORT_STATIC_ALLOCATION */
 
@@ -527,7 +527,7 @@ static void prvInitialiseNewQueue( const UBaseType_t uxQueueLength,
      * defined. */
     pxNewQueue->uxLength = uxQueueLength;
     pxNewQueue->uxItemSize = uxItemSize;
-    ( void ) xQueueGenericReset( pxNewQueue, pdTRUE );
+    ( void ) xQueueGenericReset( pxNewQueue, ( BaseType_t ) pdTRUE );
 
     #if ( configUSE_TRACE_FACILITY == 1 )
     {
@@ -845,7 +845,7 @@ BaseType_t xQueueGenericSend( QueueHandle_t xQueue,
                               TickType_t xTicksToWait,
                               const BaseType_t xCopyPosition )
 {
-    BaseType_t xEntryTimeSet = pdFALSE, xYieldRequired;
+    BaseType_t xEntryTimeSet = ( BaseType_t ) pdFALSE, xYieldRequired;
     TimeOut_t xTimeOut;
     Queue_t * const pxQueue = xQueue;
 
@@ -990,7 +990,7 @@ BaseType_t xQueueGenericSend( QueueHandle_t xQueue,
                     /* The queue was full and a block time was specified so
                      * configure the timeout structure. */
                     vTaskInternalSetTimeOutState( &xTimeOut );
-                    xEntryTimeSet = pdTRUE;
+                    xEntryTimeSet = ( BaseType_t ) pdTRUE;
                 }
                 else
                 {
@@ -1132,7 +1132,7 @@ BaseType_t xQueueGenericSendFromISR( QueueHandle_t xQueue,
                              * unblock.  A context switch is required. */
                             if( pxHigherPriorityTaskWoken != NULL )
                             {
-                                *pxHigherPriorityTaskWoken = pdTRUE;
+                                *pxHigherPriorityTaskWoken = ( BaseType_t ) pdTRUE;
                             }
                             else
                             {
@@ -1154,7 +1154,7 @@ BaseType_t xQueueGenericSendFromISR( QueueHandle_t xQueue,
                                  *  record that a context switch is required. */
                                 if( pxHigherPriorityTaskWoken != NULL )
                                 {
-                                    *pxHigherPriorityTaskWoken = pdTRUE;
+                                    *pxHigherPriorityTaskWoken = ( BaseType_t ) pdTRUE;
                                 }
                                 else
                                 {
@@ -1301,7 +1301,7 @@ BaseType_t xQueueGiveFromISR( QueueHandle_t xQueue,
                              * task to unblock.  A context switch is required. */
                             if( pxHigherPriorityTaskWoken != NULL )
                             {
-                                *pxHigherPriorityTaskWoken = pdTRUE;
+                                *pxHigherPriorityTaskWoken = ( BaseType_t ) pdTRUE;
                             }
                             else
                             {
@@ -1323,7 +1323,7 @@ BaseType_t xQueueGiveFromISR( QueueHandle_t xQueue,
                                  *  record that a context switch is required. */
                                 if( pxHigherPriorityTaskWoken != NULL )
                                 {
-                                    *pxHigherPriorityTaskWoken = pdTRUE;
+                                    *pxHigherPriorityTaskWoken = ( BaseType_t ) pdTRUE;
                                 }
                                 else
                                 {
@@ -1395,7 +1395,7 @@ BaseType_t xQueueReceive( QueueHandle_t xQueue,
                           void * const pvBuffer,
                           TickType_t xTicksToWait )
 {
-    BaseType_t xEntryTimeSet = pdFALSE;
+    BaseType_t xEntryTimeSet = ( BaseType_t ) pdFALSE;
     TimeOut_t xTimeOut;
     Queue_t * const pxQueue = xQueue;
 
@@ -1468,7 +1468,7 @@ BaseType_t xQueueReceive( QueueHandle_t xQueue,
                     /* The queue was empty and a block time was specified so
                      * configure the timeout structure. */
                     vTaskInternalSetTimeOutState( &xTimeOut );
-                    xEntryTimeSet = pdTRUE;
+                    xEntryTimeSet = ( BaseType_t ) pdTRUE;
                 }
                 else
                 {
@@ -1545,12 +1545,12 @@ BaseType_t xQueueReceive( QueueHandle_t xQueue,
 BaseType_t xQueueSemaphoreTake( QueueHandle_t xQueue,
                                 TickType_t xTicksToWait )
 {
-    BaseType_t xEntryTimeSet = pdFALSE;
+    BaseType_t xEntryTimeSet = ( BaseType_t ) pdFALSE;
     TimeOut_t xTimeOut;
     Queue_t * const pxQueue = xQueue;
 
     #if ( configUSE_MUTEXES == 1 )
-        BaseType_t xInheritanceOccurred = pdFALSE;
+        BaseType_t xInheritanceOccurred = ( BaseType_t ) pdFALSE;
     #endif
 
     /* Check the queue pointer is not NULL. */
@@ -1639,7 +1639,7 @@ BaseType_t xQueueSemaphoreTake( QueueHandle_t xQueue,
                     /* The semaphore count was 0 and a block time was specified
                      * so configure the timeout structure ready to block. */
                     vTaskInternalSetTimeOutState( &xTimeOut );
-                    xEntryTimeSet = pdTRUE;
+                    xEntryTimeSet = ( BaseType_t ) pdTRUE;
                 }
                 else
                 {
@@ -1764,7 +1764,7 @@ BaseType_t xQueuePeek( QueueHandle_t xQueue,
                        void * const pvBuffer,
                        TickType_t xTicksToWait )
 {
-    BaseType_t xEntryTimeSet = pdFALSE;
+    BaseType_t xEntryTimeSet = ( BaseType_t ) pdFALSE;
     TimeOut_t xTimeOut;
     int8_t * pcOriginalReadPosition;
     Queue_t * const pxQueue = xQueue;
@@ -1845,7 +1845,7 @@ BaseType_t xQueuePeek( QueueHandle_t xQueue,
                      * configure the timeout structure ready to enter the blocked
                      * state. */
                     vTaskInternalSetTimeOutState( &xTimeOut );
-                    xEntryTimeSet = pdTRUE;
+                    xEntryTimeSet = ( BaseType_t ) pdTRUE;
                 }
                 else
                 {
@@ -1974,7 +1974,7 @@ BaseType_t xQueueReceiveFromISR( QueueHandle_t xQueue,
                          * force a context switch. */
                         if( pxHigherPriorityTaskWoken != NULL )
                         {
-                            *pxHigherPriorityTaskWoken = pdTRUE;
+                            *pxHigherPriorityTaskWoken = ( BaseType_t ) pdTRUE;
                         }
                         else
                         {
@@ -2216,7 +2216,7 @@ static BaseType_t prvCopyDataToQueue( Queue_t * const pxQueue,
                                       const void * pvItemToQueue,
                                       const BaseType_t xPosition )
 {
-    BaseType_t xReturn = pdFALSE;
+    BaseType_t xReturn = ( BaseType_t ) pdFALSE;
     UBaseType_t uxMessagesWaiting;
 
     /* This function is called from a critical section. */
@@ -2444,11 +2444,11 @@ static BaseType_t prvIsQueueEmpty( const Queue_t * pxQueue )
     {
         if( pxQueue->uxMessagesWaiting == ( UBaseType_t ) 0 )
         {
-            xReturn = pdTRUE;
+            xReturn = ( BaseType_t ) pdTRUE;
         }
         else
         {
-            xReturn = pdFALSE;
+            xReturn = ( BaseType_t ) pdFALSE;
         }
     }
     taskEXIT_CRITICAL();
@@ -2466,11 +2466,11 @@ BaseType_t xQueueIsQueueEmptyFromISR( const QueueHandle_t xQueue )
 
     if( pxQueue->uxMessagesWaiting == ( UBaseType_t ) 0 )
     {
-        xReturn = pdTRUE;
+        xReturn = ( BaseType_t ) pdTRUE;
     }
     else
     {
-        xReturn = pdFALSE;
+        xReturn = ( BaseType_t ) pdFALSE;
     }
 
     return xReturn;
@@ -2485,11 +2485,11 @@ static BaseType_t prvIsQueueFull( const Queue_t * pxQueue )
     {
         if( pxQueue->uxMessagesWaiting == pxQueue->uxLength )
         {
-            xReturn = pdTRUE;
+            xReturn = ( BaseType_t ) pdTRUE;
         }
         else
         {
-            xReturn = pdFALSE;
+            xReturn = ( BaseType_t ) pdFALSE;
         }
     }
     taskEXIT_CRITICAL();
@@ -2507,11 +2507,11 @@ BaseType_t xQueueIsQueueFullFromISR( const QueueHandle_t xQueue )
 
     if( pxQueue->uxMessagesWaiting == pxQueue->uxLength )
     {
-        xReturn = pdTRUE;
+        xReturn = ( BaseType_t ) pdTRUE;
     }
     else
     {
-        xReturn = pdFALSE;
+        xReturn = ( BaseType_t ) pdFALSE;
     }
 
     return xReturn;
@@ -2713,7 +2713,7 @@ BaseType_t xQueueIsQueueFullFromISR( const QueueHandle_t xQueue )
                 {
                     if( xCoRoutineRemoveFromEventList( &( pxQueue->xTasksWaitingToReceive ) ) != pdFALSE )
                     {
-                        return pdTRUE;
+                        return ( BaseType_t ) pdTRUE;
                     }
                     else
                     {
@@ -2775,7 +2775,7 @@ BaseType_t xQueueIsQueueFullFromISR( const QueueHandle_t xQueue )
                 {
                     if( xCoRoutineRemoveFromEventList( &( pxQueue->xTasksWaitingToSend ) ) != pdFALSE )
                     {
-                        *pxTaskWoken = pdTRUE;
+                        *pxTaskWoken = ( BaseType_t ) pdTRUE;
                     }
                     else
                     {
@@ -3073,7 +3073,7 @@ BaseType_t xQueueIsQueueFullFromISR( const QueueHandle_t xQueue )
     static BaseType_t prvNotifyQueueSetContainer( const Queue_t * const pxQueue )
     {
         Queue_t * pxQueueSetContainer = pxQueue->pxQueueSetContainer;
-        BaseType_t xReturn = pdFALSE;
+        BaseType_t xReturn = ( BaseType_t ) pdFALSE;
 
         /* This function must be called form a critical section. */
 
@@ -3099,7 +3099,7 @@ BaseType_t xQueueIsQueueFullFromISR( const QueueHandle_t xQueue )
                     if( xTaskRemoveFromEventList( &( pxQueueSetContainer->xTasksWaitingToReceive ) ) != pdFALSE )
                     {
                         /* The task waiting has a higher priority. */
-                        xReturn = pdTRUE;
+                        xReturn = ( BaseType_t ) pdTRUE;
                     }
                     else
                     {

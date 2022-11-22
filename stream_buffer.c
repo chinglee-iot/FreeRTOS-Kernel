@@ -591,11 +591,11 @@ BaseType_t xStreamBufferSetTriggerLevel( StreamBufferHandle_t xStreamBuffer,
     if( xTriggerLevel < pxStreamBuffer->xLength )
     {
         pxStreamBuffer->xTriggerLevelBytes = xTriggerLevel;
-        xReturn = pdPASS;
+        xReturn = ( BaseType_t ) pdPASS;
     }
     else
     {
-        xReturn = pdFALSE;
+        xReturn = ( BaseType_t ) pdFALSE;
     }
 
     return xReturn;
@@ -1149,11 +1149,11 @@ BaseType_t xStreamBufferIsEmpty( StreamBufferHandle_t xStreamBuffer )
 
     if( pxStreamBuffer->xHead == xTail )
     {
-        xReturn = pdTRUE;
+        xReturn = ( BaseType_t ) pdTRUE;
     }
     else
     {
-        xReturn = pdFALSE;
+        xReturn = ( BaseType_t ) pdFALSE;
     }
 
     return xReturn;
@@ -1184,11 +1184,11 @@ BaseType_t xStreamBufferIsFull( StreamBufferHandle_t xStreamBuffer )
     /* True if the available space equals zero. */
     if( xStreamBufferSpacesAvailable( xStreamBuffer ) <= xBytesToStoreMessageLength )
     {
-        xReturn = pdTRUE;
+        xReturn = ( BaseType_t ) pdTRUE;
     }
     else
     {
-        xReturn = pdFALSE;
+        xReturn = ( BaseType_t ) pdFALSE;
     }
 
     return xReturn;
@@ -1213,11 +1213,11 @@ BaseType_t xStreamBufferSendCompletedFromISR( StreamBufferHandle_t xStreamBuffer
                                          eNoAction,
                                          pxHigherPriorityTaskWoken );
             ( pxStreamBuffer )->xTaskWaitingToReceive = NULL;
-            xReturn = pdTRUE;
+            xReturn = ( BaseType_t ) pdTRUE;
         }
         else
         {
-            xReturn = pdFALSE;
+            xReturn = ( BaseType_t ) ;
         }
     }
     taskEXIT_CRITICAL_FROM_ISR( uxSavedInterruptStatus );
@@ -1244,11 +1244,11 @@ BaseType_t xStreamBufferReceiveCompletedFromISR( StreamBufferHandle_t xStreamBuf
                                          eNoAction,
                                          pxHigherPriorityTaskWoken );
             ( pxStreamBuffer )->xTaskWaitingToSend = NULL;
-            xReturn = pdTRUE;
+            xReturn = ( BaseType_t ) pdTRUE;
         }
         else
         {
-            xReturn = pdFALSE;
+            xReturn = ( BaseType_t ) pdFALSE;
         }
     }
     taskEXIT_CRITICAL_FROM_ISR( uxSavedInterruptStatus );
