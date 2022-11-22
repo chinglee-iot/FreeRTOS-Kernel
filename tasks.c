@@ -3123,6 +3123,11 @@ static BaseType_t prvCreateIdleTasks( void )
 
         #if ( configSUPPORT_STATIC_ALLOCATION == 1 )
         {
+            /* 
+             * The rule 14.3 is "Controlling expressions shall not be invariant."
+             * xCoreID might not be 0 when configNUM_CORES > 1.
+             */
+            /* coverity[misra_c_2012_rule_14_3_violation] */
             if( xCoreID == 0 )
             {
                 StaticTask_t * pxIdleTaskTCBBuffer = NULL;
