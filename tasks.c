@@ -2522,6 +2522,9 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
         TCB_t * pxTCB;
         BaseType_t xCoreID;
         UBaseType_t uxPrevCoreAffinityMask;
+        #if( configUSE_PREEMPTION == 1 )
+            UBaseType_t uxPrevNotAllowedCores;
+        #endif
 
         taskENTER_CRITICAL();
         {
@@ -2534,10 +2537,10 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
             {
                 if( taskTASK_IS_RUNNING( pxTCB ) )
                 {
-                    /* The task is no longer linked to this core. Request the core which
-                     * is running this task to yield for other task. */
                     xCoreID = ( BaseType_t ) pxTCB->xTaskRunState;
 
+                    /* If the task can no longer run on the core it was running,
+                     * request the core to yield. */
                     if( ( uxCoreAffinityMask & ( 1 << xCoreID ) ) == 0 )
                     {
                         prvYieldCore( xCoreID );
@@ -2545,16 +2548,25 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
                 }
                 else
                 {
-                    /* uxPrevCoreAffinityMask stores the mask that indicate the cores
-                     * not link to this task in previous core affinity mask. */
-                    uxPrevCoreAffinityMask = ( ~uxPrevCoreAffinityMask ) & ( ( 1 << configNUM_CORES ) - 1 );
-
-                    /* The new core mask enables this task runs on more cores. Check
-                     * if this task is able to run now in prvYieldForTask function. */
-                    if( ( uxPrevCoreAffinityMask & uxCoreAffinityMask ) != 0U )
+                    #if( configUSE_PREEMPTION == 1 )
                     {
-                        prvYieldForTask( pxTCB, pdTRUE );
+                        /* Calculate the cores on which this task was not allowed to
+                         * run previously. */
+                        uxPrevNotAllowedCores = ( ~uxPrevCoreAffinityMask ) & ( ( 1 << configNUM_CORES ) - 1 );
+
+                        /* Does the new core mask enables this task to run on any of the
+                         * previously not allowed cores? If yes, check if this task can be
+                         * scheduled on any of those cores. */
+                        if( ( uxPrevNotAllowedCores & uxCoreAffinityMask ) != 0U )
+                        {
+                            prvYieldForTask( pxTCB, pdTRUE );
+                        }
                     }
+                    #else /* #if( configUSE_PREEMPTION == 1 ) */
+                    {
+                        mtCOVERAGE_TEST_MARKER();
+                    }
+                    #endif /* #if( configUSE_PREEMPTION == 1 ) */
                 }
             }
         }
