@@ -7337,7 +7337,7 @@ static void prvAddCurrentTaskToDelayedList( TickType_t xTicksToWait,
                 * "The value of an expression and its persistent side-effects shall be the same
                 * under all permitted evaluation orders." */
                 List_t * pxLocalOverflowDelayedTaskList = pxOverflowDelayedTaskList;
-                List_t * pxLocalCurrentTCB = pxCurrentTCB;
+                TCB_t * pxLocalCurrentTCB = pxCurrentTCB;
 
                 /* Wake time has overflowed.  Place this item in the overflow
                  * list. */
@@ -7349,7 +7349,7 @@ static void prvAddCurrentTaskToDelayedList( TickType_t xTicksToWait,
                 * "The value of an expression and its persistent side-effects shall be the same
                 * under all permitted evaluation orders." */
                 List_t * pxLocalDelayedTaskList = pxDelayedTaskList;
-                List_t * pxLocalCurrentTCB = pxCurrentTCB;
+                TCB_t * pxLocalCurrentTCB = pxCurrentTCB;
 
                 /* The wake time has not overflowed, so the current block list
                  * is used. */
@@ -7385,7 +7385,7 @@ static void prvAddCurrentTaskToDelayedList( TickType_t xTicksToWait,
              * "The value of an expression and its persistent side-effects shall be the same
              * under all permitted evaluation orders." */
             List_t * pxLocalOverflowDelayedTaskList = pxOverflowDelayedTaskList;
-            List_t * pxLocalCurrentTCB = pxCurrentTCB;
+            TCB_t * pxLocalCurrentTCB = pxCurrentTCB;
 
             /* Wake time has overflowed.  Place this item in the overflow list. */
             vListInsert( pxLocalOverflowDelayedTaskList, &( pxLocalCurrentTCB->xStateListItem ) );
@@ -7396,7 +7396,7 @@ static void prvAddCurrentTaskToDelayedList( TickType_t xTicksToWait,
              * "The value of an expression and its persistent side-effects shall be the same
              * under all permitted evaluation orders." */
             List_t * pxLocalDelayedTaskList = pxDelayedTaskList;
-            List_t * pxLocalCurrentTCB = pxCurrentTCB;
+            TCB_t * pxLocalCurrentTCB = pxCurrentTCB;
 
             /* The wake time has not overflowed, so the current block list is used. */
             vListInsert( pxDelayedTaskList, &( pxLocalCurrentTCB->xStateListItem ) );
