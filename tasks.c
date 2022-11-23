@@ -3092,6 +3092,7 @@ static BaseType_t prvCreateIdleTasks( void )
              * loop must break when x = 4 even if configMAX_TASK_NAME_LEN > 4.
              */
             /* coverity[misra_c_2012_rule_18_1_violation] */
+            /* coverity[overrun-local] */
             cIdleName[ x ] = configIDLE_TASK_NAME[ x ];
 
             /* Don't copy all configMAX_TASK_NAME_LEN if the string is shorter than
@@ -5997,6 +5998,7 @@ static void prvResetNextTaskUnblockTime( void )
             /* If pxMutexHolder is not NULL then the holder must hold at least
              * one mutex. */
             configASSERT( pxTCB->uxMutexesHeld );
+            configASSERT( uxHighestPriorityWaitingTask < configMAX_PRIORITIES );
 
             /* Determine the priority to which the priority of the task that
              * holds the mutex should be set.  This will be the greater of the

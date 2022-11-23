@@ -1789,10 +1789,10 @@ BaseType_t xQueueSemaphoreTake( QueueHandle_t xQueue,
                                 UBaseType_t uxHighestWaitingPriority;
 
                                 /* This task blocking on the mutex caused another
-                                * task to inherit this task's priority.  Now this task
-                                * has timed out the priority should be disinherited
-                                * again, but only as low as the next highest priority
-                                * task that is waiting for the same mutex. */
+                                 * task to inherit this task's priority.  Now this task
+                                 * has timed out the priority should be disinherited
+                                 * again, but only as low as the next highest priority
+                                 * task that is waiting for the same mutex. */
                                 uxHighestWaitingPriority = prvGetDisinheritPriorityAfterTimeout( pxQueue );
                                 vTaskPriorityDisinheritAfterTimeout( pxQueue->u.xSemaphore.xMutexHolder, uxHighestWaitingPriority );
                             }
@@ -2277,6 +2277,12 @@ void vQueueDelete( QueueHandle_t xQueue )
         if( listCURRENT_LIST_LENGTH( &( pxQueue->xTasksWaitingToReceive ) ) > 0U )
         {
             uxHighestPriorityOfWaitingTasks = ( UBaseType_t ) configMAX_PRIORITIES - ( UBaseType_t ) listGET_ITEM_VALUE_OF_HEAD_ENTRY( &( pxQueue->xTasksWaitingToReceive ) );
+            
+            /* Check maximum value. */
+            if( uxHighestPriorityOfWaitingTasks >= configMAX_PRIORITIES )
+            {
+                uxHighestPriorityOfWaitingTasks = configMAX_PRIORITIES - 1U;
+            }
         }
         else
         {
