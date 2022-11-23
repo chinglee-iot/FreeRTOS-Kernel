@@ -660,7 +660,7 @@ void vStreamBufferDelete( StreamBufferHandle_t xStreamBuffer ) PRIVILEGED_FUNCTI
  * stream_buffer.h
  *
  * @code{c}
- * BaseType_t xStreamBufferIsFull( StreamBufferHandle_t xStreamBuffer );
+ * BaseType_t xStreamBufferIsFull( ConstStreamBufferHandle_t xStreamBuffer );
  * @endcode
  *
  * Queries a stream buffer to see if it is full.  A stream buffer is full if it
@@ -674,13 +674,13 @@ void vStreamBufferDelete( StreamBufferHandle_t xStreamBuffer ) PRIVILEGED_FUNCTI
  * \defgroup xStreamBufferIsFull xStreamBufferIsFull
  * \ingroup StreamBufferManagement
  */
-BaseType_t xStreamBufferIsFull( StreamBufferHandle_t xStreamBuffer ) PRIVILEGED_FUNCTION;
+BaseType_t xStreamBufferIsFull( ConstStreamBufferHandle_t xStreamBuffer ) PRIVILEGED_FUNCTION;
 
 /**
  * stream_buffer.h
  *
  * @code{c}
- * BaseType_t xStreamBufferIsEmpty( StreamBufferHandle_t xStreamBuffer );
+ * BaseType_t xStreamBufferIsEmpty( ConstStreamBufferHandle_t xStreamBuffer );
  * @endcode
  *
  * Queries a stream buffer to see if it is empty.  A stream buffer is empty if
@@ -694,7 +694,7 @@ BaseType_t xStreamBufferIsFull( StreamBufferHandle_t xStreamBuffer ) PRIVILEGED_
  * \defgroup xStreamBufferIsEmpty xStreamBufferIsEmpty
  * \ingroup StreamBufferManagement
  */
-BaseType_t xStreamBufferIsEmpty( StreamBufferHandle_t xStreamBuffer ) PRIVILEGED_FUNCTION;
+BaseType_t xStreamBufferIsEmpty( ConstStreamBufferHandle_t xStreamBuffer ) PRIVILEGED_FUNCTION;
 
 /**
  * stream_buffer.h
@@ -901,7 +901,7 @@ size_t xStreamBufferNextMessageLengthBytes( ConstStreamBufferHandle_t xStreamBuf
 #if ( configUSE_TRACE_FACILITY == 1 )
     void vStreamBufferSetStreamBufferNumber( StreamBufferHandle_t xStreamBuffer,
                                              UBaseType_t uxStreamBufferNumber ) PRIVILEGED_FUNCTION;
-    UBaseType_t uxStreamBufferGetStreamBufferNumber( StreamBufferHandle_t xStreamBuffer ) PRIVILEGED_FUNCTION;
+    UBaseType_t uxStreamBufferGetStreamBufferNumber( ConstStreamBufferHandle_t xStreamBuffer ) PRIVILEGED_FUNCTION;
     uint8_t ucStreamBufferGetStreamBufferType( ConstStreamBufferHandle_t xStreamBuffer ) PRIVILEGED_FUNCTION;
 #endif
 

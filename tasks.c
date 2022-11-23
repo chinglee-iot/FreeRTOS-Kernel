@@ -548,7 +548,7 @@ static BaseType_t prvCreateIdleTasks( void );
  */
 #if ( INCLUDE_vTaskSuspend == 1 )
 
-    static BaseType_t prvTaskIsTaskSuspended( const TaskHandle_t xTask ) PRIVILEGED_FUNCTION;
+    static BaseType_t prvTaskIsTaskSuspended( ConstTaskHandle_t xTask ) PRIVILEGED_FUNCTION;
 
 #endif /* INCLUDE_vTaskSuspend */
 
@@ -2177,7 +2177,7 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
 
 #if ( ( INCLUDE_eTaskGetState == 1 ) || ( configUSE_TRACE_FACILITY == 1 ) || ( INCLUDE_xTaskAbortDelay == 1 ) )
 
-    eTaskState eTaskGetState( TaskHandle_t xTask )
+    eTaskState eTaskGetState( ConstTaskHandle_t xTask )
     {
         eTaskState eReturn;
         List_t const * pxStateList;
@@ -2296,7 +2296,7 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
 
 #if ( INCLUDE_uxTaskPriorityGet == 1 )
 
-    UBaseType_t uxTaskPriorityGet( const TaskHandle_t xTask )
+    UBaseType_t uxTaskPriorityGet( ConstTaskHandle_t xTask )
     {
         TCB_t const * pxTCB;
         UBaseType_t uxReturn;
@@ -2318,7 +2318,7 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
 
 #if ( INCLUDE_uxTaskPriorityGet == 1 )
 
-    UBaseType_t uxTaskPriorityGetFromISR( const TaskHandle_t xTask )
+    UBaseType_t uxTaskPriorityGetFromISR( ConstTaskHandle_t xTask )
     {
         TCB_t const * pxTCB;
         UBaseType_t uxReturn, uxSavedInterruptState;
@@ -2860,7 +2860,7 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
 
 #if ( INCLUDE_vTaskSuspend == 1 )
 
-    static BaseType_t prvTaskIsTaskSuspended( const TaskHandle_t xTask )
+    static BaseType_t prvTaskIsTaskSuspended( ConstTaskHandle_t xTask )
     {
         BaseType_t xReturn = ( BaseType_t ) pdFALSE;
         const TCB_t * const pxTCB = xTask;
@@ -3683,7 +3683,7 @@ char * pcTaskGetName( TaskHandle_t xTaskToQuery ) /*lint !e971 Unqualified char 
                                                      const char pcNameToQuery[] )
     {
         TCB_t * pxNextTCB;
-        TCB_t * pxFirstTCB;
+        const TCB_t * pxFirstTCB;
         TCB_t * pxReturn = NULL;
         UBaseType_t x;
         char cNextChar;
@@ -4947,7 +4947,7 @@ void vTaskMissedYield( void )
 
 #if ( configUSE_TRACE_FACILITY == 1 )
 
-    UBaseType_t uxTaskGetTaskNumber( TaskHandle_t xTask )
+    UBaseType_t uxTaskGetTaskNumber( ConstTaskHandle_t xTask )
     {
         UBaseType_t uxReturn;
         TCB_t const * pxTCB;
@@ -5283,11 +5283,11 @@ static portTASK_FUNCTION( prvIdleTask, pvParameters )
 
 #if ( configNUM_THREAD_LOCAL_STORAGE_POINTERS != 0 )
 
-    void * pvTaskGetThreadLocalStoragePointer( TaskHandle_t xTaskToQuery,
+    void * pvTaskGetThreadLocalStoragePointer( ConstTaskHandle_t xTaskToQuery,
                                                BaseType_t xIndex )
     {
         void * pvReturn = NULL;
-        TCB_t * pxTCB;
+        const TCB_t * pxTCB;
 
         if( ( xIndex >= 0 ) &&
             ( xIndex < ( BaseType_t ) configNUM_THREAD_LOCAL_STORAGE_POINTERS ) )
@@ -5532,7 +5532,7 @@ static void prvCheckTasksWaitingTermination( void )
                                                      eTaskState eState )
     {
         configLIST_VOLATILE TCB_t * pxNextTCB;
-        configLIST_VOLATILE TCB_t * pxFirstTCB;
+        const configLIST_VOLATILE TCB_t * pxFirstTCB;
         UBaseType_t uxTask = 0;
 
         if( listCURRENT_LIST_LENGTH( pxList ) > ( UBaseType_t ) 0 )
@@ -5595,10 +5595,10 @@ static void prvCheckTasksWaitingTermination( void )
  * user to determine the return type.  It gets around the problem of the value
  * overflowing on 8-bit types without breaking backward compatibility for
  * applications that expect an 8-bit return type. */
-    configSTACK_DEPTH_TYPE uxTaskGetStackHighWaterMark2( TaskHandle_t xTask )
+    configSTACK_DEPTH_TYPE uxTaskGetStackHighWaterMark2( ConstTaskHandle_t xTask )
     {
-        TCB_t * pxTCB;
-        uint8_t * pucEndOfStack;
+        const TCB_t * pxTCB;
+        const uint8_t * pucEndOfStack;
         configSTACK_DEPTH_TYPE uxReturn;
 
         /* uxTaskGetStackHighWaterMark() and uxTaskGetStackHighWaterMark2() are
@@ -5630,10 +5630,10 @@ static void prvCheckTasksWaitingTermination( void )
 
 #if ( INCLUDE_uxTaskGetStackHighWaterMark == 1 )
 
-    UBaseType_t uxTaskGetStackHighWaterMark( TaskHandle_t xTask )
+    UBaseType_t uxTaskGetStackHighWaterMark( ConstTaskHandle_t xTask )
     {
-        TCB_t * pxTCB;
-        uint8_t * pucEndOfStack;
+        const TCB_t * pxTCB;
+        const uint8_t * pucEndOfStack;
         UBaseType_t uxReturn;
 
         pxTCB = prvGetTCBFromHandle( xTask );

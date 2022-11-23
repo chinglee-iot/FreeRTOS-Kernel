@@ -57,6 +57,7 @@ typedef const struct QueueDefinition   * ConstQueueHandle_t;
  * parameter to xQueueSelectFromSet(), xQueueAddToSet(), etc.
  */
 typedef struct QueueDefinition   * QueueSetHandle_t;
+typedef const struct QueueDefinition   * ConstQueueSetHandle_t;
 
 /**
  * Queue sets can contain both queues and semaphores, so the
@@ -889,7 +890,7 @@ BaseType_t xQueueReceive( QueueHandle_t xQueue,
 /**
  * queue. h
  * @code{c}
- * UBaseType_t uxQueueMessagesWaiting( const QueueHandle_t xQueue );
+ * UBaseType_t uxQueueMessagesWaiting( ConstQueueHandle_t xQueue );
  * @endcode
  *
  * Return the number of messages stored in a queue.
@@ -901,12 +902,12 @@ BaseType_t xQueueReceive( QueueHandle_t xQueue,
  * \defgroup uxQueueMessagesWaiting uxQueueMessagesWaiting
  * \ingroup QueueManagement
  */
-UBaseType_t uxQueueMessagesWaiting( const QueueHandle_t xQueue ) PRIVILEGED_FUNCTION;
+UBaseType_t uxQueueMessagesWaiting( ConstQueueHandle_t xQueue ) PRIVILEGED_FUNCTION;
 
 /**
  * queue. h
  * @code{c}
- * UBaseType_t uxQueueSpacesAvailable( const QueueHandle_t xQueue );
+ * UBaseType_t uxQueueSpacesAvailable( ConstQueueHandle_t xQueue );
  * @endcode
  *
  * Return the number of free spaces available in a queue.  This is equal to the
@@ -920,7 +921,7 @@ UBaseType_t uxQueueMessagesWaiting( const QueueHandle_t xQueue ) PRIVILEGED_FUNC
  * \defgroup uxQueueMessagesWaiting uxQueueMessagesWaiting
  * \ingroup QueueManagement
  */
-UBaseType_t uxQueueSpacesAvailable( const QueueHandle_t xQueue ) PRIVILEGED_FUNCTION;
+UBaseType_t uxQueueSpacesAvailable( ConstQueueHandle_t xQueue ) PRIVILEGED_FUNCTION;
 
 /**
  * queue. h
@@ -1423,9 +1424,9 @@ BaseType_t xQueueReceiveFromISR( QueueHandle_t xQueue,
  * Utilities to query queues that are safe to use from an ISR.  These utilities
  * should be used only from within an ISR, or within a critical section.
  */
-BaseType_t xQueueIsQueueEmptyFromISR( const QueueHandle_t xQueue ) PRIVILEGED_FUNCTION;
-BaseType_t xQueueIsQueueFullFromISR( const QueueHandle_t xQueue ) PRIVILEGED_FUNCTION;
-UBaseType_t uxQueueMessagesWaitingFromISR( const QueueHandle_t xQueue ) PRIVILEGED_FUNCTION;
+BaseType_t xQueueIsQueueEmptyFromISR( ConstQueueHandle_t xQueue ) PRIVILEGED_FUNCTION;
+BaseType_t xQueueIsQueueFullFromISR( ConstQueueHandle_t xQueue ) PRIVILEGED_FUNCTION;
+UBaseType_t uxQueueMessagesWaitingFromISR( ConstQueueHandle_t xQueue ) PRIVILEGED_FUNCTION;
 
 /*
  * The functions defined above are for passing data to and from tasks.  The
@@ -1523,7 +1524,7 @@ BaseType_t xQueueGiveMutexRecursive( QueueHandle_t xMutex ) PRIVILEGED_FUNCTION;
  * @param xQueue The handle of the queue being removed from the registry.
  */
 #if ( configQUEUE_REGISTRY_SIZE > 0 )
-    void vQueueUnregisterQueue( QueueHandle_t xQueue ) PRIVILEGED_FUNCTION;
+    void vQueueUnregisterQueue( ConstQueueHandle_t xQueue ) PRIVILEGED_FUNCTION;
 #endif
 
 /*
@@ -1538,7 +1539,7 @@ BaseType_t xQueueGiveMutexRecursive( QueueHandle_t xMutex ) PRIVILEGED_FUNCTION;
  * returned.
  */
 #if ( configQUEUE_REGISTRY_SIZE > 0 )
-    const char * pcQueueGetName( QueueHandle_t xQueue ) PRIVILEGED_FUNCTION; /*lint !e971 Unqualified char types are allowed for strings and single characters only. */
+    const char * pcQueueGetName( ConstQueueHandle_t xQueue ) PRIVILEGED_FUNCTION; /*lint !e971 Unqualified char types are allowed for strings and single characters only. */
 #endif
 
 /*
@@ -1658,7 +1659,7 @@ BaseType_t xQueueAddToSet( QueueSetMemberHandle_t xQueueOrSemaphore,
  * queue (or semaphore) was not empty, then pdFAIL is returned.
  */
 BaseType_t xQueueRemoveFromSet( QueueSetMemberHandle_t xQueueOrSemaphore,
-                                QueueSetHandle_t xQueueSet ) PRIVILEGED_FUNCTION;
+                                ConstQueueSetHandle_t xQueueSet ) PRIVILEGED_FUNCTION;
 
 /*
  * xQueueSelectFromSet() selects from the members of a queue set a queue or
@@ -1710,8 +1711,8 @@ BaseType_t xQueueGenericReset( QueueHandle_t xQueue,
                                BaseType_t xNewQueue ) PRIVILEGED_FUNCTION;
 void vQueueSetQueueNumber( QueueHandle_t xQueue,
                            UBaseType_t uxQueueNumber ) PRIVILEGED_FUNCTION;
-UBaseType_t uxQueueGetQueueNumber( QueueHandle_t xQueue ) PRIVILEGED_FUNCTION;
-uint8_t ucQueueGetQueueType( QueueHandle_t xQueue ) PRIVILEGED_FUNCTION;
+UBaseType_t uxQueueGetQueueNumber( ConstQueueHandle_t xQueue ) PRIVILEGED_FUNCTION;
+uint8_t ucQueueGetQueueType( ConstQueueHandle_t xQueue ) PRIVILEGED_FUNCTION;
 
 
 /* *INDENT-OFF* */

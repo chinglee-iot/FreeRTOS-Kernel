@@ -85,6 +85,7 @@
  */
 struct tskTaskControlBlock; /* The old naming convention is used to prevent breaking kernel aware debuggers. */
 typedef struct tskTaskControlBlock * TaskHandle_t;
+typedef const struct tskTaskControlBlock * ConstTaskHandle_t;
 
 /*
  * Defines the prototype to which the application task hook function must
@@ -964,7 +965,7 @@ BaseType_t xTaskAbortDelay( TaskHandle_t xTask ) PRIVILEGED_FUNCTION;
 /**
  * task. h
  * @code{c}
- * UBaseType_t uxTaskPriorityGet( const TaskHandle_t xTask );
+ * UBaseType_t uxTaskPriorityGet( ConstTaskHandle_t xTask );
  * @endcode
  *
  * INCLUDE_uxTaskPriorityGet must be defined as 1 for this function to be available.
@@ -1008,22 +1009,22 @@ BaseType_t xTaskAbortDelay( TaskHandle_t xTask ) PRIVILEGED_FUNCTION;
  * \defgroup uxTaskPriorityGet uxTaskPriorityGet
  * \ingroup TaskCtrl
  */
-UBaseType_t uxTaskPriorityGet( const TaskHandle_t xTask ) PRIVILEGED_FUNCTION;
+UBaseType_t uxTaskPriorityGet( ConstTaskHandle_t xTask ) PRIVILEGED_FUNCTION;
 
 /**
  * task. h
  * @code{c}
- * UBaseType_t uxTaskPriorityGetFromISR( const TaskHandle_t xTask );
+ * UBaseType_t uxTaskPriorityGetFromISR( ConstTaskHandle_tTaskHandle_t xTask );
  * @endcode
  *
  * A version of uxTaskPriorityGet() that can be used from an ISR.
  */
-UBaseType_t uxTaskPriorityGetFromISR( const TaskHandle_t xTask ) PRIVILEGED_FUNCTION;
+UBaseType_t uxTaskPriorityGetFromISR( ConstTaskHandle_t xTask ) PRIVILEGED_FUNCTION;
 
 /**
  * task. h
  * @code{c}
- * eTaskState eTaskGetState( TaskHandle_t xTask );
+ * eTaskState eTaskGetState( ConstTaskHandle_t xTask );
  * @endcode
  *
  * INCLUDE_eTaskGetState must be defined as 1 for this function to be available.
@@ -1038,7 +1039,7 @@ UBaseType_t uxTaskPriorityGetFromISR( const TaskHandle_t xTask ) PRIVILEGED_FUNC
  * state of the task might change between the function being called, and the
  * functions return value being tested by the calling task.
  */
-eTaskState eTaskGetState( TaskHandle_t xTask ) PRIVILEGED_FUNCTION;
+eTaskState eTaskGetState( ConstTaskHandle_t xTask ) PRIVILEGED_FUNCTION;
 
 /**
  * task. h
@@ -1728,7 +1729,7 @@ TaskHandle_t xTaskGetHandle( const char * pcNameToQuery ) PRIVILEGED_FUNCTION; /
 /**
  * task.h
  * @code{c}
- * UBaseType_t uxTaskGetStackHighWaterMark( TaskHandle_t xTask );
+ * UBaseType_t uxTaskGetStackHighWaterMark( ConstTaskHandle_t xTask );
  * @endcode
  *
  * INCLUDE_uxTaskGetStackHighWaterMark must be set to 1 in FreeRTOSConfig.h for
@@ -1752,12 +1753,12 @@ TaskHandle_t xTaskGetHandle( const char * pcNameToQuery ) PRIVILEGED_FUNCTION; /
  * actual spaces on the stack rather than bytes) since the task referenced by
  * xTask was created.
  */
-UBaseType_t uxTaskGetStackHighWaterMark( TaskHandle_t xTask ) PRIVILEGED_FUNCTION;
+UBaseType_t uxTaskGetStackHighWaterMark( ConstTaskHandle_t xTask ) PRIVILEGED_FUNCTION;
 
 /**
  * task.h
  * @code{c}
- * configSTACK_DEPTH_TYPE uxTaskGetStackHighWaterMark2( TaskHandle_t xTask );
+ * configSTACK_DEPTH_TYPE uxTaskGetStackHighWaterMark2( ConstTaskHandle_t xTask );
  * @endcode
  *
  * INCLUDE_uxTaskGetStackHighWaterMark2 must be set to 1 in FreeRTOSConfig.h for
@@ -1786,7 +1787,7 @@ UBaseType_t uxTaskGetStackHighWaterMark( TaskHandle_t xTask ) PRIVILEGED_FUNCTIO
  * To keep consistency, we name uxTaskGetStackHighWaterMark2 as an interface which is enabled by INCLUDE_uxTaskGetStackHighWaterMark2.
  */
 /* coverity[misra_c_2012_rule_5_1_violation] */
-configSTACK_DEPTH_TYPE uxTaskGetStackHighWaterMark2( TaskHandle_t xTask ) PRIVILEGED_FUNCTION;
+configSTACK_DEPTH_TYPE uxTaskGetStackHighWaterMark2( ConstTaskHandle_t xTask ) PRIVILEGED_FUNCTION;
 
 /* When using trace macros it is sometimes necessary to include task.h before
  * FreeRTOS.h.  When this is done TaskHookFunction_t will not yet have been defined,
@@ -1845,7 +1846,7 @@ configSTACK_DEPTH_TYPE uxTaskGetStackHighWaterMark2( TaskHandle_t xTask ) PRIVIL
     void vTaskSetThreadLocalStoragePointer( TaskHandle_t xTaskToSet,
                                             BaseType_t xIndex,
                                             void * pvValue ) PRIVILEGED_FUNCTION;
-    void * pvTaskGetThreadLocalStoragePointer( TaskHandle_t xTaskToQuery,
+    void * pvTaskGetThreadLocalStoragePointer( ConstTaskHandle_t xTaskToQuery,
                                                BaseType_t xIndex ) PRIVILEGED_FUNCTION;
 
 #endif
@@ -3292,7 +3293,7 @@ void vTaskPriorityDisinheritAfterTimeout( TaskHandle_t const pxMutexHolder,
 /*
  * Get the uxTaskNumber assigned to the task referenced by the xTask parameter.
  */
-UBaseType_t uxTaskGetTaskNumber( TaskHandle_t xTask ) PRIVILEGED_FUNCTION;
+UBaseType_t uxTaskGetTaskNumber( ConstTaskHandle_t xTask ) PRIVILEGED_FUNCTION;
 
 /*
  * Set the uxTaskNumber of the task referenced by the xTask parameter to

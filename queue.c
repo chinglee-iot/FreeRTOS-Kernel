@@ -2144,7 +2144,7 @@ BaseType_t xQueuePeekFromISR( QueueHandle_t xQueue,
 }
 /*-----------------------------------------------------------*/
 
-UBaseType_t uxQueueMessagesWaiting( const QueueHandle_t xQueue )
+UBaseType_t uxQueueMessagesWaiting( ConstQueueHandle_t xQueue )
 {
     UBaseType_t uxReturn;
 
@@ -2152,7 +2152,7 @@ UBaseType_t uxQueueMessagesWaiting( const QueueHandle_t xQueue )
 
     taskENTER_CRITICAL();
     {
-        uxReturn = ( ( Queue_t * ) xQueue )->uxMessagesWaiting;
+        uxReturn = ( ( const Queue_t * ) xQueue )->uxMessagesWaiting;
     }
     taskEXIT_CRITICAL();
 
@@ -2160,10 +2160,10 @@ UBaseType_t uxQueueMessagesWaiting( const QueueHandle_t xQueue )
 } /*lint !e818 Pointer cannot be declared const as xQueue is a typedef not pointer. */
 /*-----------------------------------------------------------*/
 
-UBaseType_t uxQueueSpacesAvailable( const QueueHandle_t xQueue )
+UBaseType_t uxQueueSpacesAvailable( ConstQueueHandle_t xQueue )
 {
     UBaseType_t uxReturn;
-    Queue_t * const pxQueue = xQueue;
+    const Queue_t * pxQueue = xQueue;
 
     configASSERT( pxQueue );
 
@@ -2177,10 +2177,10 @@ UBaseType_t uxQueueSpacesAvailable( const QueueHandle_t xQueue )
 } /*lint !e818 Pointer cannot be declared const as xQueue is a typedef not pointer. */
 /*-----------------------------------------------------------*/
 
-UBaseType_t uxQueueMessagesWaitingFromISR( const QueueHandle_t xQueue )
+UBaseType_t uxQueueMessagesWaitingFromISR( ConstQueueHandle_t xQueue )
 {
     UBaseType_t uxReturn;
-    Queue_t * const pxQueue = xQueue;
+    const Queue_t * pxQueue = xQueue;
 
     configASSERT( pxQueue );
     uxReturn = pxQueue->uxMessagesWaiting;
@@ -2233,9 +2233,9 @@ void vQueueDelete( QueueHandle_t xQueue )
 
 #if ( configUSE_TRACE_FACILITY == 1 )
 
-    UBaseType_t uxQueueGetQueueNumber( QueueHandle_t xQueue )
+    UBaseType_t uxQueueGetQueueNumber( ConstQueueHandle_t xQueue )
     {
-        return ( ( Queue_t * ) xQueue )->uxQueueNumber;
+        return ( ( const Queue_t * ) xQueue )->uxQueueNumber;
     }
 
 #endif /* configUSE_TRACE_FACILITY */
@@ -2254,9 +2254,9 @@ void vQueueDelete( QueueHandle_t xQueue )
 
 #if ( configUSE_TRACE_FACILITY == 1 )
 
-    uint8_t ucQueueGetQueueType( QueueHandle_t xQueue )
+    uint8_t ucQueueGetQueueType( ConstQueueHandle_t xQueue )
     {
-        return ( ( Queue_t * ) xQueue )->ucQueueType;
+        return ( ( const Queue_t * ) xQueue )->ucQueueType;
     }
 
 #endif /* configUSE_TRACE_FACILITY */
@@ -2554,10 +2554,10 @@ static BaseType_t prvIsQueueEmpty( const Queue_t * pxQueue )
 }
 /*-----------------------------------------------------------*/
 
-BaseType_t xQueueIsQueueEmptyFromISR( const QueueHandle_t xQueue )
+BaseType_t xQueueIsQueueEmptyFromISR( ConstQueueHandle_t xQueue )
 {
     BaseType_t xReturn;
-    Queue_t * const pxQueue = xQueue;
+    const Queue_t * pxQueue = xQueue;
 
     configASSERT( pxQueue );
 
@@ -2595,10 +2595,10 @@ static BaseType_t prvIsQueueFull( const Queue_t * pxQueue )
 }
 /*-----------------------------------------------------------*/
 
-BaseType_t xQueueIsQueueFullFromISR( const QueueHandle_t xQueue )
+BaseType_t xQueueIsQueueFullFromISR( ConstQueueHandle_t xQueue )
 {
     BaseType_t xReturn;
-    Queue_t * const pxQueue = xQueue;
+    const Queue_t * pxQueue = xQueue;
 
     configASSERT( pxQueue );
 
@@ -2971,7 +2971,7 @@ BaseType_t xQueueIsQueueFullFromISR( const QueueHandle_t xQueue )
 
 #if ( configQUEUE_REGISTRY_SIZE > 0 )
 
-    const char * pcQueueGetName( QueueHandle_t xQueue ) /*lint !e971 Unqualified char types are allowed for strings and single characters only. */
+    const char * pcQueueGetName( ConstQueueHandle_t xQueue ) /*lint !e971 Unqualified char types are allowed for strings and single characters only. */
     {
         UBaseType_t ux;
         const char * pcReturn = NULL; /*lint !e971 Unqualified char types are allowed for strings and single characters only. */
@@ -3002,7 +3002,7 @@ BaseType_t xQueueIsQueueFullFromISR( const QueueHandle_t xQueue )
 
 #if ( configQUEUE_REGISTRY_SIZE > 0 )
 
-    void vQueueUnregisterQueue( QueueHandle_t xQueue )
+    void vQueueUnregisterQueue( ConstQueueHandle_t xQueue )
     {
         UBaseType_t ux;
 
@@ -3124,7 +3124,7 @@ BaseType_t xQueueIsQueueFullFromISR( const QueueHandle_t xQueue )
 #if ( configUSE_QUEUE_SETS == 1 )
 
     BaseType_t xQueueRemoveFromSet( QueueSetMemberHandle_t xQueueOrSemaphore,
-                                    QueueSetHandle_t xQueueSet )
+                                    ConstQueueSetHandle_t xQueueSet )
     {
         BaseType_t xReturn;
         Queue_t * const pxQueueOrSemaphore = ( Queue_t * ) xQueueOrSemaphore;

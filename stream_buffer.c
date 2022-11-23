@@ -1163,7 +1163,7 @@ static size_t prvReadMessageFromBuffer( StreamBuffer_t * pxStreamBuffer,
 }
 /*-----------------------------------------------------------*/
 
-BaseType_t xStreamBufferIsEmpty( StreamBufferHandle_t xStreamBuffer )
+BaseType_t xStreamBufferIsEmpty( ConstStreamBufferHandle_t xStreamBuffer )
 {
     const StreamBuffer_t * const pxStreamBuffer = xStreamBuffer;
     BaseType_t xReturn;
@@ -1187,7 +1187,7 @@ BaseType_t xStreamBufferIsEmpty( StreamBufferHandle_t xStreamBuffer )
 }
 /*-----------------------------------------------------------*/
 
-BaseType_t xStreamBufferIsFull( StreamBufferHandle_t xStreamBuffer )
+BaseType_t xStreamBufferIsFull( ConstStreamBufferHandle_t xStreamBuffer )
 {
     BaseType_t xReturn;
     size_t xBytesToStoreMessageLength;
@@ -1441,7 +1441,7 @@ static void prvInitialiseNewStreamBuffer( StreamBuffer_t * const pxStreamBuffer,
 
 #if ( configUSE_TRACE_FACILITY == 1 )
 
-    UBaseType_t uxStreamBufferGetStreamBufferNumber( StreamBufferHandle_t xStreamBuffer )
+    UBaseType_t uxStreamBufferGetStreamBufferNumber( ConstStreamBufferHandle_t xStreamBuffer )
     {
         return xStreamBuffer->uxStreamBufferNumber;
     }
