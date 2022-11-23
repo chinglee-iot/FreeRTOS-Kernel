@@ -5373,7 +5373,11 @@ static void prvCheckTasksWaitingTermination( void )
                 #if ( configNUM_CORES == 1 )
                 {
                     pxTCB = listGET_OWNER_OF_HEAD_ENTRY( ( &xTasksWaitingTermination ) ); /*lint !e9079 void * is used as this macro is used with timers and co-routines too.  Alignment is known to be fine as the type of the pointer stored and retrieved is the same. */
-                    ( void ) uxListRemove( &( pxTCB->xStateListItem ) );
+
+                    if( pxTCB != NULL )
+                    {
+                        ( void ) uxListRemove( &( pxTCB->xStateListItem ) );
+                    }
                     --uxCurrentNumberOfTasks;
                     --uxDeletedTasksWaitingCleanUp;
                 }
@@ -5386,19 +5390,22 @@ static void prvCheckTasksWaitingTermination( void )
                     {
                         pxTCB = listGET_OWNER_OF_HEAD_ENTRY( ( &xTasksWaitingTermination ) ); /*lint !e9079 void * is used as this macro is used with timers and co-routines too.  Alignment is known to be fine as the type of the pointer stored and retrieved is the same. */
 
-                        if( pxTCB->xTaskRunState == taskTASK_NOT_RUNNING )
+                        if( pxTCB != NULL )
                         {
-                            ( void ) uxListRemove( &( pxTCB->xStateListItem ) );
-                            --uxCurrentNumberOfTasks;
-                            --uxDeletedTasksWaitingCleanUp;
-                        }
-                        else
-                        {
-                            /* The TCB to be deleted still has not yet been switched out
-                             * by the scheduler, so we will just exit this loop early and
-                             * try again next time. */
-                            taskEXIT_CRITICAL();
-                            break;
+                            if( pxTCB->xTaskRunState == taskTASK_NOT_RUNNING )
+                            {
+                                ( void ) uxListRemove( &( pxTCB->xStateListItem ) );
+                                --uxCurrentNumberOfTasks;
+                                --uxDeletedTasksWaitingCleanUp;
+                            }
+                            else
+                            {
+                                /* The TCB to be deleted still has not yet been switched out
+                                * by the scheduler, so we will just exit this loop early and
+                                * try again next time. */
+                                taskEXIT_CRITICAL();
+                                break;
+                            }
                         }
                     }
                 }
