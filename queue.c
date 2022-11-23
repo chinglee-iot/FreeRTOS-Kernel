@@ -316,9 +316,19 @@ BaseType_t xQueueGenericReset( QueueHandle_t xQueue,
     {
         taskENTER_CRITICAL();
         {
+            /* 
+             * The rule 18.4 is "The +, -, += and -= operators should not be applied to an expression of
+             * pointer type." Pointer arithmetic allowed on char types, especially when it assists conveying intent.
+             */
+            /* coverity[misra_c_2012_rule_18_4_violation] */
             pxQueue->u.xQueue.pcTail = pxQueue->pcHead + ( pxQueue->uxLength * pxQueue->uxItemSize ); /*lint !e9016 Pointer arithmetic allowed on char types, especially when it assists conveying intent. */
             pxQueue->uxMessagesWaiting = ( UBaseType_t ) 0U;
             pxQueue->pcWriteTo = pxQueue->pcHead;
+            /* 
+             * The rule 18.4 is "The +, -, += and -= operators should not be applied to an expression of
+             * pointer type." Pointer arithmetic allowed on char types, especially when it assists conveying intent.
+             */
+            /* coverity[misra_c_2012_rule_18_4_violation] */
             pxQueue->u.xQueue.pcReadFrom = pxQueue->pcHead + ( ( pxQueue->uxLength - 1U ) * pxQueue->uxItemSize ); /*lint !e9016 Pointer arithmetic allowed on char types, especially when it assists conveying intent. */
             pxQueue->cRxLock = queueUNLOCKED;
             pxQueue->cTxLock = queueUNLOCKED;
@@ -471,6 +481,11 @@ BaseType_t xQueueGenericReset( QueueHandle_t xQueue,
                 /* Jump past the queue structure to find the location of the queue
                  * storage area. */
                 pucQueueStorage = ( uint8_t * ) pxNewQueue;
+                /* 
+                 * The rule 18.4 is "The +, -, += and -= operators should not be applied to an expression of
+                 * pointer type." Pointer arithmetic allowed on char types, especially when it assists conveying intent.
+                 */
+                /* coverity[misra_c_2012_rule_18_4_violation] */
                 pucQueueStorage += sizeof( Queue_t ); /*lint !e9016 Pointer arithmetic allowed on char types, especially when it assists conveying intent. */
 
                 #if ( configSUPPORT_STATIC_ALLOCATION == 1 )
@@ -2305,6 +2320,11 @@ static BaseType_t prvCopyDataToQueue( Queue_t * const pxQueue,
     else if( xPosition == queueSEND_TO_BACK )
     {
         ( void ) memcpy( ( void * ) pxQueue->pcWriteTo, pvItemToQueue, ( size_t ) pxQueue->uxItemSize ); /*lint !e961 !e418 !e9087 MISRA exception as the casts are only redundant for some ports, plus previous logic ensures a null pointer can only be passed to memcpy() if the copy size is 0.  Cast to void required by function signature and safe as no alignment requirement and copy length specified in bytes. */
+        /* 
+         * The rule 18.4 is "The +, -, += and -= operators should not be applied to an expression of
+         * pointer type." Pointer arithmetic allowed on char types, especially when it assists conveying intent.
+         */
+        /* coverity[misra_c_2012_rule_18_4_violation] */
         pxQueue->pcWriteTo += pxQueue->uxItemSize;                                                       /*lint !e9016 Pointer arithmetic on char types ok, especially in this use case where it is the clearest way of conveying intent. */
 
         if( pxQueue->pcWriteTo >= pxQueue->u.xQueue.pcTail )                                             /*lint !e946 MISRA exception justified as comparison of pointers is the cleanest solution. */
@@ -2319,10 +2339,20 @@ static BaseType_t prvCopyDataToQueue( Queue_t * const pxQueue,
     else
     {
         ( void ) memcpy( ( void * ) pxQueue->u.xQueue.pcReadFrom, pvItemToQueue, ( size_t ) pxQueue->uxItemSize ); /*lint !e961 !e9087 !e418 MISRA exception as the casts are only redundant for some ports.  Cast to void required by function signature and safe as no alignment requirement and copy length specified in bytes.  Assert checks null pointer only used when length is 0. */
+        /* 
+         * The rule 18.4 is "The +, -, += and -= operators should not be applied to an expression of
+         * pointer type." Pointer arithmetic allowed on char types, especially when it assists conveying intent.
+         */
+        /* coverity[misra_c_2012_rule_18_4_violation] */
         pxQueue->u.xQueue.pcReadFrom -= pxQueue->uxItemSize;
 
         if( pxQueue->u.xQueue.pcReadFrom < pxQueue->pcHead ) /*lint !e946 MISRA exception justified as comparison of pointers is the cleanest solution. */
         {
+            /* 
+             * The rule 18.4 is "The +, -, += and -= operators should not be applied to an expression of
+             * pointer type." Pointer arithmetic allowed on char types, especially when it assists conveying intent.
+             */
+            /* coverity[misra_c_2012_rule_18_4_violation] */
             pxQueue->u.xQueue.pcReadFrom = ( pxQueue->u.xQueue.pcTail - pxQueue->uxItemSize );
         }
         else
@@ -2362,6 +2392,11 @@ static void prvCopyDataFromQueue( Queue_t * const pxQueue,
 {
     if( pxQueue->uxItemSize != ( UBaseType_t ) 0 )
     {
+        /* 
+         * The rule 18.4 is "The +, -, += and -= operators should not be applied to an expression of
+         * pointer type." Pointer arithmetic allowed on char types, especially when it assists conveying intent.
+         */
+        /* coverity[misra_c_2012_rule_18_4_violation] */
         pxQueue->u.xQueue.pcReadFrom += pxQueue->uxItemSize;           /*lint !e9016 Pointer arithmetic on char types ok, especially in this use case where it is the clearest way of conveying intent. */
 
         if( pxQueue->u.xQueue.pcReadFrom >= pxQueue->u.xQueue.pcTail ) /*lint !e946 MISRA exception justified as use of the relational operator is the cleanest solutions. */
@@ -2711,6 +2746,11 @@ BaseType_t xQueueIsQueueFullFromISR( const QueueHandle_t xQueue )
                 if( pxQueue->uxMessagesWaiting > ( UBaseType_t ) 0 )
                 {
                     /* Data is available from the queue. */
+                    /* 
+                     * The rule 18.4 is "The +, -, += and -= operators should not be applied to an expression of
+                     * pointer type." Pointer arithmetic allowed on char types, especially when it assists conveying intent.
+                     */
+                    /* coverity[misra_c_2012_rule_18_4_violation] */
                     pxQueue->u.xQueue.pcReadFrom += pxQueue->uxItemSize;
 
                     if( pxQueue->u.xQueue.pcReadFrom >= pxQueue->u.xQueue.pcTail )
@@ -2827,6 +2867,11 @@ BaseType_t xQueueIsQueueFullFromISR( const QueueHandle_t xQueue )
         if( pxQueue->uxMessagesWaiting > ( UBaseType_t ) 0 )
         {
             /* Copy the data from the queue. */
+            /* 
+             * The rule 18.4 is "The +, -, += and -= operators should not be applied to an expression of
+             * pointer type." Pointer arithmetic allowed on char types, especially when it assists conveying intent.
+             */
+            /* coverity[misra_c_2012_rule_18_4_violation] */
             pxQueue->u.xQueue.pcReadFrom += pxQueue->uxItemSize;
 
             if( pxQueue->u.xQueue.pcReadFrom >= pxQueue->u.xQueue.pcTail )

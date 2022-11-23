@@ -5571,6 +5571,11 @@ static void prvCheckTasksWaitingTermination( void )
 
         while( *pucLocalStackByte == ( uint8_t ) tskSTACK_FILL_BYTE )
         {
+            /* 
+             * The rule 18.4 is "The +, -, += and -= operators should not be applied to an expression of
+             * pointer type." Pointer arithmetic allowed on uint8_t types, especially when it assists conveying intent.
+             */
+            /* coverity[misra_c_2012_rule_18_4_violation] */
             pucLocalStackByte -= portSTACK_GROWTH;
             ulCount++;
         }
@@ -6447,6 +6452,11 @@ static void prvResetNextTaskUnblockTime( void )
                 xBytePrint = ( BaseType_t ) sprintf( pcLocalWriteBuffer, "\t%c\t%u\t%u\t%u\r\n", cStatus, ( UBaseType_t ) pxTaskStatusArray[ x ].uxCurrentPriority, ( UBaseType_t ) pxTaskStatusArray[ x ].usStackHighWaterMark, ( UBaseType_t ) pxTaskStatusArray[ x ].xTaskNumber ); /*lint !e586 sprintf() allowed as this is compiled with many compilers and this is a utility function only - not part of the core kernel implementation. */
                 if( xBytePrint > ( BaseType_t ) 0 )
                 {
+                    /* 
+                     * The rule 18.4 is "The +, -, += and -= operators should not be applied to an expression of
+                     * pointer type." Pointer arithmetic allowed on uint8_t types, especially when it assists conveying intent.
+                     */
+                    /* coverity[misra_c_2012_rule_18_4_violation] */
                     pcLocalWriteBuffer += strlen( pcLocalWriteBuffer );                                                                                                                                                                                                      /*lint !e9016 Pointer arithmetic ok on char pointers especially as in this case where it best denotes the intent of the code. */
                 }
             }
@@ -6570,6 +6580,11 @@ static void prvResetNextTaskUnblockTime( void )
 
                     if( xBytePrint > ( BaseType_t ) 0 )
                     {
+                        /* 
+                         * The rule 18.4 is "The +, -, += and -= operators should not be applied to an expression of
+                         * pointer type." Pointer arithmetic allowed on uint8_t types, especially when it assists conveying intent.
+                         */
+                        /* coverity[misra_c_2012_rule_18_4_violation] */
                         pcLocalWriteBuffer += strlen( pcLocalWriteBuffer ); /*lint !e9016 Pointer arithmetic ok on char pointers especially as in this case where it best denotes the intent of the code. */
                     }
                 }
