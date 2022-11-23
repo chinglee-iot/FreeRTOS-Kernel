@@ -822,7 +822,7 @@
 
     static void prvProcessReceivedCommands( void )
     {
-        DaemonTaskMessage_t xMessage;
+        DaemonTaskMessage_t xMessage = { 0 };
         Timer_t * pxTimer;
         BaseType_t xTimerListsWereSwitched;
         TickType_t xTimeNow;
