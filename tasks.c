@@ -6449,6 +6449,11 @@ static void prvResetNextTaskUnblockTime( void )
                 pcLocalWriteBuffer = prvWriteNameToBuffer( pcLocalWriteBuffer, pxTaskStatusArray[ x ].pcTaskName );
 
                 /* Write the rest of the string. */
+                /* 
+                 * The rule 21.6 is "The Standard Library input/output routines shall not be used." 
+                 * sprintf() allowed as this is compiled with many compilers and this is a utility function only - not part of the core kernel implementation.
+                 */
+                /* coverity[misra_c_2012_rule_21_6_violation] */
                 xBytePrint = ( BaseType_t ) sprintf( pcLocalWriteBuffer, "\t%c\t%u\t%u\t%u\r\n", cStatus, ( UBaseType_t ) pxTaskStatusArray[ x ].uxCurrentPriority, ( UBaseType_t ) pxTaskStatusArray[ x ].usStackHighWaterMark, ( UBaseType_t ) pxTaskStatusArray[ x ].xTaskNumber ); /*lint !e586 sprintf() allowed as this is compiled with many compilers and this is a utility function only - not part of the core kernel implementation. */
                 if( xBytePrint > ( BaseType_t ) 0 )
                 {
@@ -6551,12 +6556,22 @@ static void prvResetNextTaskUnblockTime( void )
                     {
                         #ifdef portLU_PRINTF_SPECIFIER_REQUIRED
                         {
+                            /* 
+                             * The rule 21.6 is "The Standard Library input/output routines shall not be used." 
+                             * sprintf() allowed as this is compiled with many compilers and this is a utility function only - not part of the core kernel implementation.
+                             */
+                            /* coverity[misra_c_2012_rule_21_6_violation] */
                             xBytePrint = ( BaseType_t ) sprintf( pcLocalWriteBuffer, "\t%lu\t\t%lu%%\r\n", pxTaskStatusArray[ x ].ulRunTimeCounter, ulStatsAsPercentage );
                         }
                         #else
                         {
                             /* sizeof( int ) == sizeof( long ) so a smaller
                              * printf() library can be used. */
+                            /* 
+                             * The rule 21.6 is "The Standard Library input/output routines shall not be used." 
+                             * sprintf() allowed as this is compiled with many compilers and this is a utility function only - not part of the core kernel implementation.
+                             */
+                            /* coverity[misra_c_2012_rule_21_6_violation] */
                             xBytePrint = ( BaseType_t ) sprintf( pcLocalWriteBuffer, "\t%u\t\t%u%%\r\n", ( UBaseType_t ) pxTaskStatusArray[ x ].ulRunTimeCounter, ( UBaseType_t ) ulStatsAsPercentage ); /*lint !e586 sprintf() allowed as this is compiled with many compilers and this is a utility function only - not part of the core kernel implementation. */
                         }
                         #endif
@@ -6567,12 +6582,22 @@ static void prvResetNextTaskUnblockTime( void )
                          * consumed less than 1% of the total run time. */
                         #ifdef portLU_PRINTF_SPECIFIER_REQUIRED
                         {
+                            /* 
+                             * The rule 21.6 is "The Standard Library input/output routines shall not be used." 
+                             * sprintf() allowed as this is compiled with many compilers and this is a utility function only - not part of the core kernel implementation.
+                             */
+                            /* coverity[misra_c_2012_rule_21_6_violation] */
                             xBytePrint = ( BaseType_t ) sprintf( pcLocalWriteBuffer, "\t%lu\t\t<1%%\r\n", pxTaskStatusArray[ x ].ulRunTimeCounter );
                         }
                         #else
                         {
                             /* sizeof( int ) == sizeof( long ) so a smaller
                              * printf() library can be used. */
+                            /* 
+                             * The rule 21.6 is "The Standard Library input/output routines shall not be used." 
+                             * sprintf() allowed as this is compiled with many compilers and this is a utility function only - not part of the core kernel implementation.
+                             */
+                            /* coverity[misra_c_2012_rule_21_6_violation] */
                             xBytePrint = ( BaseType_t ) sprintf( pcLocalWriteBuffer, "\t%u\t\t<1%%\r\n", ( UBaseType_t ) pxTaskStatusArray[ x ].ulRunTimeCounter ); /*lint !e586 sprintf() allowed as this is compiled with many compilers and this is a utility function only - not part of the core kernel implementation. */
                         }
                         #endif
