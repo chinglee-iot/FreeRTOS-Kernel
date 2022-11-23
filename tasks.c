@@ -3086,6 +3086,12 @@ static BaseType_t prvCreateIdleTasks( void )
 
         for( x = ( BaseType_t ) 0; x < ( BaseType_t ) configMAX_TASK_NAME_LEN; x++ )
         {
+            /* 
+             * The rule 18.1 is "A pointer resulting from arithmetic on a pointer operand shall address an 
+             * element of the same array as that pointer operand." This is false alarm, Because "configIDLE_TASK_NAME[4] == 0x00", 
+             * loop must break when x = 4 even if configMAX_TASK_NAME_LEN > 4.
+             */
+            /* coverity[misra_c_2012_rule_18_1_violation] */
             cIdleName[ x ] = configIDLE_TASK_NAME[ x ];
 
             /* Don't copy all configMAX_TASK_NAME_LEN if the string is shorter than
