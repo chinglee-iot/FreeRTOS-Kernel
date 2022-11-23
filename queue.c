@@ -853,13 +853,15 @@ BaseType_t xQueueGenericSend( QueueHandle_t xQueue,
     Queue_t * const pxQueue = xQueue;
     BaseType_t xIsEnd = ( BaseType_t ) pdFALSE;
     BaseType_t xReturn = ( BaseType_t ) pdPASS;
+    /* Declare to confort MISRA C 2012 Rule 17.8 - "A function parameter should not be modified" */
+    TickType_t xLocalTicksToWait = xTicksToWait;
 
     configASSERT( pxQueue );
     configASSERT( !( ( pvItemToQueue == NULL ) && ( pxQueue->uxItemSize != ( UBaseType_t ) 0U ) ) );
     configASSERT( !( ( xCopyPosition == queueOVERWRITE ) && ( pxQueue->uxLength != 1 ) ) );
     #if ( ( INCLUDE_xTaskGetSchedulerState == 1 ) || ( configUSE_TIMERS == 1 ) )
     {
-        configASSERT( !( ( xTaskGetSchedulerState() == taskSCHEDULER_SUSPENDED ) && ( xTicksToWait != 0 ) ) );
+        configASSERT( !( ( xTaskGetSchedulerState() == taskSCHEDULER_SUSPENDED ) && ( xLocalTicksToWait != 0 ) ) );
     }
     #endif
 
@@ -979,7 +981,7 @@ BaseType_t xQueueGenericSend( QueueHandle_t xQueue,
             }
             else
             {
-                if( xTicksToWait == ( TickType_t ) 0 )
+                if( xLocalTicksToWait == ( TickType_t ) 0 )
                 {
                     /* The queue was full and no block time is specified (or
                      * the block time has expired) so leave now. */
@@ -1014,12 +1016,12 @@ BaseType_t xQueueGenericSend( QueueHandle_t xQueue,
             prvLockQueue( pxQueue );
 
             /* Update the timeout state to see if it has expired yet. */
-            if( xTaskCheckForTimeOut( &xTimeOut, &xTicksToWait ) == ( BaseType_t ) pdFALSE )
+            if( xTaskCheckForTimeOut( &xTimeOut, &xLocalTicksToWait ) == ( BaseType_t ) pdFALSE )
             {
                 if( prvIsQueueFull( pxQueue ) != ( BaseType_t ) pdFALSE )
                 {
                     traceBLOCKING_ON_QUEUE_SEND( pxQueue );
-                    vTaskPlaceOnEventList( &( pxQueue->xTasksWaitingToSend ), xTicksToWait );
+                    vTaskPlaceOnEventList( &( pxQueue->xTasksWaitingToSend ), xLocalTicksToWait );
 
                     /* Unlocking the queue means queue events can effect the
                     * event list. It is possible that interrupts occurring now
@@ -1415,6 +1417,8 @@ BaseType_t xQueueReceive( QueueHandle_t xQueue,
     Queue_t * const pxQueue = xQueue;
     BaseType_t xIsEnd = ( BaseType_t ) pdFALSE;
     BaseType_t xReturn = ( BaseType_t ) pdPASS;
+    /* Declare to confort MISRA C 2012 Rule 17.8 - "A function parameter should not be modified" */
+    TickType_t xLocalTicksToWait = xTicksToWait;
 
     /* Check the pointer is not NULL. */
     configASSERT( ( pxQueue ) );
@@ -1426,7 +1430,7 @@ BaseType_t xQueueReceive( QueueHandle_t xQueue,
     /* Cannot block if the scheduler is suspended. */
     #if ( ( INCLUDE_xTaskGetSchedulerState == 1 ) || ( configUSE_TIMERS == 1 ) )
     {
-        configASSERT( !( ( xTaskGetSchedulerState() == taskSCHEDULER_SUSPENDED ) && ( xTicksToWait != 0 ) ) );
+        configASSERT( !( ( xTaskGetSchedulerState() == taskSCHEDULER_SUSPENDED ) && ( xLocalTicksToWait != 0 ) ) );
     }
     #endif
 
@@ -1472,7 +1476,7 @@ BaseType_t xQueueReceive( QueueHandle_t xQueue,
             }
             else
             {
-                if( xTicksToWait == ( TickType_t ) 0 )
+                if( xLocalTicksToWait == ( TickType_t ) 0 )
                 {
                     /* The queue was empty and no block time is specified (or
                      * the block time has expired) so leave now. */
@@ -1505,14 +1509,14 @@ BaseType_t xQueueReceive( QueueHandle_t xQueue,
             prvLockQueue( pxQueue );
 
             /* Update the timeout state to see if it has expired yet. */
-            if( xTaskCheckForTimeOut( &xTimeOut, &xTicksToWait ) == ( BaseType_t ) pdFALSE )
+            if( xTaskCheckForTimeOut( &xTimeOut, &xLocalTicksToWait ) == ( BaseType_t ) pdFALSE )
             {
                 /* The timeout has not expired.  If the queue is still empty place
                 * the task on the list of tasks waiting to receive from the queue. */
                 if( prvIsQueueEmpty( pxQueue ) != ( BaseType_t ) pdFALSE )
                 {
                     traceBLOCKING_ON_QUEUE_RECEIVE( pxQueue );
-                    vTaskPlaceOnEventList( &( pxQueue->xTasksWaitingToReceive ), xTicksToWait );
+                    vTaskPlaceOnEventList( &( pxQueue->xTasksWaitingToReceive ), xLocalTicksToWait );
                     prvUnlockQueue( pxQueue );
 
                     if( xTaskResumeAll() == ( BaseType_t ) pdFALSE )
@@ -1578,6 +1582,8 @@ BaseType_t xQueueSemaphoreTake( QueueHandle_t xQueue,
     Queue_t * const pxQueue = xQueue;
     BaseType_t xIsEnd = ( BaseType_t ) pdFALSE;
     BaseType_t xReturn = ( BaseType_t ) pdPASS;
+    /* Declare to confort MISRA C 2012 Rule 17.8 - "A function parameter should not be modified" */
+    TickType_t xLocalTicksToWait = xTicksToWait;
 
     #if ( configUSE_MUTEXES == 1 )
         BaseType_t xInheritanceOccurred = ( BaseType_t ) pdFALSE;
@@ -1593,7 +1599,7 @@ BaseType_t xQueueSemaphoreTake( QueueHandle_t xQueue,
     /* Cannot block if the scheduler is suspended. */
     #if ( ( INCLUDE_xTaskGetSchedulerState == 1 ) || ( configUSE_TIMERS == 1 ) )
     {
-        configASSERT( !( ( xTaskGetSchedulerState() == taskSCHEDULER_SUSPENDED ) && ( xTicksToWait != 0 ) ) );
+        configASSERT( !( ( xTaskGetSchedulerState() == taskSCHEDULER_SUSPENDED ) && ( xLocalTicksToWait != 0 ) ) );
     }
     #endif
 
@@ -1656,7 +1662,7 @@ BaseType_t xQueueSemaphoreTake( QueueHandle_t xQueue,
             }
             else
             {
-                if( xTicksToWait == ( TickType_t ) 0 )
+                if( xLocalTicksToWait == ( TickType_t ) 0 )
                 {
                     /* The semaphore count was 0 and no block time is specified
                      * (or the block time has expired) so exit now. */
@@ -1689,7 +1695,7 @@ BaseType_t xQueueSemaphoreTake( QueueHandle_t xQueue,
             prvLockQueue( pxQueue );
 
             /* Update the timeout state to see if it has expired yet. */
-            if( xTaskCheckForTimeOut( &xTimeOut, &xTicksToWait ) == ( BaseType_t ) pdFALSE )
+            if( xTaskCheckForTimeOut( &xTimeOut, &xLocalTicksToWait ) == ( BaseType_t ) pdFALSE )
             {
                 /* A block time is specified and not expired.  If the semaphore
                 * count is 0 then enter the Blocked state to wait for a semaphore to
@@ -1716,7 +1722,7 @@ BaseType_t xQueueSemaphoreTake( QueueHandle_t xQueue,
                     }
                     #endif /* if ( configUSE_MUTEXES == 1 ) */
 
-                    vTaskPlaceOnEventList( &( pxQueue->xTasksWaitingToReceive ), xTicksToWait );
+                    vTaskPlaceOnEventList( &( pxQueue->xTasksWaitingToReceive ), xLocalTicksToWait );
                     prvUnlockQueue( pxQueue );
 
                     if( xTaskResumeAll() == ( BaseType_t ) pdFALSE )
@@ -1811,6 +1817,8 @@ BaseType_t xQueuePeek( QueueHandle_t xQueue,
     Queue_t * const pxQueue = xQueue;
     BaseType_t xIsEnd = ( BaseType_t ) pdFALSE;
     BaseType_t xReturn = ( BaseType_t ) pdPASS;
+    /* Declare to confort MISRA C 2012 Rule 17.8 - "A function parameter should not be modified" */
+    TickType_t xLocalTicksToWait = xTicksToWait;
 
     /* Check the pointer is not NULL. */
     configASSERT( ( pxQueue ) );
@@ -1822,7 +1830,7 @@ BaseType_t xQueuePeek( QueueHandle_t xQueue,
     /* Cannot block if the scheduler is suspended. */
     #if ( ( INCLUDE_xTaskGetSchedulerState == 1 ) || ( configUSE_TIMERS == 1 ) )
     {
-        configASSERT( !( ( xTaskGetSchedulerState() == taskSCHEDULER_SUSPENDED ) && ( xTicksToWait != 0 ) ) );
+        configASSERT( !( ( xTaskGetSchedulerState() == taskSCHEDULER_SUSPENDED ) && ( xLocalTicksToWait != 0 ) ) );
     }
     #endif
 
@@ -1874,7 +1882,7 @@ BaseType_t xQueuePeek( QueueHandle_t xQueue,
             }
             else
             {
-                if( xTicksToWait == ( TickType_t ) 0 )
+                if( xLocalTicksToWait == ( TickType_t ) 0 )
                 {
                     /* The queue was empty and no block time is specified (or
                      * the block time has expired) so leave now. */
@@ -1908,14 +1916,14 @@ BaseType_t xQueuePeek( QueueHandle_t xQueue,
             prvLockQueue( pxQueue );
 
             /* Update the timeout state to see if it has expired yet. */
-            if( xTaskCheckForTimeOut( &xTimeOut, &xTicksToWait ) == ( BaseType_t ) pdFALSE )
+            if( xTaskCheckForTimeOut( &xTimeOut, &xLocalTicksToWait ) == ( BaseType_t ) pdFALSE )
             {
                 /* Timeout has not expired yet, check to see if there is data in the
                 * queue now, and if not enter the Blocked state to wait for data. */
                 if( prvIsQueueEmpty( pxQueue ) != ( BaseType_t ) pdFALSE )
                 {
                     traceBLOCKING_ON_QUEUE_PEEK( pxQueue );
-                    vTaskPlaceOnEventList( &( pxQueue->xTasksWaitingToReceive ), xTicksToWait );
+                    vTaskPlaceOnEventList( &( pxQueue->xTasksWaitingToReceive ), xLocalTicksToWait );
                     prvUnlockQueue( pxQueue );
 
                     if( xTaskResumeAll() == ( BaseType_t ) pdFALSE )

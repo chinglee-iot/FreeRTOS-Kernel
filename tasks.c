@@ -1490,12 +1490,14 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
 {
     StackType_t * pxTopOfStack;
     UBaseType_t x;
+    /* Declare to confort MISRA C 2012 Rule 17.8 - "A function parameter should not be modified" */
+    UBaseType_t uxLocalPriority = uxPriority;
 
     #if ( portUSING_MPU_WRAPPERS == 1 )
         /* Should the task be created in privileged mode? */
         BaseType_t xRunPrivileged;
 
-        if( ( uxPriority & portPRIVILEGE_BIT ) != 0U )
+        if( ( uxLocalPriority & portPRIVILEGE_BIT ) != 0U )
         {
             xRunPrivileged = ( BaseType_t ) pdTRUE;
         }
@@ -1503,7 +1505,7 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
         {
             xRunPrivileged = ( BaseType_t ) pdFALSE;
         }
-        uxPriority &= ~portPRIVILEGE_BIT;
+        uxLocalPriority &= ~portPRIVILEGE_BIT;
     #endif /* portUSING_MPU_WRAPPERS == 1 */
 
     /* Avoid dependency on memset() if it is not required. */
@@ -1582,21 +1584,21 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
     }
 
     /* This is used as an array index so must ensure it's not too large. */
-    configASSERT( uxPriority < configMAX_PRIORITIES );
+    configASSERT( uxLocalPriority < configMAX_PRIORITIES );
 
-    if( uxPriority >= ( UBaseType_t ) configMAX_PRIORITIES )
+    if( uxLocalPriority >= ( UBaseType_t ) configMAX_PRIORITIES )
     {
-        uxPriority = ( UBaseType_t ) configMAX_PRIORITIES - ( UBaseType_t ) 1U;
+        uxLocalPriority = ( UBaseType_t ) configMAX_PRIORITIES - ( UBaseType_t ) 1U;
     }
     else
     {
         mtCOVERAGE_TEST_MARKER();
     }
 
-    pxNewTCB->uxPriority = uxPriority;
+    pxNewTCB->uxPriority = uxLocalPriority;
     #if ( configUSE_MUTEXES == 1 )
     {
-        pxNewTCB->uxBasePriority = uxPriority;
+        pxNewTCB->uxBasePriority = uxLocalPriority;
     }
     #endif /* configUSE_MUTEXES */
 
@@ -1608,7 +1610,7 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
     listSET_LIST_ITEM_OWNER( &( pxNewTCB->xStateListItem ), pxNewTCB );
 
     /* Event lists are always in priority order. */
-    listSET_LIST_ITEM_VALUE( &( pxNewTCB->xEventListItem ), ( TickType_t ) configMAX_PRIORITIES - ( TickType_t ) uxPriority ); /*lint !e961 MISRA exception as the casts are only redundant for some ports. */
+    listSET_LIST_ITEM_VALUE( &( pxNewTCB->xEventListItem ), ( TickType_t ) configMAX_PRIORITIES - ( TickType_t ) uxLocalPriority ); /*lint !e961 MISRA exception as the casts are only redundant for some ports. */
     listSET_LIST_ITEM_OWNER( &( pxNewTCB->xEventListItem ), pxNewTCB );
 
     #if ( portUSING_MPU_WRAPPERS == 1 )
@@ -2362,17 +2364,19 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
         TCB_t * pxTCB;
         UBaseType_t uxCurrentBasePriority, uxPriorityUsedOnEntry;
         BaseType_t xYieldRequired = ( BaseType_t ) pdFALSE;
+        /* Declare to confort MISRA C 2012 Rule 17.8 - "A function parameter should not be modified" */
+        UBaseType_t uxLocalNewPriority = uxNewPriority;
 
         #if ( configNUM_CORES > 1 )
             BaseType_t xYieldForTask = ( BaseType_t ) pdFALSE;
         #endif
 
-        configASSERT( uxNewPriority < configMAX_PRIORITIES );
+        configASSERT( uxLocalNewPriority < configMAX_PRIORITIES );
 
         /* Ensure the new priority is valid. */
-        if( uxNewPriority >= ( UBaseType_t ) configMAX_PRIORITIES )
+        if( uxLocalNewPriority >= ( UBaseType_t ) configMAX_PRIORITIES )
         {
-            uxNewPriority = ( UBaseType_t ) configMAX_PRIORITIES - ( UBaseType_t ) 1U;
+            uxLocalNewPriority = ( UBaseType_t ) configMAX_PRIORITIES - ( UBaseType_t ) 1U;
         }
         else
         {
@@ -2385,7 +2389,7 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
              * task that is being changed. */
             pxTCB = prvGetTCBFromHandle( xTask );
 
-            traceTASK_PRIORITY_SET( pxTCB, uxNewPriority );
+            traceTASK_PRIORITY_SET( pxTCB, uxLocalNewPriority );
 
             #if ( configUSE_MUTEXES == 1 )
             {
@@ -2397,11 +2401,11 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
             }
             #endif
 
-            if( uxCurrentBasePriority != uxNewPriority )
+            if( uxCurrentBasePriority != uxLocalNewPriority )
             {
                 /* The priority change may have readied a task of higher
                  * priority than a running task. */
-                if( uxNewPriority > uxCurrentBasePriority )
+                if( uxLocalNewPriority > uxCurrentBasePriority )
                 {
                     #if ( configNUM_CORES == 1 )
                     {
@@ -2410,7 +2414,7 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
                             /* The priority of a task other than the currently
                              * running task is being raised.  Is the priority being
                              * raised above that of the running task? */
-                            if( uxNewPriority >= pxCurrentTCB->uxPriority )
+                            if( uxLocalNewPriority >= pxCurrentTCB->uxPriority )
                             {
                                 xYieldRequired = ( BaseType_t ) pdTRUE;
                             }
@@ -2464,7 +2468,7 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
                      * currently using an inherited priority. */
                     if( pxTCB->uxBasePriority == pxTCB->uxPriority )
                     {
-                        pxTCB->uxPriority = uxNewPriority;
+                        pxTCB->uxPriority = uxLocalNewPriority;
                     }
                     else
                     {
@@ -2472,11 +2476,11 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
                     }
 
                     /* The base priority gets set whatever. */
-                    pxTCB->uxBasePriority = uxNewPriority;
+                    pxTCB->uxBasePriority = uxLocalNewPriority;
                 }
                 #else /* if ( configUSE_MUTEXES == 1 ) */
                 {
-                    pxTCB->uxPriority = uxNewPriority;
+                    pxTCB->uxPriority = uxLocalNewPriority;
                 }
                 #endif /* if ( configUSE_MUTEXES == 1 ) */
 
@@ -2484,7 +2488,7 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
                  * being used for anything else. */
                 if( ( listGET_LIST_ITEM_VALUE( &( pxTCB->xEventListItem ) ) & taskEVENT_LIST_ITEM_VALUE_IN_USE ) == 0U )
                 {
-                    listSET_LIST_ITEM_VALUE( &( pxTCB->xEventListItem ), ( ( TickType_t ) configMAX_PRIORITIES - ( TickType_t ) uxNewPriority ) ); /*lint !e961 MISRA exception as the casts are only redundant for some ports. */
+                    listSET_LIST_ITEM_VALUE( &( pxTCB->xEventListItem ), ( ( TickType_t ) configMAX_PRIORITIES - ( TickType_t ) uxLocalNewPriority ) ); /*lint !e961 MISRA exception as the casts are only redundant for some ports. */
                 }
                 else
                 {
@@ -3905,19 +3909,21 @@ char * pcTaskGetName( TaskHandle_t xTaskToQuery ) /*lint !e971 Unqualified char 
          * under all permitted evaluation orders." */
         TickType_t xLocalTickCount = xTickCount;
         TickType_t xLocalNextTaskUnblockTime = xNextTaskUnblockTime;
+        /* Declare to confort MISRA C 2012 Rule 17.8 - "A function parameter should not be modified" */
+        TickType_t xLocalTicksToJump = xTicksToJump;
 
         /* Correct the tick count value after a period during which the tick
          * was suppressed.  Note this does *not* call the tick hook function for
          * each stepped tick. */
-        configASSERT( ( xLocalTickCount + xTicksToJump ) <= xLocalNextTaskUnblockTime );
+        configASSERT( ( xLocalTickCount + xLocalTicksToJump ) <= xLocalNextTaskUnblockTime );
 
-        if( ( xLocalTickCount + xTicksToJump ) == xLocalNextTaskUnblockTime )
+        if( ( xLocalTickCount + xLocalTicksToJump ) == xLocalNextTaskUnblockTime )
         {
             /* Arrange for xLocalTickCount to reach xLocalNextTaskUnblockTime in
              * xTaskIncrementTick() when the scheduler resumes.  This ensures
              * that any delayed tasks are resumed at the correct time. */
             configASSERT( uxSchedulerSuspended );
-            configASSERT( xTicksToJump != ( TickType_t ) 0 );
+            configASSERT( xLocalTicksToJump != ( TickType_t ) 0 );
 
             /* Prevent the tick interrupt modifying xPendedTicks simultaneously. */
             taskENTER_CRITICAL();
@@ -3925,15 +3931,15 @@ char * pcTaskGetName( TaskHandle_t xTaskToQuery ) /*lint !e971 Unqualified char 
                 xPendedTicks++;
             }
             taskEXIT_CRITICAL();
-            xTicksToJump--;
+            xLocalTicksToJump--;
         }
         else
         {
             mtCOVERAGE_TEST_MARKER();
         }
 
-        xTickCount += xTicksToJump;
-        traceINCREASE_TICK_COUNT( xTicksToJump );
+        xTickCount += xLocalTicksToJump;
+        traceINCREASE_TICK_COUNT( xLocalTicksToJump );
     }
 
 #endif /* configUSE_TICKLESS_IDLE */
@@ -4657,6 +4663,9 @@ void vTaskPlaceOnUnorderedEventList( List_t * pxEventList,
                                           TickType_t xTicksToWait,
                                           const BaseType_t xWaitIndefinitely )
     {
+        /* Declare to confort MISRA C 2012 Rule 17.8 - "A function parameter should not be modified" */
+        TickType_t xLocalTicksToWait = xTicksToWait;
+
         configASSERT( pxEventList );
 
         /* This function should not be called by application code hence the
@@ -4676,11 +4685,11 @@ void vTaskPlaceOnUnorderedEventList( List_t * pxEventList,
          * prvAddCurrentTaskToDelayedList() function. */
         if( xWaitIndefinitely != ( BaseType_t ) pdFALSE )
         {
-            xTicksToWait = portMAX_DELAY;
+            xLocalTicksToWait = portMAX_DELAY;
         }
 
-        traceTASK_DELAY_UNTIL( ( xTickCount + xTicksToWait ) );
-        prvAddCurrentTaskToDelayedList( xTicksToWait, xWaitIndefinitely );
+        traceTASK_DELAY_UNTIL( ( xTickCount + xLocalTicksToWait ) );
+        prvAddCurrentTaskToDelayedList( xLocalTicksToWait, xWaitIndefinitely );
     }
 
 #endif /* configUSE_TIMERS */
@@ -5551,10 +5560,12 @@ static void prvCheckTasksWaitingTermination( void )
     static configSTACK_DEPTH_TYPE prvTaskCheckFreeStackSpace( const uint8_t * pucStackByte )
     {
         uint32_t ulCount = 0U;
+        /* Declare to confort MISRA C 2012 Rule 17.8 - "A function parameter should not be modified" */
+        const uint8_t * pucLocalStackByte = pucStackByte;
 
-        while( *pucStackByte == ( uint8_t ) tskSTACK_FILL_BYTE )
+        while( *pucLocalStackByte == ( uint8_t ) tskSTACK_FILL_BYTE )
         {
-            pucStackByte -= portSTACK_GROWTH;
+            pucLocalStackByte -= portSTACK_GROWTH;
             ulCount++;
         }
 
@@ -6343,6 +6354,8 @@ static void prvResetNextTaskUnblockTime( void )
         UBaseType_t uxArraySize, x;
         char cStatus;
         BaseType_t xBytePrint = 0;
+        /* Declare to confort MISRA C 2012 Rule 17.8 - "A function parameter should not be modified" */
+        char * pcLocalWriteBuffer = pcWriteBuffer;
 
         /*
          * PLEASE NOTE:
@@ -6372,7 +6385,7 @@ static void prvResetNextTaskUnblockTime( void )
 
 
         /* Make sure the write buffer does not contain a string. */
-        *pcWriteBuffer = ( char ) 0x00;
+        *pcLocalWriteBuffer = ( char ) 0x00;
 
         /* Take a snapshot of the number of tasks in case it changes while this
          * function is executing. */
@@ -6422,13 +6435,13 @@ static void prvResetNextTaskUnblockTime( void )
 
                 /* Write the task name to the string, padding with spaces so it
                  * can be printed in tabular form more easily. */
-                pcWriteBuffer = prvWriteNameToBuffer( pcWriteBuffer, pxTaskStatusArray[ x ].pcTaskName );
+                pcLocalWriteBuffer = prvWriteNameToBuffer( pcLocalWriteBuffer, pxTaskStatusArray[ x ].pcTaskName );
 
                 /* Write the rest of the string. */
-                xBytePrint = ( BaseType_t ) sprintf( pcWriteBuffer, "\t%c\t%u\t%u\t%u\r\n", cStatus, ( UBaseType_t ) pxTaskStatusArray[ x ].uxCurrentPriority, ( UBaseType_t ) pxTaskStatusArray[ x ].usStackHighWaterMark, ( UBaseType_t ) pxTaskStatusArray[ x ].xTaskNumber ); /*lint !e586 sprintf() allowed as this is compiled with many compilers and this is a utility function only - not part of the core kernel implementation. */
+                xBytePrint = ( BaseType_t ) sprintf( pcLocalWriteBuffer, "\t%c\t%u\t%u\t%u\r\n", cStatus, ( UBaseType_t ) pxTaskStatusArray[ x ].uxCurrentPriority, ( UBaseType_t ) pxTaskStatusArray[ x ].usStackHighWaterMark, ( UBaseType_t ) pxTaskStatusArray[ x ].xTaskNumber ); /*lint !e586 sprintf() allowed as this is compiled with many compilers and this is a utility function only - not part of the core kernel implementation. */
                 if( xBytePrint > ( BaseType_t ) 0 )
                 {
-                    pcWriteBuffer += strlen( pcWriteBuffer );                                                                                                                                                                                                      /*lint !e9016 Pointer arithmetic ok on char pointers especially as in this case where it best denotes the intent of the code. */
+                    pcLocalWriteBuffer += strlen( pcLocalWriteBuffer );                                                                                                                                                                                                      /*lint !e9016 Pointer arithmetic ok on char pointers especially as in this case where it best denotes the intent of the code. */
                 }
             }
 
@@ -6453,6 +6466,8 @@ static void prvResetNextTaskUnblockTime( void )
         UBaseType_t uxArraySize, x;
         configRUN_TIME_COUNTER_TYPE ulTotalTime, ulStatsAsPercentage;
         BaseType_t xBytePrint = 0;
+        /* Declare to confort MISRA C 2012 Rule 17.8 - "A function parameter should not be modified" */
+        char * pcLocalWriteBuffer = pcWriteBuffer;
 
         /*
          * PLEASE NOTE:
@@ -6480,7 +6495,7 @@ static void prvResetNextTaskUnblockTime( void )
          */
 
         /* Make sure the write buffer does not contain a string. */
-        *pcWriteBuffer = ( char ) 0x00;
+        *pcLocalWriteBuffer = ( char ) 0x00;
 
         /* Take a snapshot of the number of tasks in case it changes while this
          * function is executing. */
@@ -6513,20 +6528,20 @@ static void prvResetNextTaskUnblockTime( void )
                     /* Write the task name to the string, padding with
                      * spaces so it can be printed in tabular form more
                      * easily. */
-                    pcWriteBuffer = prvWriteNameToBuffer( pcWriteBuffer, pxTaskStatusArray[ x ].pcTaskName );
+                    pcLocalWriteBuffer = prvWriteNameToBuffer( pcLocalWriteBuffer, pxTaskStatusArray[ x ].pcTaskName );
                     xBytePrint =( BaseType_t ) 0;
 
                     if( ulStatsAsPercentage > 0UL )
                     {
                         #ifdef portLU_PRINTF_SPECIFIER_REQUIRED
                         {
-                            xBytePrint = ( BaseType_t ) sprintf( pcWriteBuffer, "\t%lu\t\t%lu%%\r\n", pxTaskStatusArray[ x ].ulRunTimeCounter, ulStatsAsPercentage );
+                            xBytePrint = ( BaseType_t ) sprintf( pcLocalWriteBuffer, "\t%lu\t\t%lu%%\r\n", pxTaskStatusArray[ x ].ulRunTimeCounter, ulStatsAsPercentage );
                         }
                         #else
                         {
                             /* sizeof( int ) == sizeof( long ) so a smaller
                              * printf() library can be used. */
-                            xBytePrint = ( BaseType_t ) sprintf( pcWriteBuffer, "\t%u\t\t%u%%\r\n", ( UBaseType_t ) pxTaskStatusArray[ x ].ulRunTimeCounter, ( UBaseType_t ) ulStatsAsPercentage ); /*lint !e586 sprintf() allowed as this is compiled with many compilers and this is a utility function only - not part of the core kernel implementation. */
+                            xBytePrint = ( BaseType_t ) sprintf( pcLocalWriteBuffer, "\t%u\t\t%u%%\r\n", ( UBaseType_t ) pxTaskStatusArray[ x ].ulRunTimeCounter, ( UBaseType_t ) ulStatsAsPercentage ); /*lint !e586 sprintf() allowed as this is compiled with many compilers and this is a utility function only - not part of the core kernel implementation. */
                         }
                         #endif
                     }
@@ -6536,20 +6551,20 @@ static void prvResetNextTaskUnblockTime( void )
                          * consumed less than 1% of the total run time. */
                         #ifdef portLU_PRINTF_SPECIFIER_REQUIRED
                         {
-                            xBytePrint = ( BaseType_t ) sprintf( pcWriteBuffer, "\t%lu\t\t<1%%\r\n", pxTaskStatusArray[ x ].ulRunTimeCounter );
+                            xBytePrint = ( BaseType_t ) sprintf( pcLocalWriteBuffer, "\t%lu\t\t<1%%\r\n", pxTaskStatusArray[ x ].ulRunTimeCounter );
                         }
                         #else
                         {
                             /* sizeof( int ) == sizeof( long ) so a smaller
                              * printf() library can be used. */
-                            xBytePrint = ( BaseType_t ) sprintf( pcWriteBuffer, "\t%u\t\t<1%%\r\n", ( UBaseType_t ) pxTaskStatusArray[ x ].ulRunTimeCounter ); /*lint !e586 sprintf() allowed as this is compiled with many compilers and this is a utility function only - not part of the core kernel implementation. */
+                            xBytePrint = ( BaseType_t ) sprintf( pcLocalWriteBuffer, "\t%u\t\t<1%%\r\n", ( UBaseType_t ) pxTaskStatusArray[ x ].ulRunTimeCounter ); /*lint !e586 sprintf() allowed as this is compiled with many compilers and this is a utility function only - not part of the core kernel implementation. */
                         }
                         #endif
                     }
 
                     if( xBytePrint > ( BaseType_t ) 0 )
                     {
-                        pcWriteBuffer += strlen( pcWriteBuffer ); /*lint !e9016 Pointer arithmetic ok on char pointers especially as in this case where it best denotes the intent of the code. */
+                        pcLocalWriteBuffer += strlen( pcLocalWriteBuffer ); /*lint !e9016 Pointer arithmetic ok on char pointers especially as in this case where it best denotes the intent of the code. */
                     }
                 }
             }

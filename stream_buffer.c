@@ -334,6 +334,9 @@ static void prvInitialiseNewStreamBuffer( StreamBuffer_t * const pxStreamBuffer,
     {
         uint8_t * pucAllocatedMemory;
         uint8_t ucFlags;
+        /* Declare to confort MISRA C 2012 Rule 17.8 - "A function parameter should not be modified" */
+        size_t xLocalBufferSizeBytes = xBufferSizeBytes;
+        size_t xLocalTriggerLevelBytes = xTriggerLevelBytes;
 
         /* In case the stream buffer is going to be used as a message buffer
          * (that is, it will hold discrete messages with a little meta data that
@@ -343,22 +346,22 @@ static void prvInitialiseNewStreamBuffer( StreamBuffer_t * const pxStreamBuffer,
         {
             /* Is a message buffer but not statically allocated. */
             ucFlags = sbFLAGS_IS_MESSAGE_BUFFER;
-            configASSERT( xBufferSizeBytes > sbBYTES_TO_STORE_MESSAGE_LENGTH );
+            configASSERT( xLocalBufferSizeBytes > sbBYTES_TO_STORE_MESSAGE_LENGTH );
         }
         else
         {
             /* Not a message buffer and not statically allocated. */
             ucFlags = 0;
-            configASSERT( xBufferSizeBytes > 0 );
+            configASSERT( xLocalBufferSizeBytes > 0 );
         }
 
-        configASSERT( xTriggerLevelBytes <= xBufferSizeBytes );
+        configASSERT( xLocalTriggerLevelBytes <= xLocalBufferSizeBytes );
 
         /* A trigger level of 0 would cause a waiting task to unblock even when
          * the buffer was empty. */
-        if( xTriggerLevelBytes == ( size_t ) 0 )
+        if( xLocalTriggerLevelBytes == ( size_t ) 0 )
         {
-            xTriggerLevelBytes = ( size_t ) 1;
+            xLocalTriggerLevelBytes = ( size_t ) 1;
         }
 
         /* A stream buffer requires a StreamBuffer_t structure and a buffer.
@@ -369,10 +372,10 @@ static void prvInitialiseNewStreamBuffer( StreamBuffer_t * const pxStreamBuffer,
          * this is a quirk of the implementation that means otherwise the free
          * space would be reported as one byte smaller than would be logically
          * expected. */
-        if( xBufferSizeBytes < ( xBufferSizeBytes + 1U + sizeof( StreamBuffer_t ) ) )
+        if( xLocalBufferSizeBytes < ( xLocalBufferSizeBytes + 1U + sizeof( StreamBuffer_t ) ) )
         {
-            xBufferSizeBytes++;
-            pucAllocatedMemory = ( uint8_t * ) pvPortMalloc( xBufferSizeBytes + sizeof( StreamBuffer_t ) ); /*lint !e9079 malloc() only returns void*. */
+            xLocalBufferSizeBytes++;
+            pucAllocatedMemory = ( uint8_t * ) pvPortMalloc( xLocalBufferSizeBytes + sizeof( StreamBuffer_t ) ); /*lint !e9079 malloc() only returns void*. */
         }
         else
         {
@@ -386,8 +389,8 @@ static void prvInitialiseNewStreamBuffer( StreamBuffer_t * const pxStreamBuffer,
             /* coverity[misra_c_2012_rule_11_3_violation] */
             prvInitialiseNewStreamBuffer( ( StreamBuffer_t * ) pucAllocatedMemory,       /* Structure at the start of the allocated memory. */ /*lint !e9087 Safe cast as allocated memory is aligned. */ /*lint !e826 Area is not too small and alignment is guaranteed provided malloc() behaves as expected and returns aligned buffer. */
                                           pucAllocatedMemory + sizeof( StreamBuffer_t ), /* Storage area follows. */ /*lint !e9016 Indexing past structure valid for uint8_t pointer, also storage area has no alignment requirement. */
-                                          xBufferSizeBytes,
-                                          xTriggerLevelBytes,
+                                          xLocalBufferSizeBytes,
+                                          xLocalTriggerLevelBytes,
                                           ucFlags,
                                           pxSendCompletedCallback,
                                           pxReceiveCompletedCallback );
@@ -423,16 +426,18 @@ static void prvInitialiseNewStreamBuffer( StreamBuffer_t * const pxStreamBuffer,
         StreamBuffer_t * const pxStreamBuffer = ( StreamBuffer_t * ) pxStaticStreamBuffer; /*lint !e740 !e9087 Safe cast as StaticStreamBuffer_t is opaque Streambuffer_t. */
         StreamBufferHandle_t xReturn;
         uint8_t ucFlags;
+        /* Declare to confort MISRA C 2012 Rule 17.8 - "A function parameter should not be modified" */
+        size_t xLocalTriggerLevelBytes = xTriggerLevelBytes;
 
         configASSERT( pucStreamBufferStorageArea );
         configASSERT( pxStaticStreamBuffer );
-        configASSERT( xTriggerLevelBytes <= xBufferSizeBytes );
+        configASSERT( xLocalTriggerLevelBytes <= xBufferSizeBytes );
 
         /* A trigger level of 0 would cause a waiting task to unblock even when
          * the buffer was empty. */
-        if( xTriggerLevelBytes == ( size_t ) 0 )
+        if( xLocalTriggerLevelBytes == ( size_t ) 0 )
         {
-            xTriggerLevelBytes = ( size_t ) 1;
+            xLocalTriggerLevelBytes = ( size_t ) 1;
         }
 
         if( xIsMessageBuffer != ( BaseType_t ) pdFALSE )
@@ -467,7 +472,7 @@ static void prvInitialiseNewStreamBuffer( StreamBuffer_t * const pxStreamBuffer,
             prvInitialiseNewStreamBuffer( pxStreamBuffer,
                                           pucStreamBufferStorageArea,
                                           xBufferSizeBytes,
-                                          xTriggerLevelBytes,
+                                          xLocalTriggerLevelBytes,
                                           ucFlags,
                                           pxSendCompletedCallback,
                                           pxReceiveCompletedCallback );
@@ -589,20 +594,22 @@ BaseType_t xStreamBufferSetTriggerLevel( StreamBufferHandle_t xStreamBuffer,
 {
     StreamBuffer_t * const pxStreamBuffer = xStreamBuffer;
     BaseType_t xReturn;
+    /* Declare to confort MISRA C 2012 Rule 17.8 - "A function parameter should not be modified" */
+    size_t xLocalTriggerLevel = xTriggerLevel;
 
     configASSERT( pxStreamBuffer );
 
     /* It is not valid for the trigger level to be 0. */
-    if( xTriggerLevel == ( size_t ) 0 )
+    if( xLocalTriggerLevel == ( size_t ) 0 )
     {
-        xTriggerLevel = ( size_t ) 1;
+        xLocalTriggerLevel = ( size_t ) 1;
     }
 
     /* The trigger level is the number of bytes that must be in the stream
      * buffer before a task that is waiting for data is unblocked. */
-    if( xTriggerLevel < pxStreamBuffer->xLength )
+    if( xLocalTriggerLevel < pxStreamBuffer->xLength )
     {
-        pxStreamBuffer->xTriggerLevelBytes = xTriggerLevel;
+        pxStreamBuffer->xTriggerLevelBytes = xLocalTriggerLevel;
         xReturn = ( BaseType_t ) pdPASS;
     }
     else
@@ -669,6 +676,8 @@ size_t xStreamBufferSend( StreamBufferHandle_t xStreamBuffer,
     size_t xRequiredSpace = xDataLengthBytes;
     TimeOut_t xTimeOut;
     size_t xMaxReportedSpace = 0;
+    /* Declare to confort MISRA C 2012 Rule 17.8 - "A function parameter should not be modified" */
+    TickType_t xLocalTicksToWait = xTicksToWait;
 
     configASSERT( pvTxData );
     configASSERT( pxStreamBuffer );
@@ -694,7 +703,7 @@ size_t xStreamBufferSend( StreamBufferHandle_t xStreamBuffer,
         {
             /* The message would not fit even if the entire buffer was empty,
              * so don't wait for space. */
-            xTicksToWait = ( TickType_t ) 0;
+            xLocalTicksToWait = ( TickType_t ) 0;
         }
         else
         {
@@ -716,7 +725,7 @@ size_t xStreamBufferSend( StreamBufferHandle_t xStreamBuffer,
         }
     }
 
-    if( xTicksToWait != ( TickType_t ) 0 )
+    if( xLocalTicksToWait != ( TickType_t ) 0 )
     {
         vTaskSetTimeOutState( &xTimeOut );
 
@@ -746,9 +755,9 @@ size_t xStreamBufferSend( StreamBufferHandle_t xStreamBuffer,
             taskEXIT_CRITICAL();
 
             traceBLOCKING_ON_STREAM_BUFFER_SEND( xStreamBuffer );
-            ( void ) xTaskNotifyWait( ( uint32_t ) 0, ( uint32_t ) 0, NULL, xTicksToWait );
+            ( void ) xTaskNotifyWait( ( uint32_t ) 0, ( uint32_t ) 0, NULL, xLocalTicksToWait );
             pxStreamBuffer->xTaskWaitingToSend = NULL;
-        } while( xTaskCheckForTimeOut( &xTimeOut, &xTicksToWait ) == ( BaseType_t ) pdFALSE );
+        } while( xTaskCheckForTimeOut( &xTimeOut, &xLocalTicksToWait ) == ( BaseType_t ) pdFALSE );
     }
     else
     {
