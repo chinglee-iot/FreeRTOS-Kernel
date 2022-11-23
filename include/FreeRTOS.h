@@ -768,7 +768,7 @@
 #endif
 
 #ifndef traceTASK_INCREMENT_TICK
-    #define traceTASK_INCREMENT_TICK( xTickCount )
+    #define traceTASK_INCREMENT_TICK( xTickToIncrement )
 #endif
 
 #ifndef traceTIMER_CREATE

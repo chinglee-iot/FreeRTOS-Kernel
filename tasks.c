@@ -164,7 +164,7 @@
  * they are only required when a port optimised method of task selection is
  * being used. */
     #define taskRESET_READY_PRIORITY( uxPriority )
-    #define portRESET_READY_PRIORITY( uxPriority, uxTopReadyPriority )
+    #define portRESET_READY_PRIORITY( uxPriority, uxReadyPriority )
 
 #else /* configUSE_PORT_OPTIMISED_TASK_SELECTION */
 
@@ -350,7 +350,7 @@ struct tskTaskControlBlock       /* The old naming convention is used to prevent
 
     #if ( configUSE_TRACE_FACILITY == 1 )
         UBaseType_t uxTCBNumber;  /*< Stores a number that increments each time a TCB is created.  It allows debuggers to determine when a task has been deleted and then recreated. */
-        UBaseType_t uxTaskNumber; /*< Stores a number specifically for use by third party trace code. */
+        UBaseType_t uxTaskID; /*< Stores a number specifically for use by third party trace code. */
     #endif
 
     #if ( configUSE_MUTEXES == 1 )
@@ -4955,7 +4955,7 @@ void vTaskMissedYield( void )
         if( xTask != NULL )
         {
             pxTCB = xTask;
-            uxReturn = pxTCB->uxTaskNumber;
+            uxReturn = pxTCB->uxTaskID;
         }
         else
         {
@@ -4978,7 +4978,7 @@ void vTaskMissedYield( void )
         if( xTask != NULL )
         {
             pxTCB = xTask;
-            pxTCB->uxTaskNumber = uxHandle;
+            pxTCB->uxTaskID = uxHandle;
         }
     }
 
