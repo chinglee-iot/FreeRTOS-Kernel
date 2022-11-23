@@ -2616,7 +2616,7 @@ BaseType_t xQueueIsQueueFullFromISR( const QueueHandle_t xQueue )
                 if( pxQueue->uxMessagesWaiting < pxQueue->uxLength )
                 {
                     /* There is room in the queue, copy the data into the queue. */
-                    prvCopyDataToQueue( pxQueue, pvItemToQueue, queueSEND_TO_BACK );
+                    ( void ) prvCopyDataToQueue( pxQueue, pvItemToQueue, queueSEND_TO_BACK );
                     xReturn = pdPASS;
 
                     /* Were any co-routines waiting for data to become available? */
@@ -2767,7 +2767,7 @@ BaseType_t xQueueIsQueueFullFromISR( const QueueHandle_t xQueue )
          * exit without doing anything. */
         if( pxQueue->uxMessagesWaiting < pxQueue->uxLength )
         {
-            prvCopyDataToQueue( pxQueue, pvItemToQueue, queueSEND_TO_BACK );
+            ( void ) prvCopyDataToQueue( pxQueue, pvItemToQueue, queueSEND_TO_BACK );
 
             /* We only want to wake one co-routine per ISR, so check that a
              * co-routine has not already been woken. */

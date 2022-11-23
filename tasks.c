@@ -1193,7 +1193,7 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
              * Allow to convert from StaticTask_t to TCB_t. */
             /* coverity[misra_c_2012_rule_11_3_violation] */
             pxNewTCB = ( TCB_t * ) pxTaskBuffer; /*lint !e740 !e9087 Unusual cast is ok as the structures are designed to have the same alignment, and the size is checked by an assert. */
-            memset( ( void * ) pxNewTCB, 0x00, sizeof( TCB_t ) );
+            ( void ) memset( ( void * ) pxNewTCB, 0x00, sizeof( TCB_t ) );
             pxNewTCB->pxStack = ( StackType_t * ) puxStackBuffer;
 
             #if ( tskSTATIC_AND_DYNAMIC_ALLOCATION_POSSIBLE != 0 ) /*lint !e731 !e9029 Macro has been consolidated for readability reasons. */
@@ -1255,7 +1255,7 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
              * Allow to convert from StaticTask_t to TCB_t. */
             /* coverity[misra_c_2012_rule_11_3_violation] */
             pxNewTCB = ( TCB_t * ) pxTaskDefinition->pxTaskBuffer;
-            memset( ( void * ) pxNewTCB, 0x00, sizeof( TCB_t ) );
+            ( void ) memset( ( void * ) pxNewTCB, 0x00, sizeof( TCB_t ) );
 
             /* Store the stack location in the TCB. */
             pxNewTCB->pxStack = pxTaskDefinition->puxStackBuffer;
@@ -1321,7 +1321,7 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
 
             if( pxNewTCB != NULL )
             {
-                memset( ( void * ) pxNewTCB, 0x00, sizeof( TCB_t ) );
+                ( void ) memset( ( void * ) pxNewTCB, 0x00, sizeof( TCB_t ) );
 
                 /* Store the stack location in the TCB. */
                 pxNewTCB->pxStack = pxTaskDefinition->puxStackBuffer;
@@ -1398,7 +1398,7 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
 
             if( pxNewTCB != NULL )
             {
-                memset( ( void * ) pxNewTCB, 0x00, sizeof( TCB_t ) );
+                ( void ) memset( ( void * ) pxNewTCB, 0x00, sizeof( TCB_t ) );
 
                 /* Allocate space for the stack used by the task being created.
                  * The base of the stack memory stored in the TCB so the task can
@@ -1427,7 +1427,7 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
 
                 if( pxNewTCB != NULL )
                 {
-                    memset( ( void * ) pxNewTCB, 0x00, sizeof( TCB_t ) );
+                    ( void ) memset( ( void * ) pxNewTCB, 0x00, sizeof( TCB_t ) );
 
                     /* Store the stack location in the TCB. */
                     pxNewTCB->pxStack = pxStack;
@@ -3274,7 +3274,7 @@ void vTaskStartScheduler( void )
 
         /* Setting up the timer tick is hardware specific and thus in the
          * portable interface. */
-        xPortStartScheduler();
+        ( void ) xPortStartScheduler();
 
         /* In most cases, xPortStartScheduler() will not return. If it
          * returns pdTRUE then there was not enough heap memory available
@@ -6342,6 +6342,7 @@ static void prvResetNextTaskUnblockTime( void )
         TaskStatus_t * pxTaskStatusArray;
         UBaseType_t uxArraySize, x;
         char cStatus;
+        BaseType_t xBytePrint = 0;
 
         /*
          * PLEASE NOTE:
@@ -6424,8 +6425,11 @@ static void prvResetNextTaskUnblockTime( void )
                 pcWriteBuffer = prvWriteNameToBuffer( pcWriteBuffer, pxTaskStatusArray[ x ].pcTaskName );
 
                 /* Write the rest of the string. */
-                sprintf( pcWriteBuffer, "\t%c\t%u\t%u\t%u\r\n", cStatus, ( UBaseType_t ) pxTaskStatusArray[ x ].uxCurrentPriority, ( UBaseType_t ) pxTaskStatusArray[ x ].usStackHighWaterMark, ( UBaseType_t ) pxTaskStatusArray[ x ].xTaskNumber ); /*lint !e586 sprintf() allowed as this is compiled with many compilers and this is a utility function only - not part of the core kernel implementation. */
-                pcWriteBuffer += strlen( pcWriteBuffer );                                                                                                                                                                                                /*lint !e9016 Pointer arithmetic ok on char pointers especially as in this case where it best denotes the intent of the code. */
+                xBytePrint = ( BaseType_t ) sprintf( pcWriteBuffer, "\t%c\t%u\t%u\t%u\r\n", cStatus, ( UBaseType_t ) pxTaskStatusArray[ x ].uxCurrentPriority, ( UBaseType_t ) pxTaskStatusArray[ x ].usStackHighWaterMark, ( UBaseType_t ) pxTaskStatusArray[ x ].xTaskNumber ); /*lint !e586 sprintf() allowed as this is compiled with many compilers and this is a utility function only - not part of the core kernel implementation. */
+                if( xBytePrint > ( BaseType_t ) 0 )
+                {
+                    pcWriteBuffer += strlen( pcWriteBuffer );                                                                                                                                                                                                      /*lint !e9016 Pointer arithmetic ok on char pointers especially as in this case where it best denotes the intent of the code. */
+                }
             }
 
             /* Free the array again.  NOTE!  If configSUPPORT_DYNAMIC_ALLOCATION
@@ -6448,6 +6452,7 @@ static void prvResetNextTaskUnblockTime( void )
         TaskStatus_t * pxTaskStatusArray;
         UBaseType_t uxArraySize, x;
         configRUN_TIME_COUNTER_TYPE ulTotalTime, ulStatsAsPercentage;
+        BaseType_t xBytePrint = 0;
 
         /*
          * PLEASE NOTE:
@@ -6509,18 +6514,19 @@ static void prvResetNextTaskUnblockTime( void )
                      * spaces so it can be printed in tabular form more
                      * easily. */
                     pcWriteBuffer = prvWriteNameToBuffer( pcWriteBuffer, pxTaskStatusArray[ x ].pcTaskName );
+                    xBytePrint =( BaseType_t ) 0;
 
                     if( ulStatsAsPercentage > 0UL )
                     {
                         #ifdef portLU_PRINTF_SPECIFIER_REQUIRED
                         {
-                            sprintf( pcWriteBuffer, "\t%lu\t\t%lu%%\r\n", pxTaskStatusArray[ x ].ulRunTimeCounter, ulStatsAsPercentage );
+                            xBytePrint = ( BaseType_t ) sprintf( pcWriteBuffer, "\t%lu\t\t%lu%%\r\n", pxTaskStatusArray[ x ].ulRunTimeCounter, ulStatsAsPercentage );
                         }
                         #else
                         {
                             /* sizeof( int ) == sizeof( long ) so a smaller
                              * printf() library can be used. */
-                            sprintf( pcWriteBuffer, "\t%u\t\t%u%%\r\n", ( UBaseType_t ) pxTaskStatusArray[ x ].ulRunTimeCounter, ( UBaseType_t ) ulStatsAsPercentage ); /*lint !e586 sprintf() allowed as this is compiled with many compilers and this is a utility function only - not part of the core kernel implementation. */
+                            xBytePrint = ( BaseType_t ) sprintf( pcWriteBuffer, "\t%u\t\t%u%%\r\n", ( UBaseType_t ) pxTaskStatusArray[ x ].ulRunTimeCounter, ( UBaseType_t ) ulStatsAsPercentage ); /*lint !e586 sprintf() allowed as this is compiled with many compilers and this is a utility function only - not part of the core kernel implementation. */
                         }
                         #endif
                     }
@@ -6530,18 +6536,21 @@ static void prvResetNextTaskUnblockTime( void )
                          * consumed less than 1% of the total run time. */
                         #ifdef portLU_PRINTF_SPECIFIER_REQUIRED
                         {
-                            sprintf( pcWriteBuffer, "\t%lu\t\t<1%%\r\n", pxTaskStatusArray[ x ].ulRunTimeCounter );
+                            xBytePrint = ( BaseType_t ) sprintf( pcWriteBuffer, "\t%lu\t\t<1%%\r\n", pxTaskStatusArray[ x ].ulRunTimeCounter );
                         }
                         #else
                         {
                             /* sizeof( int ) == sizeof( long ) so a smaller
                              * printf() library can be used. */
-                            sprintf( pcWriteBuffer, "\t%u\t\t<1%%\r\n", ( UBaseType_t ) pxTaskStatusArray[ x ].ulRunTimeCounter ); /*lint !e586 sprintf() allowed as this is compiled with many compilers and this is a utility function only - not part of the core kernel implementation. */
+                            xBytePrint = ( BaseType_t ) sprintf( pcWriteBuffer, "\t%u\t\t<1%%\r\n", ( UBaseType_t ) pxTaskStatusArray[ x ].ulRunTimeCounter ); /*lint !e586 sprintf() allowed as this is compiled with many compilers and this is a utility function only - not part of the core kernel implementation. */
                         }
                         #endif
                     }
 
-                    pcWriteBuffer += strlen( pcWriteBuffer ); /*lint !e9016 Pointer arithmetic ok on char pointers especially as in this case where it best denotes the intent of the code. */
+                    if( xBytePrint > ( BaseType_t ) 0 )
+                    {
+                        pcWriteBuffer += strlen( pcWriteBuffer ); /*lint !e9016 Pointer arithmetic ok on char pointers especially as in this case where it best denotes the intent of the code. */
+                    }
                 }
             }
             else
