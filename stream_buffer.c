@@ -469,6 +469,7 @@ static void prvInitialiseNewStreamBuffer( StreamBuffer_t * const pxStreamBuffer,
              * message buffer structure. */
             volatile size_t xSize = sizeof( StaticStreamBuffer_t );
             configASSERT( xSize == sizeof( StreamBuffer_t ) );
+            ( void ) xSize; /* In case configASSERT() is not defined. */
         } /*lint !e529 xSize is referenced is configASSERT() is defined. */
         #endif /* configASSERT_DEFINED */
 
@@ -1416,6 +1417,7 @@ static void prvInitialiseNewStreamBuffer( StreamBuffer_t * const pxStreamBuffer,
          * result in confusion as to what is actually being observed. */
         const BaseType_t xWriteValue = 0x55;
         configASSERT( memset( pucBuffer, ( int ) xWriteValue, xBufferSizeBytes ) == pucBuffer );
+        ( void ) xWriteValue; /* In case configASSERT() is not defined. */
     } /*lint !e529 !e438 xWriteValue is only used if configASSERT() is defined. */
     #endif
 
