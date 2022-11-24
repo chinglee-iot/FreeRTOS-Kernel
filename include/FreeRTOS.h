@@ -352,10 +352,6 @@
     #define configNUM_CORES    1
 #endif
 
-#if ( configNUM_CORES > 32 )
-    #error Maximum supported configNUM_CORES is 32
-#endif
-
 #ifndef configRUN_MULTIPLE_PRIORITIES
     #define configRUN_MULTIPLE_PRIORITIES    0
 #endif
