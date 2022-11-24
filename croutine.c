@@ -283,8 +283,6 @@
 
     void vCoRoutineSchedule( void )
     {
-        BaseType_t noMoreToCheck = ( BaseType_t ) pdFALSE;
-
         /* Only run a co-routine after prvInitialiseCoRoutineLists() has been
          * called.  prvInitialiseCoRoutineLists() is called automatically when a
          * co-routine is created. */
@@ -297,31 +295,23 @@
             prvCheckDelayedList();
 
             /* Find the highest priority queue that contains ready co-routines. */
-            while( listLIST_IS_EMPTY( &( pxReadyCoRoutineLists[ uxTopCoRoutineReadyPriority ] ) ) == ( BaseType_t ) pdTRUE )
+            while( listLIST_IS_EMPTY( &( pxReadyCoRoutineLists[ uxTopCoRoutineReadyPriority ] ) ) )
             {
-                if( uxTopCoRoutineReadyPriority == 0U )
+                if( uxTopCoRoutineReadyPriority == 0 )
                 {
                     /* No more co-routines to check. */
-                    noMoreToCheck = ( BaseType_t ) pdTRUE;
-                    break;
+                    return;
                 }
 
                 --uxTopCoRoutineReadyPriority;
             }
 
-            if( noMoreToCheck == ( BaseType_t ) pdFALSE )
-            {
-                /* listGET_OWNER_OF_NEXT_ENTRY walks through the list, so the co-routines
-                 * of the same priority get an equal share of the processor time. */
-                listGET_OWNER_OF_NEXT_ENTRY( pxCurrentCoRoutine, &( pxReadyCoRoutineLists[ uxTopCoRoutineReadyPriority ] ) );
+            /* listGET_OWNER_OF_NEXT_ENTRY walks through the list, so the co-routines
+             * of the same priority get an equal share of the processor time. */
+            listGET_OWNER_OF_NEXT_ENTRY( pxCurrentCoRoutine, &( pxReadyCoRoutineLists[ uxTopCoRoutineReadyPriority ] ) );
 
-                /* Call the co-routine. */
-                ( pxCurrentCoRoutine->pxCoRoutineFunction )( pxCurrentCoRoutine, pxCurrentCoRoutine->uxIndex );
-            }
-            else
-            {
-                /* Nothing to do if no more co-routines to check. */
-            }
+            /* Call the co-routine. */
+            ( pxCurrentCoRoutine->pxCoRoutineFunction )( pxCurrentCoRoutine, pxCurrentCoRoutine->uxIndex );
         }
     }
 /*-----------------------------------------------------------*/

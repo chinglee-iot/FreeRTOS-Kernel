@@ -3126,14 +3126,34 @@ static BaseType_t prvCreateIdleTasks( void )
             /* Append the idle task number to the end of the name if there is space. */
             if( x < configMAX_TASK_NAME_LEN )
             {
-                BaseType_t xBytePrint = 0;
-                UBaseType_t uxRemainBytes = ( UBaseType_t ) ( ( UBaseType_t ) configMAX_TASK_NAME_LEN - ( UBaseType_t ) x );
+                UBaseType_t uxRemainSpaces = ( UBaseType_t ) ( ( UBaseType_t ) configMAX_TASK_NAME_LEN - ( UBaseType_t ) x - 1U ); /* Reserve 1 byte for '\0'. */
+                UBaseType_t uxDigitNum = 0;
+                BaseType_t xTempCoreID = xCoreID;
 
-                xBytePrint = snprintf( cIdleName + x, uxRemainBytes, "%d", xCoreID );
+                /* Count digit number of xCoreID. */
+                do{
+                    xTempCoreID /= 10;
+                    uxDigitNum++;
+                } while( xTempCoreID > 0 );
 
-                if( xBytePrint > ( BaseType_t ) 0 )
+                /* Remove ID from latest digit one by one. */
+                xTempCoreID = xCoreID;
+                while( uxDigitNum > uxRemainSpaces )
                 {
-                    x = ( BaseType_t ) strlen( cIdleName );
+                    uxDigitNum--;
+                    xTempCoreID /= 10;
+                }
+
+                if( uxDigitNum > 0 )
+                {
+                    BaseType_t xBytePrint;
+
+                    xBytePrint = sprintf( cIdleName + x, "%d", xTempCoreID );
+
+                    if( xBytePrint > ( BaseType_t ) 0 )
+                    {
+                        x += uxDigitNum;
+                    }
                 }
 
                 /* And append a null character if there is space. */
@@ -3180,7 +3200,7 @@ static BaseType_t prvCreateIdleTasks( void )
                                                                      configMINIMAL_STACK_SIZE,
                                                                      ( void * ) NULL,                   /*lint !e961.  The cast is not redundant for all compilers. */
                                                                      portPRIVILEGE_BIT,                 /* In effect ( tskIDLE_PRIORITY | portPRIVILEGE_BIT ), but tskIDLE_PRIORITY is zero. */
-                                                                     &xIdleTaskStackBuffers[ xCoreID - 1 ],
+                                                                     xIdleTaskStackBuffers[ xCoreID - 1 ],
                                                                      &xIdleTCBBuffers[ xCoreID - 1 ] ); /*lint !e961 MISRA exception, justified as it is not a redundant explicit cast to all supported compilers. */
                 }
 
@@ -4104,8 +4124,6 @@ BaseType_t xTaskIncrementTick( void )
              * look any further down the list. */
             if( xConstTickCount >= xNextTaskUnblockTime )
             {
-                BaseType_t isEnd = ( BaseType_t ) pdFALSE;
-
                 for( ; ; )
                 {
                     if( listLIST_IS_EMPTY( pxDelayedTaskList ) != pdFALSE )
@@ -4116,8 +4134,7 @@ BaseType_t xTaskIncrementTick( void )
                          * if( xTickCount >= xNextTaskUnblockTime ) test will pass
                          * next time through. */
                         xNextTaskUnblockTime = portMAX_DELAY; /*lint !e961 MISRA exception as the casts are only redundant for some ports. */
-                        
-                        isEnd = ( BaseType_t ) pdTRUE;
+                        break;
                     }
                     else
                     {
@@ -4136,17 +4153,13 @@ BaseType_t xTaskIncrementTick( void )
                              * state -  so record the item value in
                              * xNextTaskUnblockTime. */
                             xNextTaskUnblockTime = xItemValue;
-                            
-                            isEnd = ( BaseType_t ) pdTRUE;
+                            break; /*lint !e9011 Code structure here is deemed easier to understand with multiple breaks. */
                         }
                         else
                         {
                             mtCOVERAGE_TEST_MARKER();
                         }
-                    }
 
-                    if( isEnd == ( BaseType_t ) pdFALSE )
-                    {
                         /* It is time to remove the item from the Blocked state. */
                         listREMOVE_ITEM( &( pxTCB->xStateListItem ) );
 
@@ -4195,11 +4208,6 @@ BaseType_t xTaskIncrementTick( void )
                             #endif /* #if( configNUM_CORES == 1 ) */
                         }
                         #endif /* #if ( configUSE_PREEMPTION == 1 ) */
-                    }
-
-                    if( isEnd == ( BaseType_t ) pdTRUE )
-                    {
-                        break;
                     }
                 }
             }
@@ -5363,11 +5371,7 @@ static void prvCheckTasksWaitingTermination( void )
                 {
                     {
                         pxTCB = listGET_OWNER_OF_HEAD_ENTRY( ( &xTasksWaitingTermination ) ); /*lint !e9079 void * is used as this macro is used with timers and co-routines too.  Alignment is known to be fine as the type of the pointer stored and retrieved is the same. */
-
-                        if( pxTCB != NULL )
-                        {
-                            ( void ) uxListRemove( &( pxTCB->xStateListItem ) );
-                        }
+                        ( void ) uxListRemove( &( pxTCB->xStateListItem ) );
                         --uxCurrentNumberOfTasks;
                         --uxDeletedTasksWaitingCleanUp;
                     }
@@ -5389,22 +5393,19 @@ static void prvCheckTasksWaitingTermination( void )
                     {
                         pxTCB = listGET_OWNER_OF_HEAD_ENTRY( ( &xTasksWaitingTermination ) ); /*lint !e9079 void * is used as this macro is used with timers and co-routines too.  Alignment is known to be fine as the type of the pointer stored and retrieved is the same. */
 
-                        if( pxTCB != NULL )
+                        if( pxTCB->xTaskRunState == taskTASK_NOT_RUNNING )
                         {
-                            if( pxTCB->xTaskRunState == taskTASK_NOT_RUNNING )
-                            {
-                                ( void ) uxListRemove( &( pxTCB->xStateListItem ) );
-                                --uxCurrentNumberOfTasks;
-                                --uxDeletedTasksWaitingCleanUp;
-                            }
-                            else
-                            {
-                                /* The TCB to be deleted still has not yet been switched out
-                                * by the scheduler, so we will just exit this loop early and
-                                * try again next time. */
-                                taskEXIT_CRITICAL();
-                                break;
-                            }
+                            ( void ) uxListRemove( &( pxTCB->xStateListItem ) );
+                            --uxCurrentNumberOfTasks;
+                            --uxDeletedTasksWaitingCleanUp;
+                        }
+                        else
+                        {
+                            /* The TCB to be deleted still has not yet been switched out
+                             * by the scheduler, so we will just exit this loop early and
+                             * try again next time. */
+                            taskEXIT_CRITICAL();
+                            break;
                         }
                     }
                 }
