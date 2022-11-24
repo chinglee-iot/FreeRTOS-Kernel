@@ -2522,7 +2522,8 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
         TCB_t * pxTCB;
         BaseType_t xCoreID;
         UBaseType_t uxPrevCoreAffinityMask;
-        #if( configUSE_PREEMPTION == 1 )
+
+        #if ( configUSE_PREEMPTION == 1 )
             UBaseType_t uxPrevNotAllowedCores;
         #endif
 
@@ -2548,7 +2549,7 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
                 }
                 else
                 {
-                    #if( configUSE_PREEMPTION == 1 )
+                    #if ( configUSE_PREEMPTION == 1 )
                     {
                         /* Calculate the cores on which this task was not allowed to
                          * run previously. */
