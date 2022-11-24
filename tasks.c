@@ -3180,7 +3180,7 @@ static BaseType_t prvCreateIdleTasks( void )
                                                                      configMINIMAL_STACK_SIZE,
                                                                      ( void * ) NULL,                   /*lint !e961.  The cast is not redundant for all compilers. */
                                                                      portPRIVILEGE_BIT,                 /* In effect ( tskIDLE_PRIORITY | portPRIVILEGE_BIT ), but tskIDLE_PRIORITY is zero. */
-                                                                     xIdleTaskStackBuffers[ xCoreID - 1 ],
+                                                                     &xIdleTaskStackBuffers[ xCoreID - 1 ],
                                                                      &xIdleTCBBuffers[ xCoreID - 1 ] ); /*lint !e961 MISRA exception, justified as it is not a redundant explicit cast to all supported compilers. */
                 }
 
