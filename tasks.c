@@ -3126,7 +3126,15 @@ static BaseType_t prvCreateIdleTasks( void )
             /* Append the idle task number to the end of the name if there is space. */
             if( x < configMAX_TASK_NAME_LEN )
             {
-                cIdleName[ x++ ] = ( char ) xCoreID + '0';
+                BaseType_t xBytePrint = 0;
+                UBaseType_t uxRemainBytes = ( UBaseType_t ) ( ( UBaseType_t ) configMAX_TASK_NAME_LEN - ( UBaseType_t ) x );
+
+                xBytePrint = snprintf( cIdleName + x, uxRemainBytes, "%d", xCoreID );
+
+                if( xBytePrint > ( BaseType_t ) 0 )
+                {
+                    x = ( BaseType_t ) strlen( cIdleName );
+                }
 
                 /* And append a null character if there is space. */
                 if( x < configMAX_TASK_NAME_LEN )
