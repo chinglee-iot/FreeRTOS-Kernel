@@ -206,7 +206,7 @@
         /* Are there any co-routines waiting to get moved to the ready list?  These
          * are co-routines that have been readied by an ISR.  The ISR cannot access
          * the ready lists itself. */
-        while( !listLIST_IS_EMPTY( &xPendingReadyCoRoutineList ) )
+        while( listLIST_IS_EMPTY( &xPendingReadyCoRoutineList ) == ( BaseType_t ) pdFALSE )
         {
             CRCB_t * pxUnblockedCRCB;
 
@@ -248,7 +248,7 @@
             }
 
             /* See if this tick has made a timeout expire. */
-            while( !listLIST_IS_EMPTY( pxDelayedCoRoutineList ) )
+            while( listLIST_IS_EMPTY( pxDelayedCoRoutineList ) == ( BaseType_t ) pdFALSE )
             {
                 pxCRCB = ( CRCB_t * ) listGET_OWNER_OF_HEAD_ENTRY( pxDelayedCoRoutineList );
 

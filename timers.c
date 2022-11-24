@@ -977,7 +977,7 @@
          * If there are any timers still referenced from the current timer list
          * then they must have expired and should be processed before the lists
          * are switched. */
-        while( !listLIST_IS_EMPTY( pxCurrentTimerList ) )
+        while( listLIST_IS_EMPTY( pxCurrentTimerList ) == ( BaseType_t ) pdFALSE )
         {
             xNextExpireTime = listGET_ITEM_VALUE_OF_HEAD_ENTRY( pxCurrentTimerList );
 
