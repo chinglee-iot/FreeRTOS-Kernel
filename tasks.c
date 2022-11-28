@@ -688,7 +688,7 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
                 * the suspension and critical nesting counts, as well as release
                 * and reacquire the correct locks. And then, do it all over again
                 * if our state changed again during the reacquisition. */
-                uxPrevCriticalNesting = pxThisTCB->uxCriticalNesting;
+                uxPrevCriticalNesting = portGET_CRITICAL_NESTING_COUNT();
                 uxPrevSchedulerSuspended = uxSchedulerSuspended;
 
                 /* This must only be called the first time we enter into a critical
@@ -698,7 +698,7 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
 
                 if( uxPrevCriticalNesting > 0U )
                 {
-                    pxThisTCB->uxCriticalNesting = 0U;
+                    portSET_CRITICAL_NESTING_COUNT( 0U );
                 }
                 else
                 {
@@ -722,7 +722,8 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
                 portDISABLE_INTERRUPTS();
                 portGET_TASK_LOCK();
                 portGET_ISR_LOCK();
-                pxCurrentTCB->uxCriticalNesting = uxPrevCriticalNesting;
+
+                portSET_CRITICAL_NESTING_COUNT( uxPrevCriticalNesting );
                 uxSchedulerSuspended = uxPrevSchedulerSuspended;
 
                 if( uxPrevCriticalNesting == 0U )
@@ -776,7 +777,7 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
         BaseType_t xCoreID;
 
         /* This must be called from a critical section. */
-        configASSERT( pxCurrentTCB->uxCriticalNesting > 0U );
+        configASSERT( portGET_CRITICAL_NESTING_COUNT() > 0U );
 
         #if ( configRUN_MULTIPLE_PRIORITIES == 0 )
 
@@ -3367,7 +3368,7 @@ void vTaskSuspendAll( void )
 
             if( uxSchedulerSuspended == 1U )
             {
-                if( pxCurrentTCB->uxCriticalNesting == 0U )
+                if( portGET_CRITICAL_NESTING_COUNT() == 0U )
                 {
                     prvCheckForRunStateChange();
                 }
@@ -4501,10 +4502,9 @@ BaseType_t xTaskIncrementTick( void )
         portGET_ISR_LOCK();
         {
             /* vTaskSwitchContext() must never be called from within a critical section.
-             * This is not necessarily true for single core FreeRTOS, but it is for this SMP port. */
-            #if ( portCRITICAL_NESTING_IN_TCB == 1 )
-                configASSERT( pxCurrentTCB->uxCriticalNesting == 0 );
-            #endif
+             * This is not necessarily true for single core FreeRTOS, but it is for this
+             * SMP port. */
+            configASSERT( portGET_CRITICAL_NESTING_COUNT() == 0 );
 
             if( uxSchedulerSuspended != ( UBaseType_t ) pdFALSE )
             {
@@ -6069,7 +6069,7 @@ static void prvResetNextTaskUnblockTime( void )
  */
     void vTaskYieldWithinAPI( void )
     {
-        if( pxCurrentTCB->uxCriticalNesting == 0U )
+        if( portGET_CRITICAL_NESTING_COUNT() == 0U )
         {
             portYIELD();
         }
@@ -6082,7 +6082,7 @@ static void prvResetNextTaskUnblockTime( void )
 
 /*-----------------------------------------------------------*/
 
-#if ( portCRITICAL_NESTING_IN_TCB == 1 )
+#if ( ( portCRITICAL_NESTING_IN_TCB == 1 ) && ( configNUM_CORES == 1 ) )
 
     void vTaskEnterCritical( void )
     {
@@ -6090,52 +6090,18 @@ static void prvResetNextTaskUnblockTime( void )
 
         if( xSchedulerRunning != pdFALSE )
         {
-            #if ( configNUM_CORES == 1 )
+            ( pxCurrentTCB->uxCriticalNesting )++;
+
+            /* This is not the interrupt safe version of the enter critical
+             * function so  assert() if it is being called from an interrupt
+             * context.  Only API functions that end in "FromISR" can be used in an
+             * interrupt.  Only assert if the critical nesting count is 1 to
+             * protect against recursive calls if the assert function also uses a
+             * critical section. */
+            if( pxCurrentTCB->uxCriticalNesting == 1 )
             {
-                ( pxCurrentTCB->uxCriticalNesting )++;
-
-                /* This is not the interrupt safe version of the enter critical
-                 * function so  assert() if it is being called from an interrupt
-                 * context.  Only API functions that end in "FromISR" can be used in an
-                 * interrupt.  Only assert if the critical nesting count is 1 to
-                 * protect against recursive calls if the assert function also uses a
-                 * critical section. */
-                if( pxCurrentTCB->uxCriticalNesting == 1 )
-                {
-                    portASSERT_IF_IN_ISR();
-                }
+                portASSERT_IF_IN_ISR();
             }
-            #else /* #if ( configNUM_CORES == 1 ) */
-            {
-                if( pxCurrentTCB->uxCriticalNesting == 0U )
-                {
-                    portGET_TASK_LOCK();
-                    portGET_ISR_LOCK();
-                }
-
-                ( pxCurrentTCB->uxCriticalNesting )++;
-
-                /* This is not the interrupt safe version of the enter critical
-                 * function so  assert() if it is being called from an interrupt
-                 * context.  Only API functions that end in "FromISR" can be used in an
-                 * interrupt.  Only assert if the critical nesting count is 1 to
-                 * protect against recursive calls if the assert function also uses a
-                 * critical section. */
-                if( pxCurrentTCB->uxCriticalNesting == 1 )
-                {
-                    portASSERT_IF_IN_ISR();
-
-                    if( uxSchedulerSuspended == 0U )
-                    {
-                        /* The only time there would be a problem is if this is called
-                         * before a context switch and vTaskExitCritical() is called
-                         * after pxCurrentTCB changes. Therefore this should not be
-                         * used within vTaskSwitchContext(). */
-                        prvCheckForRunStateChange();
-                    }
-                }
-            }
-            #endif /* #if ( configNUM_CORES == 1 ) */
         }
         else
         {
@@ -6143,11 +6109,56 @@ static void prvResetNextTaskUnblockTime( void )
         }
     }
 
-#endif /* portCRITICAL_NESTING_IN_TCB */
+#endif /* #if ( ( portCRITICAL_NESTING_IN_TCB == 1 ) && ( configNUM_CORES == 1 ) ) */
+/*-----------------------------------------------------------*/
+
+#if ( configNUM_CORES > 1 )
+
+    void vTaskEnterCritical( void )
+    {
+        portDISABLE_INTERRUPTS();
+
+        if( xSchedulerRunning != pdFALSE )
+        {
+            if( portGET_CRITICAL_NESTING_COUNT() == 0U )
+            {
+                portGET_TASK_LOCK();
+                portGET_ISR_LOCK();
+            }
+
+            portINCREMENT_CRITICAL_NESTING_COUNT();
+
+            /* This is not the interrupt safe version of the enter critical
+             * function so  assert() if it is being called from an interrupt
+             * context.  Only API functions that end in "FromISR" can be used in an
+             * interrupt.  Only assert if the critical nesting count is 1 to
+             * protect against recursive calls if the assert function also uses a
+             * critical section. */
+            if( portGET_CRITICAL_NESTING_COUNT() == 1 )
+            {
+                portASSERT_IF_IN_ISR();
+
+                if( uxSchedulerSuspended == 0U )
+                {
+                    /* The only time there would be a problem is if this is called
+                     * before a context switch and vTaskExitCritical() is called
+                     * after pxCurrentTCB changes. Therefore this should not be
+                     * used within vTaskSwitchContext(). */
+                    prvCheckForRunStateChange();
+                }
+            }
+        }
+        else
+        {
+            mtCOVERAGE_TEST_MARKER();
+        }
+    }
+
+#endif /* #if ( configNUM_CORES > 1 ) */
 
 /*-----------------------------------------------------------*/
 
-#if ( ( portCRITICAL_NESTING_IN_TCB == 1 ) && ( configNUM_CORES > 1 ) )
+#if ( configNUM_CORES > 1 )
 
     UBaseType_t vTaskEnterCriticalFromISR( void )
     {
@@ -6157,12 +6168,12 @@ static void prvResetNextTaskUnblockTime( void )
         {
             uxSavedInterruptStatus = portSET_INTERRUPT_MASK_FROM_ISR();
 
-            if( pxCurrentTCB->uxCriticalNesting == 0U )
+            if( portGET_CRITICAL_NESTING_COUNT() == 0U )
             {
                 portGET_ISR_LOCK();
             }
 
-            ( pxCurrentTCB->uxCriticalNesting )++;
+            portINCREMENT_CRITICAL_NESTING_COUNT();
         }
         else
         {
@@ -6172,10 +6183,10 @@ static void prvResetNextTaskUnblockTime( void )
         return uxSavedInterruptStatus;
     }
 
-#endif /* #if ( ( portCRITICAL_NESTING_IN_TCB == 1 ) && ( configNUM_CORES > 1 ) ) */
+#endif /* #if ( configNUM_CORES > 1 ) */
 /*-----------------------------------------------------------*/
 
-#if ( portCRITICAL_NESTING_IN_TCB == 1 )
+#if ( ( portCRITICAL_NESTING_IN_TCB == 1 ) && ( configNUM_CORES == 1 ) )
 
     void vTaskExitCritical( void )
     {
@@ -6195,31 +6206,7 @@ static void prvResetNextTaskUnblockTime( void )
 
                 if( pxCurrentTCB->uxCriticalNesting == 0U )
                 {
-                    #if ( configNUM_CORES == 1 )
-                    {
-                        portENABLE_INTERRUPTS();
-                    }
-                    #else
-                    {
-                        BaseType_t xYieldCurrentTask;
-
-                        /* Get the xYieldPending stats inside the critical section. */
-                        xYieldCurrentTask = xYieldPendings[ portGET_CORE_ID() ];
-
-                        portRELEASE_ISR_LOCK();
-                        portRELEASE_TASK_LOCK();
-                        portENABLE_INTERRUPTS();
-
-                        /* When a task yields in a critical section it just sets
-                         * xYieldPending to true. So now that we have exited the
-                         * critical section check if xYieldPending is true, and
-                         * if so yield. */
-                        if( xYieldCurrentTask != pdFALSE )
-                        {
-                            portYIELD();
-                        }
-                    }
-                    #endif /* ( configNUM_CORES == 1 ) */
+                    portENABLE_INTERRUPTS();
                 }
                 else
                 {
@@ -6237,10 +6224,67 @@ static void prvResetNextTaskUnblockTime( void )
         }
     }
 
-#endif /* portCRITICAL_NESTING_IN_TCB */
+#endif /* #if ( ( portCRITICAL_NESTING_IN_TCB == 1 ) && ( configNUM_CORES == 1 ) ) */
 /*-----------------------------------------------------------*/
 
-#if ( ( portCRITICAL_NESTING_IN_TCB == 1 ) && ( configNUM_CORES > 1 ) )
+#if ( configNUM_CORES > 1 )
+
+    void vTaskExitCritical( void )
+    {
+        if( xSchedulerRunning != pdFALSE )
+        {
+            /* If critical nesting count is zero then this function
+             * does not match a previous call to vTaskEnterCritical(). */
+            configASSERT( portGET_CRITICAL_NESTING_COUNT() > 0U );
+
+            /* This function should not be called in ISR. Use vTaskExitCriticalFromISR
+             * to exit critical section from ISR. */
+            portASSERT_IF_IN_ISR();
+
+            if( portGET_CRITICAL_NESTING_COUNT() > 0U )
+            {
+                portDECREMENT_CRITICAL_NESTING_COUNT();
+
+                if( portGET_CRITICAL_NESTING_COUNT() == 0U )
+                {
+                    BaseType_t xYieldCurrentTask;
+
+                    /* Get the xYieldPending stats inside the critical section. */
+                    xYieldCurrentTask = xYieldPendings[ portGET_CORE_ID() ];
+
+                    portRELEASE_ISR_LOCK();
+                    portRELEASE_TASK_LOCK();
+                    portENABLE_INTERRUPTS();
+
+                    /* When a task yields in a critical section it just sets
+                     * xYieldPending to true. So now that we have exited the
+                     * critical section check if xYieldPending is true, and
+                     * if so yield. */
+                    if( xYieldCurrentTask != pdFALSE )
+                    {
+                        portYIELD();
+                    }
+                }
+                else
+                {
+                    mtCOVERAGE_TEST_MARKER();
+                }
+            }
+            else
+            {
+                mtCOVERAGE_TEST_MARKER();
+            }
+        }
+        else
+        {
+            mtCOVERAGE_TEST_MARKER();
+        }
+    }
+
+#endif /* #if ( configNUM_CORES > 1 ) */
+/*-----------------------------------------------------------*/
+
+#if ( configNUM_CORES > 1 )
 
     void vTaskExitCriticalFromISR( UBaseType_t uxSavedInterruptStatus )
     {
@@ -6248,15 +6292,15 @@ static void prvResetNextTaskUnblockTime( void )
 
         if( xSchedulerRunning != pdFALSE )
         {
-            /* If pxCurrentTCB->uxCriticalNesting is zero then this function
+            /* If critical nesting count is zero then this function
              * does not match a previous call to vTaskEnterCritical(). */
-            configASSERT( pxCurrentTCB->uxCriticalNesting > 0U );
+            configASSERT( portGET_CRITICAL_NESTING_COUNT() > 0U );
 
-            if( pxCurrentTCB->uxCriticalNesting > 0U )
+            if( portGET_CRITICAL_NESTING_COUNT() > 0U )
             {
-                ( pxCurrentTCB->uxCriticalNesting )--;
+                portDECREMENT_CRITICAL_NESTING_COUNT();
 
-                if( pxCurrentTCB->uxCriticalNesting == 0U )
+                if( portGET_CRITICAL_NESTING_COUNT() == 0U )
                 {
                     /* Get the xYieldPending stats inside the critical section. */
                     xYieldCurrentTask = xYieldPendings[ portGET_CORE_ID() ];
@@ -6289,7 +6333,7 @@ static void prvResetNextTaskUnblockTime( void )
         }
     }
 
-#endif /* #if ( ( portCRITICAL_NESTING_IN_TCB == 1 ) && ( configNUM_CORES > 1 ) ) */
+#endif /* #if ( configNUM_CORES > 1 ) */
 /*-----------------------------------------------------------*/
 
 #if ( configUSE_STATS_FORMATTING_FUNCTIONS > 0 )
