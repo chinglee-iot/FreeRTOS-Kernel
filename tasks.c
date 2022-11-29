@@ -679,6 +679,9 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
          * core is no longer running, then vTaskSwitchContext() probably should
          * be run before returning, but we don't have a way to force that to happen
          * from here. */
+        /* MISRA Ref 4.6.1 [typedef indicates size and signedness] */
+        /* More details at: https://github.com/FreeRTOS/FreeRTOS-Kernel/blob/main/MISRA.md#directive-46 */
+        /* coverity[misra_c_2012_directive_4_6_violation] */
         if( portCHECK_IF_IN_ISR() == pdFALSE )
         {
             /* This function is always called with interrupts disabled
