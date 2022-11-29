@@ -1787,7 +1787,7 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
                     BaseType_t xCoreID;
 
                     /* Check if a core is free. */
-                    for( xCoreID = 0; xCoreID < configNUMBER_OF_CORES; xCoreID++ )
+                    for( xCoreID = ( BaseType_t ) 0; xCoreID < ( BaseType_t ) configNUMBER_OF_CORES; xCoreID++ )
                     {
                         if( pxCurrentTCBs[ xCoreID ] == NULL )
                         {
@@ -2702,7 +2702,7 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
             {
                 BaseType_t x;
 
-                for( x = 0; x < configTASK_NOTIFICATION_ARRAY_ENTRIES; x++ )
+                for( x = ( BaseType_t ) 0; x < ( BaseType_t ) configTASK_NOTIFICATION_ARRAY_ENTRIES; x++ )
                 {
                     if( pxTCB->ucNotifyState[ x ] == taskWAITING_NOTIFICATION )
                     {
@@ -3140,7 +3140,7 @@ static BaseType_t prvCreateIdleTasks( void )
                 cIdleName[ x++ ] = ( char ) xCoreID + '0';
 
                 /* And append a null character if there is space. */
-                if( x < configMAX_TASK_NAME_LEN )
+                if( x < ( BaseType_t ) configMAX_TASK_NAME_LEN )
                 {
                     cIdleName[ x ] = '\0';
                 }
