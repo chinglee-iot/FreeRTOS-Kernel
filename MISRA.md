@@ -24,6 +24,13 @@ _Ref 8.3.1_
 - MISRA C:2012 Rule 8.3: All declarations of an object or functionn shall use the same names and type qualifiers.
         It's a false alarm that portCHECK_IF_IN_ISR() is only declared in portmacro.h.
         
+#### Rule 8.4
+
+_Ref 8.4.1_
+
+- MISRA C:2012 Rule 8.4: A compatible declaration shall be visible when an object or function with external linkage is defined.
+        vTaskEnterCriticalFromISR()/vTaskExitCriticalFromISR are used at some ports.
+        
 #### Rule 17.3
 
 _Ref 17.3.1_
