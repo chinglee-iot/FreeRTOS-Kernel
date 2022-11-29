@@ -281,11 +281,11 @@ typedef BaseType_t TaskRunning_t;
 #define taskATTRIBUTE_IS_IDLE    ( UBaseType_t ) ( 1UL << 0UL )
 
 #if ( configNUM_CORES > 1 ) && ( portCRITICAL_NESTING_IN_TCB == 1 )
-    #define portGET_CRITICAL_NESTING_COUNT()        ( pxCurrentTCBs[ portGET_CORE_ID() ]->uxCriticalNesting )
-    #define portSET_CRITICAL_NESTING_COUNT( x )     ( pxCurrentTCBs[ portGET_CORE_ID() ]->uxCriticalNesting = ( x ) )
-    #define portINCREMENT_CRITICAL_NESTING_COUNT()  ( pxCurrentTCBs[ portGET_CORE_ID() ]->uxCriticalNesting++ )
-    #define portDECREMENT_CRITICAL_NESTING_COUNT()  ( pxCurrentTCBs[ portGET_CORE_ID() ]->uxCriticalNesting-- )
-#endif  /* #if ( configNUM_CORES > 1 ) && ( portCRITICAL_NESTING_IN_TCB == 1 ) */
+    #define portGET_CRITICAL_NESTING_COUNT()          ( pxCurrentTCBs[ portGET_CORE_ID() ]->uxCriticalNesting )
+    #define portSET_CRITICAL_NESTING_COUNT( x )       ( pxCurrentTCBs[ portGET_CORE_ID() ]->uxCriticalNesting = ( x ) )
+    #define portINCREMENT_CRITICAL_NESTING_COUNT()    ( pxCurrentTCBs[ portGET_CORE_ID() ]->uxCriticalNesting++ )
+    #define portDECREMENT_CRITICAL_NESTING_COUNT()    ( pxCurrentTCBs[ portGET_CORE_ID() ]->uxCriticalNesting-- )
+#endif /* #if ( configNUM_CORES > 1 ) && ( portCRITICAL_NESTING_IN_TCB == 1 ) */
 
 /*
  * Task control block.  A task control block (TCB) is allocated for each task,
@@ -3067,12 +3067,12 @@ static BaseType_t prvCreateIdleTasks( void )
              * address of the RAM then create the idle task. */
             vApplicationGetIdleTaskMemory( &pxIdleTaskTCBBuffer, &pxIdleTaskStackBuffer, &ulIdleTaskStackSize );
             xIdleTaskHandles[ 0 ] = xTaskCreateStatic( prvIdleTask,
-                                                 configIDLE_TASK_NAME,
-                                                 ulIdleTaskStackSize,
-                                                 ( void * ) NULL,       /*lint !e961.  The cast is not redundant for all compilers. */
-                                                 portPRIVILEGE_BIT,     /* In effect ( tskIDLE_PRIORITY | portPRIVILEGE_BIT ), but tskIDLE_PRIORITY is zero. */
-                                                 pxIdleTaskStackBuffer,
-                                                 pxIdleTaskTCBBuffer ); /*lint !e961 MISRA exception, justified as it is not a redundant explicit cast to all supported compilers. */
+                                                       configIDLE_TASK_NAME,
+                                                       ulIdleTaskStackSize,
+                                                       ( void * ) NULL,       /*lint !e961.  The cast is not redundant for all compilers. */
+                                                       portPRIVILEGE_BIT,     /* In effect ( tskIDLE_PRIORITY | portPRIVILEGE_BIT ), but tskIDLE_PRIORITY is zero. */
+                                                       pxIdleTaskStackBuffer,
+                                                       pxIdleTaskTCBBuffer ); /*lint !e961 MISRA exception, justified as it is not a redundant explicit cast to all supported compilers. */
 
             if( xIdleTaskHandles[ 0 ] != NULL )
             {
@@ -3090,12 +3090,12 @@ static BaseType_t prvCreateIdleTasks( void )
                                    configIDLE_TASK_NAME,
                                    configMINIMAL_STACK_SIZE,
                                    ( void * ) NULL,
-                                   portPRIVILEGE_BIT,  /* In effect ( tskIDLE_PRIORITY | portPRIVILEGE_BIT ), but tskIDLE_PRIORITY is zero. */
+                                   portPRIVILEGE_BIT,        /* In effect ( tskIDLE_PRIORITY | portPRIVILEGE_BIT ), but tskIDLE_PRIORITY is zero. */
                                    &xIdleTaskHandles[ 0 ] ); /*lint !e961 MISRA exception, justified as it is not a redundant explicit cast to all supported compilers. */
         }
         #endif /* configSUPPORT_STATIC_ALLOCATION */
     }
-    #else
+    #else /* #if ( configNUM_CORES == 1 ) */
     {
         BaseType_t xCoreID;
         char cIdleName[ configMAX_TASK_NAME_LEN ];
@@ -3218,7 +3218,7 @@ static BaseType_t prvCreateIdleTasks( void )
             #endif /* configSUPPORT_STATIC_ALLOCATION */
         }
     }
-    #endif
+    #endif /* #if ( configNUM_CORES == 1 ) */
 
     return xReturn;
 }
