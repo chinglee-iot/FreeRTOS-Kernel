@@ -143,10 +143,7 @@
 /* Critical nesting count management. */
 /* This port currently manages nesting count in TCB. */
 #define portCRITICAL_NESTING_IN_TCB             1
-#define portGET_CRITICAL_NESTING_COUNT()        ( pxCurrentTCBs[ portGET_CORE_ID() ]->uxCriticalNesting )
-#define portSET_CRITICAL_NESTING_COUNT( x )     ( pxCurrentTCBs[ portGET_CORE_ID() ]->uxCriticalNesting = x )
-#define portINCREMENT_CRITICAL_NESTING_COUNT()  ( pxCurrentTCBs[ portGET_CORE_ID() ]->uxCriticalNesting++ )
-#define portDECREMENT_CRITICAL_NESTING_COUNT()  ( pxCurrentTCBs[ portGET_CORE_ID() ]->uxCriticalNesting-- )
+
 /*-----------------------------------------------------------*/
 
 /* Critical section management. */

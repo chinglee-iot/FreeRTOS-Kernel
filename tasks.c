@@ -280,6 +280,13 @@ typedef BaseType_t TaskRunning_t;
 /* Indicates that the task is an Idle task. */
 #define taskATTRIBUTE_IS_IDLE    ( UBaseType_t ) ( 1UL << 0UL )
 
+#if ( configNUM_CORES > 1 ) && ( portCRITICAL_NESTING_IN_TCB == 1 )
+    #define portGET_CRITICAL_NESTING_COUNT()        ( pxCurrentTCBs[ portGET_CORE_ID() ]->uxCriticalNesting )
+    #define portSET_CRITICAL_NESTING_COUNT( x )     ( pxCurrentTCBs[ portGET_CORE_ID() ]->uxCriticalNesting = ( x ) )
+    #define portINCREMENT_CRITICAL_NESTING_COUNT()  ( pxCurrentTCBs[ portGET_CORE_ID() ]->uxCriticalNesting++ )
+    #define portDECREMENT_CRITICAL_NESTING_COUNT()  ( pxCurrentTCBs[ portGET_CORE_ID() ]->uxCriticalNesting-- )
+#endif  /* #if ( configNUM_CORES > 1 ) && ( portCRITICAL_NESTING_IN_TCB == 1 ) */
+
 /*
  * Task control block.  A task control block (TCB) is allocated for each task,
  * and stores task state information, including a pointer to the task's context
