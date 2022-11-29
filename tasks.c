@@ -270,11 +270,11 @@ typedef BaseType_t TaskRunning_t;
  *                        but scheduled to yield.
  */
 #if ( configNUMBER_OF_CORES == 1 )
-    #define taskTASK_IS_RUNNING( pxTCB )     ( pxTCB == pxCurrentTCB )
+    #define taskTASK_IS_RUNNING( pxTCB )     ( ( pxTCB ) == pxCurrentTCB )
     #define taskTASK_IS_YIELDING( pxTCB )    ( pdFALSE )
 #else
-    #define taskTASK_IS_RUNNING( pxTCB )     ( ( pxTCB->xTaskRunState >= 0 ) && ( pxTCB->xTaskRunState < configNUMBER_OF_CORES ) )
-    #define taskTASK_IS_YIELDING( pxTCB )    ( pxTCB->xTaskRunState == taskTASK_YIELDING )
+    #define taskTASK_IS_RUNNING( pxTCB )     ( ( ( pxTCB )->xTaskRunState >= 0 ) && ( ( pxTCB )->xTaskRunState < configNUMBER_OF_CORES ) )
+    #define taskTASK_IS_YIELDING( pxTCB )    ( ( pxTCB )->xTaskRunState == taskTASK_YIELDING )
 #endif
 
 /* Indicates that the task is an Idle task. */
@@ -688,9 +688,12 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
          * from here. */
         /* MISRA Ref 4.6.1 [typedef indicates size and signedness] */
         /* More details at: https://github.com/FreeRTOS/FreeRTOS-Kernel/blob/main/MISRA.md#directive-46 */
+        /* MISRA Ref 8.3.1 [Declarations shall be same] */
+        /* More details at: https://github.com/FreeRTOS/FreeRTOS-Kernel/blob/main/MISRA.md#rule-83 */
         /* MISRA Ref 17.3.1 [Function shall not be declared implicitly] */
         /* More details at: https://github.com/FreeRTOS/FreeRTOS-Kernel/blob/main/MISRA.md#rule-173 */
         /* coverity[misra_c_2012_directive_4_6_violation] */
+        /* coverity[misra_c_2012_rule_8_3_violation] */
         /* coverity[misra_c_2012_rule_17_3_violation] */
         if( portCHECK_IF_IN_ISR() == pdFALSE )
         {

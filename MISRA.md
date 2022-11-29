@@ -17,6 +17,13 @@ _Ref 4.6.1_
         MISRA warns against the use of basic numerical types. FreeRTOS-Kerenl 
         uses BaseType_t/UBaseType_t to represent signed/unsigned variables no matter it's 16 or 32 bits.
         
+#### Rule 8.3
+
+_Ref 8.3.1_
+
+- MISRA C:2012 Rule 8.3: All declarations of an object or functionn shall use the same names and type qualifiers.
+        It's a false alarm that portCHECK_IF_IN_ISR() is only declared in portmacro.h.
+        
 #### Rule 17.3
 
 _Ref 17.3.1_
