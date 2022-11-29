@@ -141,8 +141,16 @@
 /*-----------------------------------------------------------*/
 
 /* Critical nesting count management. */
-/* This port currently manages nesting count in TCB. */
+/* This port supports to manage nesting count in port or TCB. */
 #define portCRITICAL_NESTING_IN_TCB             1
+
+#if ( portCRITICAL_NESTING_IN_TCB == 0 )
+    extern UBaseType_t uxCriticalNestings[ configNUM_CORES ];
+    #define portGET_CRITICAL_NESTING_COUNT()        ( uxCriticalNestings[ portGET_CORE_ID() ] )
+    #define portSET_CRITICAL_NESTING_COUNT( x )     ( uxCriticalNestings[ portGET_CORE_ID() ] = ( x ) )
+    #define portINCREMENT_CRITICAL_NESTING_COUNT()  ( uxCriticalNestings[ portGET_CORE_ID() ]++ )
+    #define portDECREMENT_CRITICAL_NESTING_COUNT()  ( uxCriticalNestings[ portGET_CORE_ID() ]-- )
+#endif
 
 /*-----------------------------------------------------------*/
 
