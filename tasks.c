@@ -1650,7 +1650,7 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
         pxNewTCB->xTaskRunState = taskTASK_NOT_RUNNING;
 
         /* Is this an idle task? */
-        if( ( pxTaskCode == prvIdleTask ) || ( pxTaskCode == prvMinimalIdleTask ) )
+        if( ( ( TaskFunction_t ) pxTaskCode == ( TaskFunction_t ) prvIdleTask ) || ( ( TaskFunction_t ) pxTaskCode == ( TaskFunction_t ) prvMinimalIdleTask ) )
         {
             pxNewTCB->uxTaskAttributes |= taskATTRIBUTE_IS_IDLE;
         }
@@ -2179,7 +2179,7 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
                              * suspended. */
                             eReturn = eSuspended;
 
-                            for( x = 0; x < configTASK_NOTIFICATION_ARRAY_ENTRIES; x++ )
+                            for( x = ( BaseType_t ) 0; x < ( BaseType_t ) configTASK_NOTIFICATION_ARRAY_ENTRIES; x++ )
                             {
                                 if( pxTCB->ucNotifyState[ x ] == taskWAITING_NOTIFICATION )
                                 {
@@ -7272,8 +7272,9 @@ TickType_t uxTaskResetEventItemValue( void )
     configRUN_TIME_COUNTER_TYPE ulTaskGetIdleRunTimeCounter( void )
     {
         configRUN_TIME_COUNTER_TYPE ulReturn = 0;
+        BaseType_t i = 0;
 
-        for( BaseType_t i = 0; i < configNUMBER_OF_CORES; i++ )
+        for( i = ( BaseType_t ) 0; i < ( BaseType_t ) configNUMBER_OF_CORES; i++ )
         {
             ulReturn += xIdleTaskHandles[ i ]->ulRunTimeCounter;
         }
@@ -7290,6 +7291,7 @@ TickType_t uxTaskResetEventItemValue( void )
     {
         configRUN_TIME_COUNTER_TYPE ulTotalTime, ulReturn;
         configRUN_TIME_COUNTER_TYPE ulRunTimeCounter = 0;
+        BaseType_t i = 0;
 
         ulTotalTime = portGET_RUN_TIME_COUNTER_VALUE() * configNUMBER_OF_CORES;
 
@@ -7299,7 +7301,7 @@ TickType_t uxTaskResetEventItemValue( void )
         /* Avoid divide by zero errors. */
         if( ulTotalTime > ( configRUN_TIME_COUNTER_TYPE ) 0 )
         {
-            for( BaseType_t i = 0; i < configNUMBER_OF_CORES; i++ )
+            for( i = ( BaseType_t ) 0; i < ( BaseType_t ) configNUMBER_OF_CORES; i++ )
             {
                 ulRunTimeCounter += xIdleTaskHandles[ i ]->ulRunTimeCounter;
             }
