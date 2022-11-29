@@ -52,10 +52,6 @@
  * because the MPU ports require MPU_WRAPPERS_INCLUDED_FROM_API_FILE to be defined
  * for the header files above, but not in this file, in order to generate the
  * correct privileged Vs unprivileged linkage and placement. */
-/* 
- * The rule 20.5 is "#undef should not be used."
- */
-/* coverity[misra_c_2012_rule_20_5_violation] */
 #undef MPU_WRAPPERS_INCLUDED_FROM_API_FILE /*lint !e961 !e750 !e9021. */
 
 /* If the user has not provided application specific Rx notification macros,
@@ -212,10 +208,6 @@
     sbSEND_COMPLETE_FROM_ISR( ( pxStreamBuffer ), ( pxHigherPriorityTaskWoken ) )
 #endif /* if ( configUSE_SB_COMPLETED_CALLBACK == 1 ) */
 
-/* 
- * The rule 4.4 is "Sections of code should not be 'commented out'"
- */
-/* coverity[misra_c_2012_directive_4_4_violation] */
 /*lint -restore (9026) */
 
 /* The number of bytes used to hold the length of a message in the buffer. */
@@ -265,7 +257,7 @@ static size_t prvBytesInBuffer( const StreamBuffer_t * const pxStreamBuffer ) PR
  * To mark the write as complete, manually set the buffer's xHead field with the
  * returned xHead from this function.
  */
-static size_t prvWriteBytesToBuffer( const StreamBuffer_t * pxStreamBuffer,
+static size_t prvWriteBytesToBuffer( StreamBuffer_t * const pxStreamBuffer,
                                      const uint8_t * pucData,
                                      size_t xCount,
                                      size_t xHead ) PRIVILEGED_FUNCTION;
@@ -307,7 +299,7 @@ static size_t prvWriteMessageToBuffer( StreamBuffer_t * const pxStreamBuffer,
  * To mark the read as complete, manually set the buffer's xTail field with the
  * returned xTail from this function.
  */
-static size_t prvReadBytesFromBuffer( const StreamBuffer_t * pxStreamBuffer,
+static size_t prvReadBytesFromBuffer( StreamBuffer_t * pxStreamBuffer,
                                       uint8_t * pucData,
                                       size_t xCount,
                                       size_t xTail ) PRIVILEGED_FUNCTION;
@@ -334,34 +326,31 @@ static void prvInitialiseNewStreamBuffer( StreamBuffer_t * const pxStreamBuffer,
     {
         uint8_t * pucAllocatedMemory;
         uint8_t ucFlags;
-        /* Declare to confort MISRA C 2012 Rule 17.8 - "A function parameter should not be modified" */
-        size_t xLocalBufferSizeBytes = xBufferSizeBytes;
-        size_t xLocalTriggerLevelBytes = xTriggerLevelBytes;
 
         /* In case the stream buffer is going to be used as a message buffer
          * (that is, it will hold discrete messages with a little meta data that
          * says how big the next message is) check the buffer will be large enough
          * to hold at least one message. */
-        if( xIsMessageBuffer == ( BaseType_t ) pdTRUE )
+        if( xIsMessageBuffer == pdTRUE )
         {
             /* Is a message buffer but not statically allocated. */
             ucFlags = sbFLAGS_IS_MESSAGE_BUFFER;
-            configASSERT( xLocalBufferSizeBytes > sbBYTES_TO_STORE_MESSAGE_LENGTH );
+            configASSERT( xBufferSizeBytes > sbBYTES_TO_STORE_MESSAGE_LENGTH );
         }
         else
         {
             /* Not a message buffer and not statically allocated. */
             ucFlags = 0;
-            configASSERT( xLocalBufferSizeBytes > 0 );
+            configASSERT( xBufferSizeBytes > 0 );
         }
 
-        configASSERT( xLocalTriggerLevelBytes <= xLocalBufferSizeBytes );
+        configASSERT( xTriggerLevelBytes <= xBufferSizeBytes );
 
         /* A trigger level of 0 would cause a waiting task to unblock even when
          * the buffer was empty. */
-        if( xLocalTriggerLevelBytes == ( size_t ) 0 )
+        if( xTriggerLevelBytes == ( size_t ) 0 )
         {
-            xLocalTriggerLevelBytes = ( size_t ) 1;
+            xTriggerLevelBytes = ( size_t ) 1;
         }
 
         /* A stream buffer requires a StreamBuffer_t structure and a buffer.
@@ -372,10 +361,10 @@ static void prvInitialiseNewStreamBuffer( StreamBuffer_t * const pxStreamBuffer,
          * this is a quirk of the implementation that means otherwise the free
          * space would be reported as one byte smaller than would be logically
          * expected. */
-        if( xLocalBufferSizeBytes < ( xLocalBufferSizeBytes + 1U + sizeof( StreamBuffer_t ) ) )
+        if( xBufferSizeBytes < ( xBufferSizeBytes + 1U + sizeof( StreamBuffer_t ) ) )
         {
-            xLocalBufferSizeBytes++;
-            pucAllocatedMemory = ( uint8_t * ) pvPortMalloc( xLocalBufferSizeBytes + sizeof( StreamBuffer_t ) ); /*lint !e9079 malloc() only returns void*. */
+            xBufferSizeBytes++;
+            pucAllocatedMemory = ( uint8_t * ) pvPortMalloc( xBufferSizeBytes + sizeof( StreamBuffer_t ) ); /*lint !e9079 malloc() only returns void*. */
         }
         else
         {
@@ -384,18 +373,12 @@ static void prvInitialiseNewStreamBuffer( StreamBuffer_t * const pxStreamBuffer,
 
         if( pucAllocatedMemory != NULL )
         {
-            /* MISRA Rule 11.3 prohibits casting a pointer to a different type.
-             * Allow to convert from uint8_t to StreamBuffer_t. */
+            /* Safe cast as allocated memory is aligned. */
             /* coverity[misra_c_2012_rule_11_3_violation] */
             prvInitialiseNewStreamBuffer( ( StreamBuffer_t * ) pucAllocatedMemory,       /* Structure at the start of the allocated memory. */ /*lint !e9087 Safe cast as allocated memory is aligned. */ /*lint !e826 Area is not too small and alignment is guaranteed provided malloc() behaves as expected and returns aligned buffer. */
-                                          /* 
-                                           * The rule 18.4 is "The +, -, += and -= operators should not be applied to an expression of
-                                           * pointer type." Pointer arithmetic allowed on uint8_t types, especially when it assists conveying intent.
-                                           */
-                                          /* coverity[misra_c_2012_rule_18_4_violation] */
                                           pucAllocatedMemory + sizeof( StreamBuffer_t ), /* Storage area follows. */ /*lint !e9016 Indexing past structure valid for uint8_t pointer, also storage area has no alignment requirement. */
-                                          xLocalBufferSizeBytes,
-                                          xLocalTriggerLevelBytes,
+                                          xBufferSizeBytes,
+                                          xTriggerLevelBytes,
                                           ucFlags,
                                           pxSendCompletedCallback,
                                           pxReceiveCompletedCallback );
@@ -407,8 +390,7 @@ static void prvInitialiseNewStreamBuffer( StreamBuffer_t * const pxStreamBuffer,
             traceSTREAM_BUFFER_CREATE_FAILED( xIsMessageBuffer );
         }
 
-        /* MISRA Rule 11.3 prohibits casting a pointer to a different type.
-         * Allow to convert from uint8_t to StreamBufferHandle_t. */
+        /* Safe cast as allocated memory is aligned. */
         /* coverity[misra_c_2012_rule_11_3_violation] */
         return ( StreamBufferHandle_t ) pucAllocatedMemory; /*lint !e9087 !e826 Safe cast as allocated memory is aligned. */
     }
@@ -425,27 +407,24 @@ static void prvInitialiseNewStreamBuffer( StreamBuffer_t * const pxStreamBuffer,
                                                            StreamBufferCallbackFunction_t pxSendCompletedCallback,
                                                            StreamBufferCallbackFunction_t pxReceiveCompletedCallback )
     {
-        /* MISRA Rule 11.3 prohibits casting a pointer to a different type.
-         * Allow to convert from StaticStreamBuffer_t to StreamBuffer_t. */
+        /* Safe cast as StaticStreamBuffer_t is opaque Streambuffer_t. */
         /* coverity[misra_c_2012_rule_11_3_violation] */
         StreamBuffer_t * const pxStreamBuffer = ( StreamBuffer_t * ) pxStaticStreamBuffer; /*lint !e740 !e9087 Safe cast as StaticStreamBuffer_t is opaque Streambuffer_t. */
         StreamBufferHandle_t xReturn;
         uint8_t ucFlags;
-        /* Declare to confort MISRA C 2012 Rule 17.8 - "A function parameter should not be modified" */
-        size_t xLocalTriggerLevelBytes = xTriggerLevelBytes;
 
         configASSERT( pucStreamBufferStorageArea );
         configASSERT( pxStaticStreamBuffer );
-        configASSERT( xLocalTriggerLevelBytes <= xBufferSizeBytes );
+        configASSERT( xTriggerLevelBytes <= xBufferSizeBytes );
 
         /* A trigger level of 0 would cause a waiting task to unblock even when
          * the buffer was empty. */
-        if( xLocalTriggerLevelBytes == ( size_t ) 0 )
+        if( xTriggerLevelBytes == ( size_t ) 0 )
         {
-            xLocalTriggerLevelBytes = ( size_t ) 1;
+            xTriggerLevelBytes = ( size_t ) 1;
         }
 
-        if( xIsMessageBuffer != ( BaseType_t ) pdFALSE )
+        if( xIsMessageBuffer != pdFALSE )
         {
             /* Statically allocated message buffer. */
             ucFlags = sbFLAGS_IS_MESSAGE_BUFFER | sbFLAGS_IS_STATICALLY_ALLOCATED;
@@ -469,7 +448,6 @@ static void prvInitialiseNewStreamBuffer( StreamBuffer_t * const pxStreamBuffer,
              * message buffer structure. */
             volatile size_t xSize = sizeof( StaticStreamBuffer_t );
             configASSERT( xSize == sizeof( StreamBuffer_t ) );
-            ( void ) xSize; /* In case configASSERT() is not defined. */
         } /*lint !e529 xSize is referenced is configASSERT() is defined. */
         #endif /* configASSERT_DEFINED */
 
@@ -478,7 +456,7 @@ static void prvInitialiseNewStreamBuffer( StreamBuffer_t * const pxStreamBuffer,
             prvInitialiseNewStreamBuffer( pxStreamBuffer,
                                           pucStreamBufferStorageArea,
                                           xBufferSizeBytes,
-                                          xLocalTriggerLevelBytes,
+                                          xTriggerLevelBytes,
                                           ucFlags,
                                           pxSendCompletedCallback,
                                           pxReceiveCompletedCallback );
@@ -489,8 +467,7 @@ static void prvInitialiseNewStreamBuffer( StreamBuffer_t * const pxStreamBuffer,
 
             traceSTREAM_BUFFER_CREATE( pxStreamBuffer, xIsMessageBuffer );
 
-            /* MISRA Rule 11.3 prohibits casting a pointer to a different type.
-             * Allow to convert from StaticStreamBuffer_t to StreamBufferHandle_t. */
+            /* Data hiding requires cast to opaque type. */
             /* coverity[misra_c_2012_rule_11_3_violation] */
             xReturn = ( StreamBufferHandle_t ) pxStaticStreamBuffer; /*lint !e9087 Data hiding requires cast to opaque type. */
         }
@@ -600,34 +577,32 @@ BaseType_t xStreamBufferSetTriggerLevel( StreamBufferHandle_t xStreamBuffer,
 {
     StreamBuffer_t * const pxStreamBuffer = xStreamBuffer;
     BaseType_t xReturn;
-    /* Declare to confort MISRA C 2012 Rule 17.8 - "A function parameter should not be modified" */
-    size_t xLocalTriggerLevel = xTriggerLevel;
 
     configASSERT( pxStreamBuffer );
 
     /* It is not valid for the trigger level to be 0. */
-    if( xLocalTriggerLevel == ( size_t ) 0 )
+    if( xTriggerLevel == ( size_t ) 0 )
     {
-        xLocalTriggerLevel = ( size_t ) 1;
+        xTriggerLevel = ( size_t ) 1;
     }
 
     /* The trigger level is the number of bytes that must be in the stream
      * buffer before a task that is waiting for data is unblocked. */
-    if( xLocalTriggerLevel < pxStreamBuffer->xLength )
+    if( xTriggerLevel < pxStreamBuffer->xLength )
     {
-        pxStreamBuffer->xTriggerLevelBytes = xLocalTriggerLevel;
-        xReturn = ( BaseType_t ) pdPASS;
+        pxStreamBuffer->xTriggerLevelBytes = xTriggerLevel;
+        xReturn = pdPASS;
     }
     else
     {
-        xReturn = ( BaseType_t ) pdFALSE;
+        xReturn = pdFALSE;
     }
 
     return xReturn;
 }
 /*-----------------------------------------------------------*/
 
-size_t xStreamBufferSpacesAvailable( ConstStreamBufferHandle_t xStreamBuffer )
+size_t xStreamBufferSpacesAvailable( StreamBufferHandle_t xStreamBuffer )
 {
     const StreamBuffer_t * const pxStreamBuffer = xStreamBuffer;
     size_t xSpace;
@@ -660,7 +635,7 @@ size_t xStreamBufferSpacesAvailable( ConstStreamBufferHandle_t xStreamBuffer )
 }
 /*-----------------------------------------------------------*/
 
-size_t xStreamBufferBytesAvailable( ConstStreamBufferHandle_t xStreamBuffer )
+size_t xStreamBufferBytesAvailable( StreamBufferHandle_t xStreamBuffer )
 {
     const StreamBuffer_t * const pxStreamBuffer = xStreamBuffer;
     size_t xReturn;
@@ -682,8 +657,6 @@ size_t xStreamBufferSend( StreamBufferHandle_t xStreamBuffer,
     size_t xRequiredSpace = xDataLengthBytes;
     TimeOut_t xTimeOut;
     size_t xMaxReportedSpace = 0;
-    /* Declare to confort MISRA C 2012 Rule 17.8 - "A function parameter should not be modified" */
-    TickType_t xLocalTicksToWait = xTicksToWait;
 
     configASSERT( pvTxData );
     configASSERT( pxStreamBuffer );
@@ -709,7 +682,7 @@ size_t xStreamBufferSend( StreamBufferHandle_t xStreamBuffer,
         {
             /* The message would not fit even if the entire buffer was empty,
              * so don't wait for space. */
-            xLocalTicksToWait = ( TickType_t ) 0;
+            xTicksToWait = ( TickType_t ) 0;
         }
         else
         {
@@ -731,7 +704,7 @@ size_t xStreamBufferSend( StreamBufferHandle_t xStreamBuffer,
         }
     }
 
-    if( xLocalTicksToWait != ( TickType_t ) 0 )
+    if( xTicksToWait != ( TickType_t ) 0 )
     {
         vTaskSetTimeOutState( &xTimeOut );
 
@@ -761,9 +734,9 @@ size_t xStreamBufferSend( StreamBufferHandle_t xStreamBuffer,
             taskEXIT_CRITICAL();
 
             traceBLOCKING_ON_STREAM_BUFFER_SEND( xStreamBuffer );
-            ( void ) xTaskNotifyWait( ( uint32_t ) 0, ( uint32_t ) 0, NULL, xLocalTicksToWait );
+            ( void ) xTaskNotifyWait( ( uint32_t ) 0, ( uint32_t ) 0, NULL, xTicksToWait );
             pxStreamBuffer->xTaskWaitingToSend = NULL;
-        } while( xTaskCheckForTimeOut( &xTimeOut, &xLocalTicksToWait ) == ( BaseType_t ) pdFALSE );
+        } while( xTaskCheckForTimeOut( &xTimeOut, &xTicksToWait ) == pdFALSE );
     }
     else
     {
@@ -864,18 +837,16 @@ static size_t prvWriteMessageToBuffer( StreamBuffer_t * const pxStreamBuffer,
 {
     size_t xNextHead = pxStreamBuffer->xHead;
     configMESSAGE_BUFFER_LENGTH_TYPE xMessageLength;
-    /* Declare to confort MISRA C 2012 Rule 17.8 - "A function parameter should not be modified" */
-    size_t xLocalDataLengthBytes = xDataLengthBytes;
 
     if( ( pxStreamBuffer->ucFlags & sbFLAGS_IS_MESSAGE_BUFFER ) != ( uint8_t ) 0 )
     {
         /* This is a message buffer, as opposed to a stream buffer. */
 
-        /* Convert xLocalDataLengthBytes to the message length type. */
-        xMessageLength = ( configMESSAGE_BUFFER_LENGTH_TYPE ) xLocalDataLengthBytes;
+        /* Convert xDataLengthBytes to the message length type. */
+        xMessageLength = ( configMESSAGE_BUFFER_LENGTH_TYPE ) xDataLengthBytes;
 
         /* Ensure the data length given fits within configMESSAGE_BUFFER_LENGTH_TYPE. */
-        configASSERT( ( size_t ) xMessageLength == xLocalDataLengthBytes );
+        configASSERT( ( size_t ) xMessageLength == xDataLengthBytes );
 
         if( xSpace >= xRequiredSpace )
         {
@@ -887,7 +858,7 @@ static size_t prvWriteMessageToBuffer( StreamBuffer_t * const pxStreamBuffer,
         else
         {
             /* Not enough space, so do not write data to the buffer. */
-            xLocalDataLengthBytes = 0;
+            xDataLengthBytes = 0;
         }
     }
     else
@@ -895,16 +866,16 @@ static size_t prvWriteMessageToBuffer( StreamBuffer_t * const pxStreamBuffer,
         /* This is a stream buffer, as opposed to a message buffer, so writing a
          * stream of bytes rather than discrete messages.  Plan to write as many
          * bytes as possible. */
-        xLocalDataLengthBytes = configMIN( xLocalDataLengthBytes, xSpace );
+        xDataLengthBytes = configMIN( xDataLengthBytes, xSpace );
     }
 
-    if( xLocalDataLengthBytes != ( size_t ) 0 )
+    if( xDataLengthBytes != ( size_t ) 0 )
     {
         /* Write the data to the buffer. */
-        pxStreamBuffer->xHead = prvWriteBytesToBuffer( pxStreamBuffer, ( const uint8_t * ) pvTxData, xLocalDataLengthBytes, xNextHead ); /*lint !e9079 Storage buffer is implemented as uint8_t for ease of sizing, alignment and access. */
+        pxStreamBuffer->xHead = prvWriteBytesToBuffer( pxStreamBuffer, ( const uint8_t * ) pvTxData, xDataLengthBytes, xNextHead ); /*lint !e9079 Storage buffer is implemented as uint8_t for ease of sizing, alignment and access. */
     }
 
-    return xLocalDataLengthBytes;
+    return xDataLengthBytes;
 }
 /*-----------------------------------------------------------*/
 
@@ -1012,9 +983,9 @@ size_t xStreamBufferReceive( StreamBufferHandle_t xStreamBuffer,
 }
 /*-----------------------------------------------------------*/
 
-size_t xStreamBufferNextMessageLengthBytes( ConstStreamBufferHandle_t xStreamBuffer )
+size_t xStreamBufferNextMessageLengthBytes( StreamBufferHandle_t xStreamBuffer )
 {
-    const StreamBuffer_t * pxStreamBuffer = xStreamBuffer;
+    StreamBuffer_t * const pxStreamBuffer = xStreamBuffer;
     size_t xReturn, xBytesAvailable;
     configMESSAGE_BUFFER_LENGTH_TYPE xTempReturn;
 
@@ -1117,8 +1088,6 @@ static size_t prvReadMessageFromBuffer( StreamBuffer_t * pxStreamBuffer,
     size_t xCount, xNextMessageLength;
     configMESSAGE_BUFFER_LENGTH_TYPE xTempNextMessageLength;
     size_t xNextTail = pxStreamBuffer->xTail;
-    /* Declare to confort MISRA C 2012 Rule 17.8 - "A function parameter should not be modified" */
-    size_t xLocalBytesAvailable = xBytesAvailable;
 
     if( ( pxStreamBuffer->ucFlags & sbFLAGS_IS_MESSAGE_BUFFER ) != ( uint8_t ) 0 )
     {
@@ -1129,7 +1098,7 @@ static size_t prvReadMessageFromBuffer( StreamBuffer_t * pxStreamBuffer,
 
         /* Reduce the number of bytes available by the number of bytes just
          * read out. */
-        xLocalBytesAvailable -= sbBYTES_TO_STORE_MESSAGE_LENGTH;
+        xBytesAvailable -= sbBYTES_TO_STORE_MESSAGE_LENGTH;
 
         /* Check there is enough space in the buffer provided by the
          * user. */
@@ -1151,7 +1120,7 @@ static size_t prvReadMessageFromBuffer( StreamBuffer_t * pxStreamBuffer,
     }
 
     /* Use the minimum of the wanted bytes and the available bytes. */
-    xCount = configMIN( xNextMessageLength, xLocalBytesAvailable );
+    xCount = configMIN( xNextMessageLength, xBytesAvailable );
 
     if( xCount != ( size_t ) 0 )
     {
@@ -1163,7 +1132,7 @@ static size_t prvReadMessageFromBuffer( StreamBuffer_t * pxStreamBuffer,
 }
 /*-----------------------------------------------------------*/
 
-BaseType_t xStreamBufferIsEmpty( ConstStreamBufferHandle_t xStreamBuffer )
+BaseType_t xStreamBufferIsEmpty( StreamBufferHandle_t xStreamBuffer )
 {
     const StreamBuffer_t * const pxStreamBuffer = xStreamBuffer;
     BaseType_t xReturn;
@@ -1176,18 +1145,18 @@ BaseType_t xStreamBufferIsEmpty( ConstStreamBufferHandle_t xStreamBuffer )
 
     if( pxStreamBuffer->xHead == xTail )
     {
-        xReturn = ( BaseType_t ) pdTRUE;
+        xReturn = pdTRUE;
     }
     else
     {
-        xReturn = ( BaseType_t ) pdFALSE;
+        xReturn = pdFALSE;
     }
 
     return xReturn;
 }
 /*-----------------------------------------------------------*/
 
-BaseType_t xStreamBufferIsFull( ConstStreamBufferHandle_t xStreamBuffer )
+BaseType_t xStreamBufferIsFull( StreamBufferHandle_t xStreamBuffer )
 {
     BaseType_t xReturn;
     size_t xBytesToStoreMessageLength;
@@ -1211,11 +1180,11 @@ BaseType_t xStreamBufferIsFull( ConstStreamBufferHandle_t xStreamBuffer )
     /* True if the available space equals zero. */
     if( xStreamBufferSpacesAvailable( xStreamBuffer ) <= xBytesToStoreMessageLength )
     {
-        xReturn = ( BaseType_t ) pdTRUE;
+        xReturn = pdTRUE;
     }
     else
     {
-        xReturn = ( BaseType_t ) pdFALSE;
+        xReturn = pdFALSE;
     }
 
     return xReturn;
@@ -1240,11 +1209,11 @@ BaseType_t xStreamBufferSendCompletedFromISR( StreamBufferHandle_t xStreamBuffer
                                          eNoAction,
                                          pxHigherPriorityTaskWoken );
             ( pxStreamBuffer )->xTaskWaitingToReceive = NULL;
-            xReturn = ( BaseType_t ) pdTRUE;
+            xReturn = pdTRUE;
         }
         else
         {
-            xReturn = ( BaseType_t ) pdFALSE;
+            xReturn = pdFALSE;
         }
     }
     taskEXIT_CRITICAL_FROM_ISR( uxSavedInterruptStatus );
@@ -1271,11 +1240,11 @@ BaseType_t xStreamBufferReceiveCompletedFromISR( StreamBufferHandle_t xStreamBuf
                                          eNoAction,
                                          pxHigherPriorityTaskWoken );
             ( pxStreamBuffer )->xTaskWaitingToSend = NULL;
-            xReturn = ( BaseType_t ) pdTRUE;
+            xReturn = pdTRUE;
         }
         else
         {
-            xReturn = ( BaseType_t ) pdFALSE;
+            xReturn = pdFALSE;
         }
     }
     taskEXIT_CRITICAL_FROM_ISR( uxSavedInterruptStatus );
@@ -1284,25 +1253,23 @@ BaseType_t xStreamBufferReceiveCompletedFromISR( StreamBufferHandle_t xStreamBuf
 }
 /*-----------------------------------------------------------*/
 
-static size_t prvWriteBytesToBuffer( const StreamBuffer_t * pxStreamBuffer,
+static size_t prvWriteBytesToBuffer( StreamBuffer_t * const pxStreamBuffer,
                                      const uint8_t * pucData,
                                      size_t xCount,
                                      size_t xHead )
 {
     size_t xFirstLength;
-    /* Declare to confort MISRA C 2012 Rule 17.8 - "A function parameter should not be modified" */
-    size_t xLocalHead = xHead;
 
     configASSERT( xCount > ( size_t ) 0 );
 
     /* Calculate the number of bytes that can be added in the first write -
      * which may be less than the total number of bytes that need to be added if
      * the buffer will wrap back to the beginning. */
-    xFirstLength = configMIN( pxStreamBuffer->xLength - xLocalHead, xCount );
+    xFirstLength = configMIN( pxStreamBuffer->xLength - xHead, xCount );
 
     /* Write as many bytes as can be written in the first write. */
-    configASSERT( ( xLocalHead + xFirstLength ) <= pxStreamBuffer->xLength );
-    ( void ) memcpy( ( void * ) ( &( pxStreamBuffer->pucBuffer[ xLocalHead ] ) ), ( const void * ) pucData, xFirstLength ); /*lint !e9087 memcpy() requires void *. */
+    configASSERT( ( xHead + xFirstLength ) <= pxStreamBuffer->xLength );
+    ( void ) memcpy( ( void * ) ( &( pxStreamBuffer->pucBuffer[ xHead ] ) ), ( const void * ) pucData, xFirstLength ); /*lint !e9087 memcpy() requires void *. */
 
     /* If the number of bytes written was less than the number that could be
      * written in the first write... */
@@ -1317,42 +1284,40 @@ static size_t prvWriteBytesToBuffer( const StreamBuffer_t * pxStreamBuffer,
         mtCOVERAGE_TEST_MARKER();
     }
 
-    xLocalHead += xCount;
+    xHead += xCount;
 
-    if( xLocalHead >= pxStreamBuffer->xLength )
+    if( xHead >= pxStreamBuffer->xLength )
     {
-        xLocalHead -= pxStreamBuffer->xLength;
+        xHead -= pxStreamBuffer->xLength;
     }
     else
     {
         mtCOVERAGE_TEST_MARKER();
     }
 
-    return xLocalHead;
+    return xHead;
 }
 /*-----------------------------------------------------------*/
 
-static size_t prvReadBytesFromBuffer( const StreamBuffer_t * pxStreamBuffer,
+static size_t prvReadBytesFromBuffer( StreamBuffer_t * pxStreamBuffer,
                                       uint8_t * pucData,
                                       size_t xCount,
                                       size_t xTail )
 {
     size_t xFirstLength;
-    /* Declare to confort MISRA C 2012 Rule 17.8 - "A function parameter should not be modified" */
-    size_t xLocalTail = xTail;
 
     configASSERT( xCount != ( size_t ) 0 );
 
     /* Calculate the number of bytes that can be read - which may be
      * less than the number wanted if the data wraps around to the start of
      * the buffer. */
-    xFirstLength = configMIN( pxStreamBuffer->xLength - xLocalTail, xCount );
+    xFirstLength = configMIN( pxStreamBuffer->xLength - xTail, xCount );
 
     /* Obtain the number of bytes it is possible to obtain in the first
      * read.  Asserts check bounds of read and write. */
     configASSERT( xFirstLength <= xCount );
-    configASSERT( ( xLocalTail + xFirstLength ) <= pxStreamBuffer->xLength );
-    ( void ) memcpy( ( void * ) pucData, ( const void * ) &( pxStreamBuffer->pucBuffer[ xLocalTail ] ), xFirstLength ); /*lint !e9087 memcpy() requires void *. */
+    configASSERT( ( xTail + xFirstLength ) <= pxStreamBuffer->xLength );
+    ( void ) memcpy( ( void * ) pucData, ( const void * ) &( pxStreamBuffer->pucBuffer[ xTail ] ), xFirstLength ); /*lint !e9087 memcpy() requires void *. */
 
     /* If the total number of wanted bytes is greater than the number
      * that could be read in the first read... */
@@ -1367,14 +1332,14 @@ static size_t prvReadBytesFromBuffer( const StreamBuffer_t * pxStreamBuffer,
     }
 
     /* Move the tail pointer to effectively remove the data read from the buffer. */
-    xLocalTail += xCount;
+    xTail += xCount;
 
-    if( xLocalTail >= pxStreamBuffer->xLength )
+    if( xTail >= pxStreamBuffer->xLength )
     {
-        xLocalTail -= pxStreamBuffer->xLength;
+        xTail -= pxStreamBuffer->xLength;
     }
 
-    return xLocalTail;
+    return xTail;
 }
 /*-----------------------------------------------------------*/
 
@@ -1417,7 +1382,6 @@ static void prvInitialiseNewStreamBuffer( StreamBuffer_t * const pxStreamBuffer,
          * result in confusion as to what is actually being observed. */
         const BaseType_t xWriteValue = 0x55;
         configASSERT( memset( pucBuffer, ( int ) xWriteValue, xBufferSizeBytes ) == pucBuffer );
-        ( void ) xWriteValue; /* In case configASSERT() is not defined. */
     } /*lint !e529 !e438 xWriteValue is only used if configASSERT() is defined. */
     #endif
 
@@ -1441,7 +1405,7 @@ static void prvInitialiseNewStreamBuffer( StreamBuffer_t * const pxStreamBuffer,
 
 #if ( configUSE_TRACE_FACILITY == 1 )
 
-    UBaseType_t uxStreamBufferGetStreamBufferNumber( ConstStreamBufferHandle_t xStreamBuffer )
+    UBaseType_t uxStreamBufferGetStreamBufferNumber( StreamBufferHandle_t xStreamBuffer )
     {
         return xStreamBuffer->uxStreamBufferNumber;
     }
@@ -1462,7 +1426,7 @@ static void prvInitialiseNewStreamBuffer( StreamBuffer_t * const pxStreamBuffer,
 
 #if ( configUSE_TRACE_FACILITY == 1 )
 
-    uint8_t ucStreamBufferGetStreamBufferType( ConstStreamBufferHandle_t xStreamBuffer )
+    uint8_t ucStreamBufferGetStreamBufferType( StreamBufferHandle_t xStreamBuffer )
     {
         return( xStreamBuffer->ucFlags & sbFLAGS_IS_MESSAGE_BUFFER );
     }

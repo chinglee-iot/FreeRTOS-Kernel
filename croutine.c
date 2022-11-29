@@ -106,8 +106,6 @@
     {
         BaseType_t xReturn;
         CRCB_t * pxCoRoutine;
-        /* Declare to confort MISRA C 2012 Rule 17.8 - "A function parameter should not be modified" */
-        UBaseType_t uxLocalPriority = uxPriority;
 
         /* Allocate the memory that will store the co-routine control block. */
         pxCoRoutine = ( CRCB_t * ) pvPortMalloc( sizeof( CRCB_t ) );
@@ -123,14 +121,14 @@
             }
 
             /* Check the priority is within limits. */
-            if( uxLocalPriority >= configMAX_CO_ROUTINE_PRIORITIES )
+            if( uxPriority >= configMAX_CO_ROUTINE_PRIORITIES )
             {
-                uxLocalPriority = configMAX_CO_ROUTINE_PRIORITIES - 1U;
+                uxPriority = configMAX_CO_ROUTINE_PRIORITIES - 1U;
             }
 
             /* Fill out the co-routine control block from the function parameters. */
             pxCoRoutine->uxState = corINITIAL_STATE;
-            pxCoRoutine->uxPriority = uxLocalPriority;
+            pxCoRoutine->uxPriority = uxPriority;
             pxCoRoutine->uxIndex = uxIndex;
             pxCoRoutine->pxCoRoutineFunction = pxCoRoutineCode;
 
@@ -145,7 +143,7 @@
             listSET_LIST_ITEM_OWNER( &( pxCoRoutine->xEventListItem ), pxCoRoutine );
 
             /* Event lists are always in priority order. */
-            listSET_LIST_ITEM_VALUE( &( pxCoRoutine->xEventListItem ), ( ( TickType_t ) configMAX_CO_ROUTINE_PRIORITIES - ( TickType_t ) uxLocalPriority ) );
+            listSET_LIST_ITEM_VALUE( &( pxCoRoutine->xEventListItem ), ( ( TickType_t ) configMAX_CO_ROUTINE_PRIORITIES - ( TickType_t ) uxPriority ) );
 
             /* Now the co-routine has been initialised it can be added to the ready
              * list at the correct priority. */
@@ -206,7 +204,7 @@
         /* Are there any co-routines waiting to get moved to the ready list?  These
          * are co-routines that have been readied by an ISR.  The ISR cannot access
          * the ready lists itself. */
-        while( listLIST_IS_EMPTY( &xPendingReadyCoRoutineList ) == ( BaseType_t ) pdFALSE )
+        while( listLIST_IS_EMPTY( &xPendingReadyCoRoutineList ) == pdFALSE )
         {
             CRCB_t * pxUnblockedCRCB;
 
@@ -248,7 +246,7 @@
             }
 
             /* See if this tick has made a timeout expire. */
-            while( listLIST_IS_EMPTY( pxDelayedCoRoutineList ) == ( BaseType_t ) pdFALSE )
+            while( listLIST_IS_EMPTY( pxDelayedCoRoutineList ) == pdFALSE )
             {
                 pxCRCB = ( CRCB_t * ) listGET_OWNER_OF_HEAD_ENTRY( pxDelayedCoRoutineList );
 
@@ -285,8 +283,6 @@
 
     void vCoRoutineSchedule( void )
     {
-        BaseType_t noMoreToCheck = ( BaseType_t ) pdFALSE;
-
         /* Only run a co-routine after prvInitialiseCoRoutineLists() has been
          * called.  prvInitialiseCoRoutineLists() is called automatically when a
          * co-routine is created. */
@@ -299,31 +295,23 @@
             prvCheckDelayedList();
 
             /* Find the highest priority queue that contains ready co-routines. */
-            while( listLIST_IS_EMPTY( &( pxReadyCoRoutineLists[ uxTopCoRoutineReadyPriority ] ) ) == ( BaseType_t ) pdTRUE )
+            while( listLIST_IS_EMPTY( &( pxReadyCoRoutineLists[ uxTopCoRoutineReadyPriority ] ) ) )
             {
                 if( uxTopCoRoutineReadyPriority == 0U )
                 {
                     /* No more co-routines to check. */
-                    noMoreToCheck = ( BaseType_t ) pdTRUE;
-                    break;
+                    return;
                 }
 
                 --uxTopCoRoutineReadyPriority;
             }
 
-            if( noMoreToCheck == ( BaseType_t ) pdFALSE )
-            {
-                /* listGET_OWNER_OF_NEXT_ENTRY walks through the list, so the co-routines
-                 * of the same priority get an equal share of the processor time. */
-                listGET_OWNER_OF_NEXT_ENTRY( pxCurrentCoRoutine, &( pxReadyCoRoutineLists[ uxTopCoRoutineReadyPriority ] ) );
+            /* listGET_OWNER_OF_NEXT_ENTRY walks through the list, so the co-routines
+             * of the same priority get an equal share of the processor time. */
+            listGET_OWNER_OF_NEXT_ENTRY( pxCurrentCoRoutine, &( pxReadyCoRoutineLists[ uxTopCoRoutineReadyPriority ] ) );
 
-                /* Call the co-routine. */
-                ( pxCurrentCoRoutine->pxCoRoutineFunction )( pxCurrentCoRoutine, pxCurrentCoRoutine->uxIndex );
-            }
-            else
-            {
-                /* Nothing to do if no more co-routines to check. */
-            }
+            /* Call the co-routine. */
+            ( pxCurrentCoRoutine->pxCoRoutineFunction )( pxCurrentCoRoutine, pxCurrentCoRoutine->uxIndex );
         }
     }
 /*-----------------------------------------------------------*/
@@ -362,11 +350,11 @@
 
         if( pxUnblockedCRCB->uxPriority >= pxCurrentCoRoutine->uxPriority )
         {
-            xReturn = ( BaseType_t ) pdTRUE;
+            xReturn = pdTRUE;
         }
         else
         {
-            xReturn = ( BaseType_t ) pdFALSE;
+            xReturn = pdFALSE;
         }
 
         return xReturn;

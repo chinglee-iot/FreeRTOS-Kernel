@@ -768,7 +768,7 @@
 #endif
 
 #ifndef traceTASK_INCREMENT_TICK
-    #define traceTASK_INCREMENT_TICK( xTickToIncrement )
+    #define traceTASK_INCREMENT_TICK( xTickCount )
 #endif
 
 #ifndef traceTIMER_CREATE
@@ -974,7 +974,7 @@
 #endif
 
 #ifndef portPRIVILEGE_BIT
-    #define portPRIVILEGE_BIT    ( ( UBaseType_t ) 0x00U )
+    #define portPRIVILEGE_BIT    ( ( UBaseType_t ) 0x00 )
 #endif
 
 #ifndef portYIELD_WITHIN_API
