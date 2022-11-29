@@ -857,7 +857,7 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
                 }
             }
 
-            if( ( xYieldCount == 0 ) && taskVALID_CORE_ID( xLowestPriorityCore ) )
+            if( ( xYieldCount == 0 ) && ( taskVALID_CORE_ID( xLowestPriorityCore ) ) )
             {
                 prvYieldCore( xLowestPriorityCore );
             }
@@ -1090,7 +1090,7 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
                         }
                     }
 
-                    if( taskVALID_CORE_ID( xLowestPriorityCore ) )
+                    if( taskVALID_CORE_ID( xLowestPriorityCore ) == pdTRUE )
                     {
                         prvYieldCore( xLowestPriorityCore );
                     }
