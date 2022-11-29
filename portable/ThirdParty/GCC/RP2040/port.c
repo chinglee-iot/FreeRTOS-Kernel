@@ -117,13 +117,9 @@ static void prvTaskExitError( void );
  * to be called before the scheduler is started */
 #if ( configNUM_CORES == 1 )
     static UBaseType_t uxCriticalNesting;
-#else
-    /* Maintain the critical nesting count in port. */
-    #if ( portCRITICAL_NESTING_IN_TCB == 0 )
-        UBaseType_t uxCriticalNestings[ configNUM_CORES ] = { 0 };
-        BaseType_t xSchedulerStarted[ configNUM_CORES ] = { 0 };
-    #endif
-#endif
+#else /* #if ( configNUM_CORES == 1 ) */
+    UBaseType_t uxCriticalNestings[ configNUM_CORES ] = { 0 };
+#endif /* #if ( configNUM_CORES == 1 ) */
 
 /*-----------------------------------------------------------*/
 
