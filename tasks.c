@@ -280,6 +280,13 @@ typedef BaseType_t TaskRunning_t;
 /* Indicates that the task is an Idle task. */
 #define taskATTRIBUTE_IS_IDLE    ( UBaseType_t ) ( 1UL << 0UL )
 
+#if ( ( configNUM_CORES > 1 ) && ( portCRITICAL_NESTING_IN_TCB == 1 ) )
+    #define portGET_CRITICAL_NESTING_COUNT()          ( pxCurrentTCBs[ portGET_CORE_ID() ]->uxCriticalNesting )
+    #define portSET_CRITICAL_NESTING_COUNT( x )       ( pxCurrentTCBs[ portGET_CORE_ID() ]->uxCriticalNesting = ( x ) )
+    #define portINCREMENT_CRITICAL_NESTING_COUNT()    ( pxCurrentTCBs[ portGET_CORE_ID() ]->uxCriticalNesting++ )
+    #define portDECREMENT_CRITICAL_NESTING_COUNT()    ( pxCurrentTCBs[ portGET_CORE_ID() ]->uxCriticalNesting-- )
+#endif /* #if ( ( configNUM_CORES > 1 ) && ( portCRITICAL_NESTING_IN_TCB == 1 ) ) */
+
 /*
  * Task control block.  A task control block (TCB) is allocated for each task,
  * and stores task state information, including a pointer to the task's context
@@ -688,7 +695,7 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
                 * the suspension and critical nesting counts, as well as release
                 * and reacquire the correct locks. And then, do it all over again
                 * if our state changed again during the reacquisition. */
-                uxPrevCriticalNesting = pxThisTCB->uxCriticalNesting;
+                uxPrevCriticalNesting = portGET_CRITICAL_NESTING_COUNT();
                 uxPrevSchedulerSuspended = uxSchedulerSuspended;
 
                 /* This must only be called the first time we enter into a critical
@@ -698,7 +705,7 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
 
                 if( uxPrevCriticalNesting > 0U )
                 {
-                    pxThisTCB->uxCriticalNesting = 0U;
+                    portSET_CRITICAL_NESTING_COUNT( 0U );
                 }
                 else
                 {
@@ -722,7 +729,8 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
                 portDISABLE_INTERRUPTS();
                 portGET_TASK_LOCK();
                 portGET_ISR_LOCK();
-                pxCurrentTCB->uxCriticalNesting = uxPrevCriticalNesting;
+
+                portSET_CRITICAL_NESTING_COUNT( uxPrevCriticalNesting );
                 uxSchedulerSuspended = uxPrevSchedulerSuspended;
 
                 if( uxPrevCriticalNesting == 0U )
@@ -776,7 +784,7 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
         BaseType_t xCoreID;
 
         /* This must be called from a critical section. */
-        configASSERT( pxCurrentTCB->uxCriticalNesting > 0U );
+        configASSERT( portGET_CRITICAL_NESTING_COUNT() > 0U );
 
         #if ( configRUN_MULTIPLE_PRIORITIES == 0 )
 
@@ -1028,6 +1036,7 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
                     UBaseType_t uxCoreMap = pxPreviousTCB->uxCoreAffinityMask;
                     BaseType_t xLowestPriority = pxPreviousTCB->uxPriority;
                     BaseType_t xLowestPriorityCore = -1;
+                    BaseType_t x;
 
                     if( ( pxPreviousTCB->uxTaskAttributes & taskATTRIBUTE_IS_IDLE ) != 0 )
                     {
@@ -1050,33 +1059,33 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
 
                     uxCoreMap &= ( ( 1 << configNUM_CORES ) - 1 );
 
-                    while( uxCoreMap != 0 )
+                    for( x = ( configNUM_CORES - 1 ); x >= 0; x-- )
                     {
-                        uint32_t uxCore;
+                        UBaseType_t uxCore = ( UBaseType_t ) x;
                         BaseType_t xTaskPriority;
 
-                        uxCore = 31UL - ( uint32_t ) __builtin_clz( uxCoreMap );
-                        configASSERT( taskVALID_CORE_ID( uxCore ) );
-
-                        xTaskPriority = ( BaseType_t ) pxCurrentTCBs[ uxCore ]->uxPriority;
-
-                        if( ( pxCurrentTCBs[ uxCore ]->uxTaskAttributes & taskATTRIBUTE_IS_IDLE ) != 0 )
+                        if( ( uxCoreMap & ( 1 << uxCore ) ) != 0 )
                         {
-                            xTaskPriority = xTaskPriority - ( BaseType_t ) 1;
-                        }
+                            xTaskPriority = ( BaseType_t ) pxCurrentTCBs[ uxCore ]->uxPriority;
 
-                        uxCoreMap &= ~( 1 << uxCore );
-
-                        if( ( xTaskPriority < xLowestPriority ) &&
-                            ( taskTASK_IS_RUNNING( pxCurrentTCBs[ uxCore ] ) != pdFALSE ) &&
-                            ( xYieldPendings[ uxCore ] == pdFALSE ) )
-                        {
-                            #if ( configUSE_TASK_PREEMPTION_DISABLE == 1 )
-                                if( pxCurrentTCBs[ uxCore ]->xPreemptionDisable == pdFALSE )
-                            #endif
+                            if( ( pxCurrentTCBs[ uxCore ]->uxTaskAttributes & taskATTRIBUTE_IS_IDLE ) != 0 )
                             {
-                                xLowestPriority = xTaskPriority;
-                                xLowestPriorityCore = uxCore;
+                                xTaskPriority = xTaskPriority - ( BaseType_t ) 1;
+                            }
+
+                            uxCoreMap &= ~( 1 << uxCore );
+
+                            if( ( xTaskPriority < xLowestPriority ) &&
+                                ( taskTASK_IS_RUNNING( pxCurrentTCBs[ uxCore ] ) != pdFALSE ) &&
+                                ( xYieldPendings[ uxCore ] == pdFALSE ) )
+                            {
+                                #if ( configUSE_TASK_PREEMPTION_DISABLE == 1 )
+                                    if( pxCurrentTCBs[ uxCore ]->xPreemptionDisable == pdFALSE )
+                                #endif
+                                {
+                                    xLowestPriority = xTaskPriority;
+                                    xLowestPriorityCore = uxCore;
+                                }
                             }
                         }
                     }
@@ -2521,11 +2530,17 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
     {
         TCB_t * pxTCB;
         BaseType_t xCoreID;
+        UBaseType_t uxPrevCoreAffinityMask;
+
+        #if ( configUSE_PREEMPTION == 1 )
+            UBaseType_t uxPrevNotAllowedCores;
+        #endif
 
         taskENTER_CRITICAL();
         {
             pxTCB = prvGetTCBFromHandle( xTask );
 
+            uxPrevCoreAffinityMask = pxTCB->uxCoreAffinityMask;
             pxTCB->uxCoreAffinityMask = uxCoreAffinityMask;
 
             if( xSchedulerRunning != pdFALSE )
@@ -2534,10 +2549,34 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
                 {
                     xCoreID = ( BaseType_t ) pxTCB->xTaskRunState;
 
+                    /* If the task can no longer run on the core it was running,
+                     * request the core to yield. */
                     if( ( uxCoreAffinityMask & ( 1 << xCoreID ) ) == 0 )
                     {
                         prvYieldCore( xCoreID );
                     }
+                }
+                else
+                {
+                    #if ( configUSE_PREEMPTION == 1 )
+                    {
+                        /* Calculate the cores on which this task was not allowed to
+                         * run previously. */
+                        uxPrevNotAllowedCores = ( ~uxPrevCoreAffinityMask ) & ( ( 1 << configNUM_CORES ) - 1 );
+
+                        /* Does the new core mask enables this task to run on any of the
+                         * previously not allowed cores? If yes, check if this task can be
+                         * scheduled on any of those cores. */
+                        if( ( uxPrevNotAllowedCores & uxCoreAffinityMask ) != 0U )
+                        {
+                            prvYieldForTask( pxTCB, pdTRUE );
+                        }
+                    }
+                    #else /* #if( configUSE_PREEMPTION == 1 ) */
+                    {
+                        mtCOVERAGE_TEST_MARKER();
+                    }
+                    #endif /* #if( configUSE_PREEMPTION == 1 ) */
                 }
             }
         }
@@ -3014,31 +3053,59 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
 static BaseType_t prvCreateIdleTasks( void )
 {
     BaseType_t xReturn = pdPASS;
-    BaseType_t xCoreID;
-    char cIdleName[ configMAX_TASK_NAME_LEN ];
 
-    /* Add each idle task at the lowest priority. */
-    for( xCoreID = ( BaseType_t ) 0; xCoreID < ( BaseType_t ) configNUM_CORES; xCoreID++ )
+    #if ( configNUM_CORES == 1 )
     {
-        BaseType_t x;
-
-        if( xReturn == pdFAIL )
+        /* Add the idle task at the lowest priority. */
+        #if ( configSUPPORT_STATIC_ALLOCATION == 1 )
         {
-            break;
+            StaticTask_t * pxIdleTaskTCBBuffer = NULL;
+            StackType_t * pxIdleTaskStackBuffer = NULL;
+            uint32_t ulIdleTaskStackSize;
+
+            /* The Idle task is created using user provided RAM - obtain the
+             * address of the RAM then create the idle task. */
+            vApplicationGetIdleTaskMemory( &pxIdleTaskTCBBuffer, &pxIdleTaskStackBuffer, &ulIdleTaskStackSize );
+            xIdleTaskHandles[ 0 ] = xTaskCreateStatic( prvIdleTask,
+                                                       configIDLE_TASK_NAME,
+                                                       ulIdleTaskStackSize,
+                                                       ( void * ) NULL,       /*lint !e961.  The cast is not redundant for all compilers. */
+                                                       portPRIVILEGE_BIT,     /* In effect ( tskIDLE_PRIORITY | portPRIVILEGE_BIT ), but tskIDLE_PRIORITY is zero. */
+                                                       pxIdleTaskStackBuffer,
+                                                       pxIdleTaskTCBBuffer ); /*lint !e961 MISRA exception, justified as it is not a redundant explicit cast to all supported compilers. */
+
+            if( xIdleTaskHandles[ 0 ] != NULL )
+            {
+                xReturn = pdPASS;
+            }
+            else
+            {
+                xReturn = pdFAIL;
+            }
         }
-        else
+        #else /* if ( configSUPPORT_STATIC_ALLOCATION == 1 ) */
         {
-            mtCOVERAGE_TEST_MARKER();
+            /* The Idle task is being created using dynamically allocated RAM. */
+            xReturn = xTaskCreate( prvIdleTask,
+                                   configIDLE_TASK_NAME,
+                                   configMINIMAL_STACK_SIZE,
+                                   ( void * ) NULL,
+                                   portPRIVILEGE_BIT,        /* In effect ( tskIDLE_PRIORITY | portPRIVILEGE_BIT ), but tskIDLE_PRIORITY is zero. */
+                                   &xIdleTaskHandles[ 0 ] ); /*lint !e961 MISRA exception, justified as it is not a redundant explicit cast to all supported compilers. */
         }
+        #endif /* configSUPPORT_STATIC_ALLOCATION */
+    }
+    #else /* #if ( configNUM_CORES == 1 ) */
+    {
+        BaseType_t xCoreID;
+        char cIdleName[ configMAX_TASK_NAME_LEN ];
 
-        for( x = ( BaseType_t ) 0; x < ( BaseType_t ) configMAX_TASK_NAME_LEN; x++ )
+        /* Add each idle task at the lowest priority. */
+        for( xCoreID = ( BaseType_t ) 0; xCoreID < ( BaseType_t ) configNUM_CORES; xCoreID++ )
         {
-            cIdleName[ x ] = configIDLE_TASK_NAME[ x ];
+            BaseType_t x;
 
-            /* Don't copy all configMAX_TASK_NAME_LEN if the string is shorter than
-             * configMAX_TASK_NAME_LEN characters just in case the memory after the
-             * string is not accessible (extremely unlikely). */
-            if( cIdleName[ x ] == ( char ) 0x00 )
+            if( xReturn == pdFAIL )
             {
                 break;
             }
@@ -3046,11 +3113,25 @@ static BaseType_t prvCreateIdleTasks( void )
             {
                 mtCOVERAGE_TEST_MARKER();
             }
-        }
 
-        /* Append the idle task number to the end of the name if there is space. */
-        #if ( configNUM_CORES > 1 )
-        {
+            for( x = ( BaseType_t ) 0; x < ( BaseType_t ) configMAX_TASK_NAME_LEN; x++ )
+            {
+                cIdleName[ x ] = configIDLE_TASK_NAME[ x ];
+
+                /* Don't copy all configMAX_TASK_NAME_LEN if the string is shorter than
+                 * configMAX_TASK_NAME_LEN characters just in case the memory after the
+                 * string is not accessible (extremely unlikely). */
+                if( cIdleName[ x ] == ( char ) 0x00 )
+                {
+                    break;
+                }
+                else
+                {
+                    mtCOVERAGE_TEST_MARKER();
+                }
+            }
+
+            /* Append the idle task number to the end of the name if there is space. */
             if( x < configMAX_TASK_NAME_LEN )
             {
                 cIdleName[ x++ ] = ( char ) xCoreID + '0';
@@ -3069,30 +3150,26 @@ static BaseType_t prvCreateIdleTasks( void )
             {
                 mtCOVERAGE_TEST_MARKER();
             }
-        }
-        #endif /* #if ( configNUM_CORES > 1 ) */
 
-        #if ( configSUPPORT_STATIC_ALLOCATION == 1 )
-        {
-            if( xCoreID == 0 )
+            #if ( configSUPPORT_STATIC_ALLOCATION == 1 )
             {
-                StaticTask_t * pxIdleTaskTCBBuffer = NULL;
-                StackType_t * pxIdleTaskStackBuffer = NULL;
-                uint32_t ulIdleTaskStackSize;
+                if( xCoreID == 0 )
+                {
+                    StaticTask_t * pxIdleTaskTCBBuffer = NULL;
+                    StackType_t * pxIdleTaskStackBuffer = NULL;
+                    uint32_t ulIdleTaskStackSize;
 
-                /* The Idle task is created using user provided RAM - obtain the
-                 * address of the RAM then create the idle task. */
-                vApplicationGetIdleTaskMemory( &pxIdleTaskTCBBuffer, &pxIdleTaskStackBuffer, &ulIdleTaskStackSize );
-                xIdleTaskHandles[ xCoreID ] = xTaskCreateStatic( prvIdleTask,
-                                                                 cIdleName,
-                                                                 ulIdleTaskStackSize,
-                                                                 ( void * ) NULL,       /*lint !e961.  The cast is not redundant for all compilers. */
-                                                                 portPRIVILEGE_BIT,     /* In effect ( tskIDLE_PRIORITY | portPRIVILEGE_BIT ), but tskIDLE_PRIORITY is zero. */
-                                                                 pxIdleTaskStackBuffer,
-                                                                 pxIdleTaskTCBBuffer ); /*lint !e961 MISRA exception, justified as it is not a redundant explicit cast to all supported compilers. */
-            }
-
-            #if ( configNUM_CORES > 1 )
+                    /* The Idle task is created using user provided RAM - obtain the
+                     * address of the RAM then create the idle task. */
+                    vApplicationGetIdleTaskMemory( &pxIdleTaskTCBBuffer, &pxIdleTaskStackBuffer, &ulIdleTaskStackSize );
+                    xIdleTaskHandles[ xCoreID ] = xTaskCreateStatic( prvIdleTask,
+                                                                     cIdleName,
+                                                                     ulIdleTaskStackSize,
+                                                                     ( void * ) NULL,       /*lint !e961.  The cast is not redundant for all compilers. */
+                                                                     portPRIVILEGE_BIT,     /* In effect ( tskIDLE_PRIORITY | portPRIVILEGE_BIT ), but tskIDLE_PRIORITY is zero. */
+                                                                     pxIdleTaskStackBuffer,
+                                                                     pxIdleTaskTCBBuffer ); /*lint !e961 MISRA exception, justified as it is not a redundant explicit cast to all supported compilers. */
+                }
                 else
                 {
                     static StaticTask_t xIdleTCBBuffers[ configNUM_CORES - 1 ];
@@ -3106,31 +3183,28 @@ static BaseType_t prvCreateIdleTasks( void )
                                                                      xIdleTaskStackBuffers[ xCoreID - 1 ],
                                                                      &xIdleTCBBuffers[ xCoreID - 1 ] ); /*lint !e961 MISRA exception, justified as it is not a redundant explicit cast to all supported compilers. */
                 }
-            #endif /* #if ( configNUM_CORES > 1 ) */
 
-            if( xIdleTaskHandles[ xCoreID ] != NULL )
-            {
-                xReturn = pdPASS;
+                if( xIdleTaskHandles[ xCoreID ] != NULL )
+                {
+                    xReturn = pdPASS;
+                }
+                else
+                {
+                    xReturn = pdFAIL;
+                }
             }
-            else
+            #else /* if ( configSUPPORT_STATIC_ALLOCATION == 1 ) */
             {
-                xReturn = pdFAIL;
-            }
-        }
-        #else /* if ( configSUPPORT_STATIC_ALLOCATION == 1 ) */
-        {
-            if( xCoreID == 0 )
-            {
-                /* The Idle task is being created using dynamically allocated RAM. */
-                xReturn = xTaskCreate( prvIdleTask,
-                                       cIdleName,
-                                       configMINIMAL_STACK_SIZE,
-                                       ( void * ) NULL,
-                                       portPRIVILEGE_BIT,              /* In effect ( tskIDLE_PRIORITY | portPRIVILEGE_BIT ), but tskIDLE_PRIORITY is zero. */
-                                       &xIdleTaskHandles[ xCoreID ] ); /*lint !e961 MISRA exception, justified as it is not a redundant explicit cast to all supported compilers. */
-            }
-
-            #if ( configNUM_CORES > 1 )
+                if( xCoreID == 0 )
+                {
+                    /* The Idle task is being created using dynamically allocated RAM. */
+                    xReturn = xTaskCreate( prvIdleTask,
+                                           cIdleName,
+                                           configMINIMAL_STACK_SIZE,
+                                           ( void * ) NULL,
+                                           portPRIVILEGE_BIT,              /* In effect ( tskIDLE_PRIORITY | portPRIVILEGE_BIT ), but tskIDLE_PRIORITY is zero. */
+                                           &xIdleTaskHandles[ xCoreID ] ); /*lint !e961 MISRA exception, justified as it is not a redundant explicit cast to all supported compilers. */
+                }
                 else
                 {
                     xReturn = xTaskCreate( prvMinimalIdleTask,
@@ -3140,10 +3214,11 @@ static BaseType_t prvCreateIdleTasks( void )
                                            portPRIVILEGE_BIT,              /* In effect ( tskIDLE_PRIORITY | portPRIVILEGE_BIT ), but tskIDLE_PRIORITY is zero. */
                                            &xIdleTaskHandles[ xCoreID ] ); /*lint !e961 MISRA exception, justified as it is not a redundant explicit cast to all supported compilers. */
                 }
-            #endif /* #if ( configNUM_CORES > 1 ) */
+            }
+            #endif /* configSUPPORT_STATIC_ALLOCATION */
         }
-        #endif /* configSUPPORT_STATIC_ALLOCATION */
     }
+    #endif /* #if ( configNUM_CORES == 1 ) */
 
     return xReturn;
 }
@@ -3300,7 +3375,7 @@ void vTaskSuspendAll( void )
 
             if( uxSchedulerSuspended == 1U )
             {
-                if( pxCurrentTCB->uxCriticalNesting == 0U )
+                if( portGET_CRITICAL_NESTING_COUNT() == 0U )
                 {
                     prvCheckForRunStateChange();
                 }
@@ -4434,10 +4509,9 @@ BaseType_t xTaskIncrementTick( void )
         portGET_ISR_LOCK();
         {
             /* vTaskSwitchContext() must never be called from within a critical section.
-             * This is not necessarily true for single core FreeRTOS, but it is for this SMP port. */
-            #if ( portCRITICAL_NESTING_IN_TCB == 1 )
-                configASSERT( pxCurrentTCB->uxCriticalNesting == 0 );
-            #endif
+             * This is not necessarily true for single core FreeRTOS, but it is for this
+             * SMP port. */
+            configASSERT( portGET_CRITICAL_NESTING_COUNT() == 0 );
 
             if( uxSchedulerSuspended != ( UBaseType_t ) pdFALSE )
             {
@@ -4984,9 +5058,13 @@ static portTASK_FUNCTION( prvIdleTask, pvParameters )
      * any. */
     portALLOCATE_SECURE_CONTEXT( configMINIMAL_SECURE_STACK_SIZE );
 
-    /* All cores start up in the idle task. This initial yield gets the application
-     * tasks started. */
-    taskYIELD();
+    #if ( configNUM_CORES > 1 )
+    {
+        /* SMP all cores start up in the idle task. This initial yield gets the application
+         * tasks started. */
+        taskYIELD();
+    }
+    #endif /* #if ( configNUM_CORES > 1 ) */
 
     for( ; ; )
     {
@@ -5260,22 +5338,32 @@ static void prvCheckTasksWaitingTermination( void )
 
     #if ( INCLUDE_vTaskDelete == 1 )
     {
-        TCB_t * pxTCB = NULL;
+        TCB_t * pxTCB;
 
         /* uxDeletedTasksWaitingCleanUp is used to prevent taskENTER_CRITICAL()
          * being called too often in the idle task. */
         while( uxDeletedTasksWaitingCleanUp > ( UBaseType_t ) 0U )
         {
-            taskENTER_CRITICAL();
+            #if ( configNUM_CORES == 1 )
             {
-                #if ( configNUM_CORES == 1 )
+                taskENTER_CRITICAL();
                 {
-                    pxTCB = listGET_OWNER_OF_HEAD_ENTRY( ( &xTasksWaitingTermination ) ); /*lint !e9079 void * is used as this macro is used with timers and co-routines too.  Alignment is known to be fine as the type of the pointer stored and retrieved is the same. */
-                    ( void ) uxListRemove( &( pxTCB->xStateListItem ) );
-                    --uxCurrentNumberOfTasks;
-                    --uxDeletedTasksWaitingCleanUp;
+                    {
+                        pxTCB = listGET_OWNER_OF_HEAD_ENTRY( ( &xTasksWaitingTermination ) ); /*lint !e9079 void * is used as this macro is used with timers and co-routines too.  Alignment is known to be fine as the type of the pointer stored and retrieved is the same. */
+                        ( void ) uxListRemove( &( pxTCB->xStateListItem ) );
+                        --uxCurrentNumberOfTasks;
+                        --uxDeletedTasksWaitingCleanUp;
+                    }
                 }
-                #else /* #if( configNUM_CORES == 1 ) */
+                taskEXIT_CRITICAL();
+
+                prvDeleteTCB( pxTCB );
+            }
+            #else /* #if( configNUM_CORES == 1 ) */
+            {
+                pxTCB = NULL;
+
+                taskENTER_CRITICAL();
                 {
                     /* For SMP, multiple idles can be running simultaneously
                      * and we need to check that other idles did not cleanup while we were
@@ -5300,15 +5388,14 @@ static void prvCheckTasksWaitingTermination( void )
                         }
                     }
                 }
-                #endif /* #if( configNUM_CORES == 1 ) */
-            }
-            taskEXIT_CRITICAL();
+                taskEXIT_CRITICAL();
 
-            if( pxTCB != NULL )
-            {
-                prvDeleteTCB( pxTCB );
-                pxTCB = NULL;
+                if( pxTCB != NULL )
+                {
+                    prvDeleteTCB( pxTCB );
+                }
             }
+            #endif /* #if( configNUM_CORES == 1 ) */
         }
     }
     #endif /* INCLUDE_vTaskDelete */
@@ -5989,7 +6076,7 @@ static void prvResetNextTaskUnblockTime( void )
  */
     void vTaskYieldWithinAPI( void )
     {
-        if( pxCurrentTCB->uxCriticalNesting == 0U )
+        if( portGET_CRITICAL_NESTING_COUNT() == 0U )
         {
             portYIELD();
         }
@@ -6002,7 +6089,7 @@ static void prvResetNextTaskUnblockTime( void )
 
 /*-----------------------------------------------------------*/
 
-#if ( portCRITICAL_NESTING_IN_TCB == 1 )
+#if ( ( portCRITICAL_NESTING_IN_TCB == 1 ) && ( configNUM_CORES == 1 ) )
 
     void vTaskEnterCritical( void )
     {
@@ -6010,52 +6097,18 @@ static void prvResetNextTaskUnblockTime( void )
 
         if( xSchedulerRunning != pdFALSE )
         {
-            #if ( configNUM_CORES == 1 )
+            ( pxCurrentTCB->uxCriticalNesting )++;
+
+            /* This is not the interrupt safe version of the enter critical
+             * function so  assert() if it is being called from an interrupt
+             * context.  Only API functions that end in "FromISR" can be used in an
+             * interrupt.  Only assert if the critical nesting count is 1 to
+             * protect against recursive calls if the assert function also uses a
+             * critical section. */
+            if( pxCurrentTCB->uxCriticalNesting == 1 )
             {
-                ( pxCurrentTCB->uxCriticalNesting )++;
-
-                /* This is not the interrupt safe version of the enter critical
-                 * function so  assert() if it is being called from an interrupt
-                 * context.  Only API functions that end in "FromISR" can be used in an
-                 * interrupt.  Only assert if the critical nesting count is 1 to
-                 * protect against recursive calls if the assert function also uses a
-                 * critical section. */
-                if( pxCurrentTCB->uxCriticalNesting == 1 )
-                {
-                    portASSERT_IF_IN_ISR();
-                }
+                portASSERT_IF_IN_ISR();
             }
-            #else /* #if ( configNUM_CORES == 1 ) */
-            {
-                if( pxCurrentTCB->uxCriticalNesting == 0U )
-                {
-                    portGET_TASK_LOCK();
-                    portGET_ISR_LOCK();
-                }
-
-                ( pxCurrentTCB->uxCriticalNesting )++;
-
-                /* This is not the interrupt safe version of the enter critical
-                 * function so  assert() if it is being called from an interrupt
-                 * context.  Only API functions that end in "FromISR" can be used in an
-                 * interrupt.  Only assert if the critical nesting count is 1 to
-                 * protect against recursive calls if the assert function also uses a
-                 * critical section. */
-                if( pxCurrentTCB->uxCriticalNesting == 1 )
-                {
-                    portASSERT_IF_IN_ISR();
-
-                    if( uxSchedulerSuspended == 0U )
-                    {
-                        /* The only time there would be a problem is if this is called
-                         * before a context switch and vTaskExitCritical() is called
-                         * after pxCurrentTCB changes. Therefore this should not be
-                         * used within vTaskSwitchContext(). */
-                        prvCheckForRunStateChange();
-                    }
-                }
-            }
-            #endif /* #if ( configNUM_CORES == 1 ) */
         }
         else
         {
@@ -6063,11 +6116,56 @@ static void prvResetNextTaskUnblockTime( void )
         }
     }
 
-#endif /* portCRITICAL_NESTING_IN_TCB */
+#endif /* #if ( ( portCRITICAL_NESTING_IN_TCB == 1 ) && ( configNUM_CORES == 1 ) ) */
+/*-----------------------------------------------------------*/
+
+#if ( configNUM_CORES > 1 )
+
+    void vTaskEnterCritical( void )
+    {
+        portDISABLE_INTERRUPTS();
+
+        if( xSchedulerRunning != pdFALSE )
+        {
+            if( portGET_CRITICAL_NESTING_COUNT() == 0U )
+            {
+                portGET_TASK_LOCK();
+                portGET_ISR_LOCK();
+            }
+
+            portINCREMENT_CRITICAL_NESTING_COUNT();
+
+            /* This is not the interrupt safe version of the enter critical
+             * function so  assert() if it is being called from an interrupt
+             * context.  Only API functions that end in "FromISR" can be used in an
+             * interrupt.  Only assert if the critical nesting count is 1 to
+             * protect against recursive calls if the assert function also uses a
+             * critical section. */
+            if( portGET_CRITICAL_NESTING_COUNT() == 1U )
+            {
+                portASSERT_IF_IN_ISR();
+
+                if( uxSchedulerSuspended == 0U )
+                {
+                    /* The only time there would be a problem is if this is called
+                     * before a context switch and vTaskExitCritical() is called
+                     * after pxCurrentTCB changes. Therefore this should not be
+                     * used within vTaskSwitchContext(). */
+                    prvCheckForRunStateChange();
+                }
+            }
+        }
+        else
+        {
+            mtCOVERAGE_TEST_MARKER();
+        }
+    }
+
+#endif /* #if ( configNUM_CORES > 1 ) */
 
 /*-----------------------------------------------------------*/
 
-#if ( ( portCRITICAL_NESTING_IN_TCB == 1 ) && ( configNUM_CORES > 1 ) )
+#if ( configNUM_CORES > 1 )
 
     UBaseType_t vTaskEnterCriticalFromISR( void )
     {
@@ -6077,12 +6175,12 @@ static void prvResetNextTaskUnblockTime( void )
         {
             uxSavedInterruptStatus = portSET_INTERRUPT_MASK_FROM_ISR();
 
-            if( pxCurrentTCB->uxCriticalNesting == 0U )
+            if( portGET_CRITICAL_NESTING_COUNT() == 0U )
             {
                 portGET_ISR_LOCK();
             }
 
-            ( pxCurrentTCB->uxCriticalNesting )++;
+            portINCREMENT_CRITICAL_NESTING_COUNT();
         }
         else
         {
@@ -6092,10 +6190,10 @@ static void prvResetNextTaskUnblockTime( void )
         return uxSavedInterruptStatus;
     }
 
-#endif /* #if ( ( portCRITICAL_NESTING_IN_TCB == 1 ) && ( configNUM_CORES > 1 ) ) */
+#endif /* #if ( configNUM_CORES > 1 ) */
 /*-----------------------------------------------------------*/
 
-#if ( portCRITICAL_NESTING_IN_TCB == 1 )
+#if ( ( portCRITICAL_NESTING_IN_TCB == 1 ) && ( configNUM_CORES == 1 ) )
 
     void vTaskExitCritical( void )
     {
@@ -6115,31 +6213,7 @@ static void prvResetNextTaskUnblockTime( void )
 
                 if( pxCurrentTCB->uxCriticalNesting == 0U )
                 {
-                    #if ( configNUM_CORES == 1 )
-                    {
-                        portENABLE_INTERRUPTS();
-                    }
-                    #else
-                    {
-                        BaseType_t xYieldCurrentTask;
-
-                        /* Get the xYieldPending stats inside the critical section. */
-                        xYieldCurrentTask = xYieldPendings[ portGET_CORE_ID() ];
-
-                        portRELEASE_ISR_LOCK();
-                        portRELEASE_TASK_LOCK();
-                        portENABLE_INTERRUPTS();
-
-                        /* When a task yields in a critical section it just sets
-                         * xYieldPending to true. So now that we have exited the
-                         * critical section check if xYieldPending is true, and
-                         * if so yield. */
-                        if( xYieldCurrentTask != pdFALSE )
-                        {
-                            portYIELD();
-                        }
-                    }
-                    #endif /* ( configNUM_CORES == 1 ) */
+                    portENABLE_INTERRUPTS();
                 }
                 else
                 {
@@ -6157,10 +6231,67 @@ static void prvResetNextTaskUnblockTime( void )
         }
     }
 
-#endif /* portCRITICAL_NESTING_IN_TCB */
+#endif /* #if ( ( portCRITICAL_NESTING_IN_TCB == 1 ) && ( configNUM_CORES == 1 ) ) */
 /*-----------------------------------------------------------*/
 
-#if ( ( portCRITICAL_NESTING_IN_TCB == 1 ) && ( configNUM_CORES > 1 ) )
+#if ( configNUM_CORES > 1 )
+
+    void vTaskExitCritical( void )
+    {
+        if( xSchedulerRunning != pdFALSE )
+        {
+            /* If critical nesting count is zero then this function
+             * does not match a previous call to vTaskEnterCritical(). */
+            configASSERT( portGET_CRITICAL_NESTING_COUNT() > 0U );
+
+            /* This function should not be called in ISR. Use vTaskExitCriticalFromISR
+             * to exit critical section from ISR. */
+            portASSERT_IF_IN_ISR();
+
+            if( portGET_CRITICAL_NESTING_COUNT() > 0U )
+            {
+                portDECREMENT_CRITICAL_NESTING_COUNT();
+
+                if( portGET_CRITICAL_NESTING_COUNT() == 0U )
+                {
+                    BaseType_t xYieldCurrentTask;
+
+                    /* Get the xYieldPending stats inside the critical section. */
+                    xYieldCurrentTask = xYieldPendings[ portGET_CORE_ID() ];
+
+                    portRELEASE_ISR_LOCK();
+                    portRELEASE_TASK_LOCK();
+                    portENABLE_INTERRUPTS();
+
+                    /* When a task yields in a critical section it just sets
+                     * xYieldPending to true. So now that we have exited the
+                     * critical section check if xYieldPending is true, and
+                     * if so yield. */
+                    if( xYieldCurrentTask != pdFALSE )
+                    {
+                        portYIELD();
+                    }
+                }
+                else
+                {
+                    mtCOVERAGE_TEST_MARKER();
+                }
+            }
+            else
+            {
+                mtCOVERAGE_TEST_MARKER();
+            }
+        }
+        else
+        {
+            mtCOVERAGE_TEST_MARKER();
+        }
+    }
+
+#endif /* #if ( configNUM_CORES > 1 ) */
+/*-----------------------------------------------------------*/
+
+#if ( configNUM_CORES > 1 )
 
     void vTaskExitCriticalFromISR( UBaseType_t uxSavedInterruptStatus )
     {
@@ -6168,15 +6299,15 @@ static void prvResetNextTaskUnblockTime( void )
 
         if( xSchedulerRunning != pdFALSE )
         {
-            /* If pxCurrentTCB->uxCriticalNesting is zero then this function
+            /* If critical nesting count is zero then this function
              * does not match a previous call to vTaskEnterCritical(). */
-            configASSERT( pxCurrentTCB->uxCriticalNesting > 0U );
+            configASSERT( portGET_CRITICAL_NESTING_COUNT() > 0U );
 
-            if( pxCurrentTCB->uxCriticalNesting > 0U )
+            if( portGET_CRITICAL_NESTING_COUNT() > 0U )
             {
-                ( pxCurrentTCB->uxCriticalNesting )--;
+                portDECREMENT_CRITICAL_NESTING_COUNT();
 
-                if( pxCurrentTCB->uxCriticalNesting == 0U )
+                if( portGET_CRITICAL_NESTING_COUNT() == 0U )
                 {
                     /* Get the xYieldPending stats inside the critical section. */
                     xYieldCurrentTask = xYieldPendings[ portGET_CORE_ID() ];
@@ -6209,7 +6340,7 @@ static void prvResetNextTaskUnblockTime( void )
         }
     }
 
-#endif /* #if ( ( portCRITICAL_NESTING_IN_TCB == 1 ) && ( configNUM_CORES > 1 ) ) */
+#endif /* #if ( configNUM_CORES > 1 ) */
 /*-----------------------------------------------------------*/
 
 #if ( configUSE_STATS_FORMATTING_FUNCTIONS > 0 )
