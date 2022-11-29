@@ -3485,7 +3485,7 @@ BaseType_t xTaskResumeAll( void )
 
             /* If uxSchedulerSuspended is zero then this function does not match a
              * previous call to vTaskSuspendAll(). */
-            configASSERT( uxSchedulerSuspended );
+            configASSERT( uxSchedulerSuspended != 0U );
 
             --uxSchedulerSuspended;
             portRELEASE_TASK_LOCK();
