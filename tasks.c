@@ -750,7 +750,7 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
     static void prvYieldCore( BaseType_t xCoreID )
     {
         /* This must be called from a critical section and xCoreID must be valid. */
-        if( portCHECK_IF_IN_ISR() && ( xCoreID == portGET_CORE_ID() ) )
+        if( ( portCHECK_IF_IN_ISR() == pdTRUE ) && ( xCoreID == portGET_CORE_ID() ) )
         {
             xYieldPendings[ xCoreID ] = pdTRUE;
         }
@@ -1005,7 +1005,7 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
 
         if( xTaskScheduled == pdTRUE )
         {
-            configASSERT( taskTASK_IS_RUNNING( pxCurrentTCBs[ xCoreID ] ) );
+            configASSERT( taskTASK_IS_RUNNING( pxCurrentTCBs[ xCoreID ] ) == pdTRUE );
 
             #if ( configRUN_MULTIPLE_PRIORITIES == 0 )
             {
@@ -1961,7 +1961,7 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
             }
 
             /* Force a reschedule if the task that has just been deleted was running. */
-            if( ( xSchedulerRunning != pdFALSE ) && ( taskTASK_IS_RUNNING( pxTCB ) ) )
+            if( ( xSchedulerRunning != pdFALSE ) && ( taskTASK_IS_RUNNING( pxTCB ) == pdTRUE ) )
             {
                 if( pxTCB->xTaskRunState == portGET_CORE_ID() )
                 {
@@ -2221,7 +2221,7 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
                 }
                 #else /* #if ( configNUMBER_OF_CORES == 1 ) */
                 {
-                    if( taskTASK_IS_RUNNING( pxTCB ) )
+                    if( taskTASK_IS_RUNNING( pxTCB ) == pdTRUE )
                     {
                         /* Is it actively running on a core? */
                         eReturn = eRunning;
@@ -2385,7 +2385,7 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
                     }
                     #endif /* #if ( configNUMBER_OF_CORES == 1 ) */
                 }
-                else if( taskTASK_IS_RUNNING( pxTCB ) )
+                else if( taskTASK_IS_RUNNING( pxTCB ) == pdTRUE )
                 {
                     /* Setting the priority of a running task down means
                      * there may now be another task of higher priority that
@@ -2545,7 +2545,7 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
 
             if( xSchedulerRunning != pdFALSE )
             {
-                if( taskTASK_IS_RUNNING( pxTCB ) )
+                if( taskTASK_IS_RUNNING( pxTCB ) == pdTRUE )
                 {
                     xCoreID = ( BaseType_t ) pxTCB->xTaskRunState;
 
@@ -2637,7 +2637,7 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
 
             if( xSchedulerRunning != pdFALSE )
             {
-                if( taskTASK_IS_RUNNING( pxTCB ) )
+                if( taskTASK_IS_RUNNING( pxTCB ) == pdTRUE )
                 {
                     xCoreID = ( BaseType_t ) pxTCB->xTaskRunState;
                     prvYieldCore( xCoreID );
@@ -2776,7 +2776,7 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
                 mtCOVERAGE_TEST_MARKER();
             }
 
-            if( taskTASK_IS_RUNNING( pxTCB ) )
+            if( taskTASK_IS_RUNNING( pxTCB ) == pdTRUE )
             {
                 if( xSchedulerRunning != pdFALSE )
                 {
@@ -5455,7 +5455,7 @@ static void prvCheckTasksWaitingTermination( void )
          * state is just set to whatever is passed in. */
         if( eState != eInvalid )
         {
-            if( taskTASK_IS_RUNNING( pxTCB ) )
+            if( taskTASK_IS_RUNNING( pxTCB ) == pdTRUE )
             {
                 pxTaskStatus->eCurrentState = eRunning;
             }
