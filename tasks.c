@@ -673,6 +673,10 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
 
 #endif
 
+#if ( configUSE_MINIMAL_IDLE_HOOK == 1 )
+    extern void vApplicationMinimalIdleHook( void );
+#endif /* ( configUSE_MINIMAL_IDLE_HOOK == 1 ) */
+
 /*-----------------------------------------------------------*/
 
 #if ( configNUMBER_OF_CORES > 1 )
@@ -991,7 +995,7 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
                     {
                         /* Once a task has been selected to run on this core,
                          * move it to the end of the ready task list. */
-                        uxListRemove( pxIterator );
+                        ( void ) uxListRemove( pxIterator );
                         vListInsertEnd( pxReadyList, pxIterator );
                         break;
                     }
@@ -5039,8 +5043,6 @@ void vTaskMissedYield( void )
 
             #if ( configUSE_MINIMAL_IDLE_HOOK == 1 )
             {
-                extern void vApplicationMinimalIdleHook( void );
-
                 /* Call the user defined function from within the idle task.  This
                  * allows the application designer to add background functionality
                  * without the overhead of a separate task.
@@ -5192,8 +5194,6 @@ static portTASK_FUNCTION( prvIdleTask, pvParameters )
 
         #if ( ( configNUMBER_OF_CORES > 1 ) && ( configUSE_MINIMAL_IDLE_HOOK == 1 ) )
         {
-            extern void vApplicationMinimalIdleHook( void );
-
             /* Call the user defined function from within the idle task.  This
              * allows the application designer to add background functionality
              * without the overhead of a separate task.
