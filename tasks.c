@@ -384,8 +384,9 @@ typedef tskTCB TCB_t;
     /* MISRA Ref 8.4.1 [Declaration shall be visible] */
     /* More details at: https://github.com/FreeRTOS/FreeRTOS-Kernel/blob/main/MISRA.md#rule-84 */
     /* coverity[misra_c_2012_rule_8_4_violation] */
-    portDONT_DISCARD PRIVILEGED_DATA TCB_t * volatile pxCurrentTCBs[ configNUMBER_OF_CORES ] = {
-        [0 ... configNUMBER_OF_CORES-1] = NULL,
+    portDONT_DISCARD PRIVILEGED_DATA TCB_t * volatile pxCurrentTCBs[ configNUMBER_OF_CORES ] =
+    {
+        [ 0 ... configNUMBER_OF_CORES - 1 ] = NULL,
     };
     #define pxCurrentTCB    xTaskGetCurrentTaskHandle()
 #endif
@@ -429,12 +430,13 @@ PRIVILEGED_DATA static volatile TickType_t xPendedTicks = ( TickType_t ) 0U;
 PRIVILEGED_DATA static volatile BaseType_t xYieldPendings[ configNUMBER_OF_CORES ] = { pdFALSE };
 PRIVILEGED_DATA static volatile BaseType_t xNumOfOverflows = ( BaseType_t ) 0;
 PRIVILEGED_DATA static UBaseType_t uxTaskNumber = ( UBaseType_t ) 0U;
-PRIVILEGED_DATA static volatile TickType_t xNextTaskUnblockTime = ( TickType_t ) 0U;      /* Initialised to portMAX_DELAY before the scheduler starts. */
+PRIVILEGED_DATA static volatile TickType_t xNextTaskUnblockTime = ( TickType_t ) 0U; /* Initialised to portMAX_DELAY before the scheduler starts. */
 /* MISRA Ref 8.9.1 [Object in block scope] */
 /* More details at: https://github.com/FreeRTOS/FreeRTOS-Kernel/blob/main/MISRA.md#rule-89 */
 /* coverity[misra_c_2012_rule_8_9_violation] */
-PRIVILEGED_DATA static TaskHandle_t xIdleTaskHandles[ configNUMBER_OF_CORES ] = { /*< Holds the handles of the idle tasks.  The idle tasks are created automatically when the scheduler is started. */
-    [0 ... configNUMBER_OF_CORES-1] = NULL,
+PRIVILEGED_DATA static TaskHandle_t xIdleTaskHandles[ configNUMBER_OF_CORES ] = /*< Holds the handles of the idle tasks.  The idle tasks are created automatically when the scheduler is started. */
+{
+    [ 0 ... configNUMBER_OF_CORES - 1 ] = NULL,
 };
 
 /* Improve support for OpenOCD. The kernel tracks Ready tasks via priority lists.
@@ -1116,7 +1118,7 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
                                 #endif
                                 {
                                     xLowestPriority = xTaskPriority;
-                                    xLowestPriorityCore = ( BaseType_t) uxCore;
+                                    xLowestPriorityCore = ( BaseType_t ) uxCore;
                                 }
                             }
                         }
@@ -6171,9 +6173,9 @@ static void prvResetNextTaskUnblockTime( void )
 
 #if ( configNUMBER_OF_CORES > 1 )
 
-    /* MISRA Ref 8.4.1 [Declaration shall be visible] */
-    /* More details at: https://github.com/FreeRTOS/FreeRTOS-Kernel/blob/main/MISRA.md#rule-84 */
-    /* coverity[misra_c_2012_rule_8_4_violation] */
+/* MISRA Ref 8.4.1 [Declaration shall be visible] */
+/* More details at: https://github.com/FreeRTOS/FreeRTOS-Kernel/blob/main/MISRA.md#rule-84 */
+/* coverity[misra_c_2012_rule_8_4_violation] */
     void vTaskEnterCritical( void )
     {
         portDISABLE_INTERRUPTS();
@@ -6220,9 +6222,9 @@ static void prvResetNextTaskUnblockTime( void )
 
 #if ( configNUMBER_OF_CORES > 1 )
 
-    /* MISRA Ref 8.4.1 [Declaration shall be visible] */
-    /* More details at: https://github.com/FreeRTOS/FreeRTOS-Kernel/blob/main/MISRA.md#rule-84 */
-    /* coverity[misra_c_2012_rule_8_4_violation] */
+/* MISRA Ref 8.4.1 [Declaration shall be visible] */
+/* More details at: https://github.com/FreeRTOS/FreeRTOS-Kernel/blob/main/MISRA.md#rule-84 */
+/* coverity[misra_c_2012_rule_8_4_violation] */
     UBaseType_t vTaskEnterCriticalFromISR( void )
     {
         UBaseType_t uxSavedInterruptStatus = 0;
@@ -6292,9 +6294,9 @@ static void prvResetNextTaskUnblockTime( void )
 
 #if ( configNUMBER_OF_CORES > 1 )
 
-    /* MISRA Ref 8.4.1 [Declaration shall be visible] */
-    /* More details at: https://github.com/FreeRTOS/FreeRTOS-Kernel/blob/main/MISRA.md#rule-84 */
-    /* coverity[misra_c_2012_rule_8_4_violation] */
+/* MISRA Ref 8.4.1 [Declaration shall be visible] */
+/* More details at: https://github.com/FreeRTOS/FreeRTOS-Kernel/blob/main/MISRA.md#rule-84 */
+/* coverity[misra_c_2012_rule_8_4_violation] */
     void vTaskExitCritical( void )
     {
         if( xSchedulerRunning != pdFALSE )
@@ -6352,9 +6354,9 @@ static void prvResetNextTaskUnblockTime( void )
 
 #if ( configNUMBER_OF_CORES > 1 )
 
-    /* MISRA Ref 8.4.1 [Declaration shall be visible] */
-    /* More details at: https://github.com/FreeRTOS/FreeRTOS-Kernel/blob/main/MISRA.md#rule-84 */
-    /* coverity[misra_c_2012_rule_8_4_violation] */
+/* MISRA Ref 8.4.1 [Declaration shall be visible] */
+/* More details at: https://github.com/FreeRTOS/FreeRTOS-Kernel/blob/main/MISRA.md#rule-84 */
+/* coverity[misra_c_2012_rule_8_4_violation] */
     void vTaskExitCriticalFromISR( UBaseType_t uxSavedInterruptStatus )
     {
         BaseType_t xYieldCurrentTask;
