@@ -959,7 +959,7 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
                     if( pxTCB->xTaskRunState == taskTASK_NOT_RUNNING )
                     {
                         #if ( configUSE_CORE_AFFINITY == 1 )
-                            if( ( pxTCB->uxCoreAffinityMask & ( UBaseType_t ) ( 1U << ( UBaseType_t ) xCoreID ) ) != 0U )
+                            if( ( pxTCB->uxCoreAffinityMask & ( ( UBaseType_t ) 1U << ( UBaseType_t ) xCoreID ) ) != 0U )
                         #endif
                         {
                             /* If the task is not being executed by any core swap it in. */
@@ -1096,7 +1096,7 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
                                 xTaskPriority = xTaskPriority - ( BaseType_t ) 1;
                             }
 
-                            uxCoreMap &= ( UBaseType_t ) ~( 1U << uxCore );
+                            uxCoreMap &= ~( ( UBaseType_t ) 1U << uxCore );
 
                             if( ( xTaskPriority < xLowestPriority ) &&
                                 ( taskTASK_IS_RUNNING( pxCurrentTCBs[ uxCore ] ) ) &&
