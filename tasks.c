@@ -773,7 +773,7 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
         /* MISRA Ref 17.3.1 [Function shall not be declared implicitly] */
         /* More details at: https://github.com/FreeRTOS/FreeRTOS-Kernel/blob/main/MISRA.md#rule-173 */
         /* coverity[misra_c_2012_rule_17_3_violation] */
-        if( portCHECK_IF_IN_ISR() == pdTRUE && ( xCoreID == portGET_CORE_ID() ) )
+        if( portCHECK_IF_IN_ISR() && ( xCoreID == portGET_CORE_ID() ) )
         {
             xYieldPendings[ xCoreID ] = pdTRUE;
         }
