@@ -6188,7 +6188,10 @@ static void prvResetNextTaskUnblockTime( void )
 
     /* MISRA Ref 8.4.1 [Declaration shall be visible] */
     /* More details at: https://github.com/FreeRTOS/FreeRTOS-Kernel/blob/main/MISRA.md#rule-84 */
+    /* MISRA Ref 8.5.1 [External function shall be declared once.] */
+    /* More details at: https://github.com/FreeRTOS/FreeRTOS-Kernel/blob/main/MISRA.md#rule-85 */
     /* coverity[misra_c_2012_rule_8_4_violation] */
+    /* coverity[misra_c_2012_rule_8_5_violation] */
     void vTaskEnterCritical( void )
     {
         portDISABLE_INTERRUPTS();
