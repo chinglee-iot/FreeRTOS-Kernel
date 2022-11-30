@@ -31,6 +31,13 @@ _Ref 8.4.1_
 - MISRA C:2012 Rule 8.4: A compatible declaration shall be visible when an object or function with external linkage is defined.
         vTaskEnterCriticalFromISR()/vTaskExitCriticalFromISR are used at some ports.
         
+#### Rule 8.5
+
+_Ref 8.5.1_
+
+- MISRA C:2012 Rule 8.5: An external object or function shall be declared once in one and only one file.
+        This is false alarm, function is declared in header file correctly.
+        
 #### Rule 11.3
 
 _Ref 11.3.1_

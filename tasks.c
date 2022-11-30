@@ -694,10 +694,13 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
         /* More details at: https://github.com/FreeRTOS/FreeRTOS-Kernel/blob/main/MISRA.md#directive-46 */
         /* MISRA Ref 8.3.1 [Declarations shall be same] */
         /* More details at: https://github.com/FreeRTOS/FreeRTOS-Kernel/blob/main/MISRA.md#rule-83 */
+        /* MISRA Ref 8.5.1 [External function shall be declared once.] */
+        /* More details at: https://github.com/FreeRTOS/FreeRTOS-Kernel/blob/main/MISRA.md#rule-84 */
         /* MISRA Ref 17.3.1 [Function shall not be declared implicitly] */
         /* More details at: https://github.com/FreeRTOS/FreeRTOS-Kernel/blob/main/MISRA.md#rule-173 */
         /* coverity[misra_c_2012_directive_4_6_violation] */
         /* coverity[misra_c_2012_rule_8_3_violation] */
+        /* coverity[misra_c_2012_rule_8_5_violation] */
         /* coverity[misra_c_2012_rule_17_3_violation] */
         if( portCHECK_IF_IN_ISR() == pdFALSE )
         {
@@ -5770,6 +5773,9 @@ static void prvResetNextTaskUnblockTime( void )
             return xReturn;
         }
     #else /* #if ( configNUMBER_OF_CORES == 1 ) */
+        /* MISRA Ref 8.5.1 [External function shall be declared once.] */
+        /* More details at: https://github.com/FreeRTOS/FreeRTOS-Kernel/blob/main/MISRA.md#rule-84 */
+        /* coverity[misra_c_2012_rule_8_5_violation] */
         TaskHandle_t xTaskGetCurrentTaskHandle( void )
         {
             TaskHandle_t xReturn;
@@ -6118,6 +6124,9 @@ static void prvResetNextTaskUnblockTime( void )
  * Otherwise set xYieldPendings to true to wait to
  * yield until exiting the critical section.
  */
+/* MISRA Ref 8.5.1 [External function shall be declared once.] */
+/* More details at: https://github.com/FreeRTOS/FreeRTOS-Kernel/blob/main/MISRA.md#rule-84 */
+/* coverity[misra_c_2012_rule_8_5_violation] */
     void vTaskYieldWithinAPI( void )
     {
         if( portGET_CRITICAL_NESTING_COUNT() == 0U )
