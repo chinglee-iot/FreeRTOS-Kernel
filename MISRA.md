@@ -70,3 +70,10 @@ _Ref 17.3.2_
 - MISRA C:2012 Rule 17.3: A function shall not be declared implicitly.
         MISRA warns against the function declared implicitly. It's a false alarm that
         portGET_RUN_TIME_COUNTER_VALUE() is declared in portmacro.h correctly.
+        
+#### Rule 18.1
+
+_Ref 18.1.1_
+
+- MISRA C:2012 Rule 18.1: A pointer resulting from arithmetic on a pointer operand shall address an element of the same array as that pointer operand.
+        Loop breaks before index overrun.

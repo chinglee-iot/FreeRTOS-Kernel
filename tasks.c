@@ -3157,6 +3157,9 @@ static BaseType_t prvCreateIdleTasks( void )
 
             for( x = ( BaseType_t ) 0; x < ( BaseType_t ) configMAX_TASK_NAME_LEN; x++ )
             {
+                /* MISRA Ref 18.1.1 [Overrun] */
+                /* More details at: https://github.com/FreeRTOS/FreeRTOS-Kernel/blob/main/MISRA.md#rule-181 */
+                /* coverity[misra_c_2012_rule_18_1_violation] */
                 cIdleName[ x ] = configIDLE_TASK_NAME[ x ];
 
                 /* Don't copy all configMAX_TASK_NAME_LEN if the string is shorter than
