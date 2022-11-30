@@ -1,4 +1,4 @@
-# MISRA Compliance
+# MISRA Compliance (for configNUMBER_OF_CORES > 1)
 
 For now, FreeRTOS-Kernel only conforms [MISRA C:2012](https://www.misra.org.uk/MISRAHome/MISRAC2012/tabid/196/Default.aspx) guidelines in SMP part (configNUMBER_OF_CORES > 1), 
 with the deviations listed below. Compliance is checked with Coverity static analysis.
