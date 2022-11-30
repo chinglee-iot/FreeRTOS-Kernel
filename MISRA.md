@@ -45,6 +45,13 @@ _Ref 8.6.1_
 - MISRA C:2012 Rule 8.6: An identifier with external linkage shall have exactly one external definition.
         This is false alarm, function is declared in header file correctly.
         
+#### Rule 8.9
+
+_Ref 8.9.1_
+
+- MISRA C:2012 Rule 8.9: An object should be defined at block scope if its identifier only appears in a single function.
+        Maintain static variables at global view.
+        
 #### Rule 11.3
 
 _Ref 11.3.1_

@@ -430,6 +430,9 @@ PRIVILEGED_DATA static volatile BaseType_t xYieldPendings[ configNUMBER_OF_CORES
 PRIVILEGED_DATA static volatile BaseType_t xNumOfOverflows = ( BaseType_t ) 0;
 PRIVILEGED_DATA static UBaseType_t uxTaskNumber = ( UBaseType_t ) 0U;
 PRIVILEGED_DATA static volatile TickType_t xNextTaskUnblockTime = ( TickType_t ) 0U;      /* Initialised to portMAX_DELAY before the scheduler starts. */
+/* MISRA Ref 8.9.1 [Object in block scope] */
+/* More details at: https://github.com/FreeRTOS/FreeRTOS-Kernel/blob/main/MISRA.md#rule-89 */
+/* coverity[misra_c_2012_rule_8_9_violation] */
 PRIVILEGED_DATA static TaskHandle_t xIdleTaskHandles[ configNUMBER_OF_CORES ] = { /*< Holds the handles of the idle tasks.  The idle tasks are created automatically when the scheduler is started. */
     [0 ... configNUMBER_OF_CORES-1] = NULL,
 };
