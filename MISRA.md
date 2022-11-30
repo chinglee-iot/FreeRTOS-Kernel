@@ -38,6 +38,13 @@ _Ref 8.5.1_
 - MISRA C:2012 Rule 8.5: An external object or function shall be declared once in one and only one file.
         This is false alarm, function is declared in header file correctly.
         
+#### Rule 8.6
+
+_Ref 8.6.1_
+
+- MISRA C:2012 Rule 8.6: An identifier with external linkage shall have exactly one external definition.
+        This is false alarm, function is declared in header file correctly.
+        
 #### Rule 11.3
 
 _Ref 11.3.1_
