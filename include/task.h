@@ -85,6 +85,7 @@
  */
 struct tskTaskControlBlock; /* The old naming convention is used to prevent breaking kernel aware debuggers. */
 typedef struct tskTaskControlBlock * TaskHandle_t;
+typedef const struct tskTaskControlBlock * ConstTaskHandle_t;
 
 /*
  * Defines the prototype to which the application task hook function must
@@ -1363,7 +1364,7 @@ BaseType_t xTaskResumeFromISR( TaskHandle_t xTaskToResume ) PRIVILEGED_FUNCTION;
  *     }
  * }
  */
-    UBaseType_t vTaskCoreAffinityGet( const TaskHandle_t xTask );
+    UBaseType_t vTaskCoreAffinityGet( ConstTaskHandle_t xTask );
 #endif
 
 #if ( configUSE_TASK_PREEMPTION_DISABLE == 1 )
