@@ -49,6 +49,13 @@ _Ref 11.5.1_
 
 - MISRA C:2012 Rule 11.5: A conversion should not be performed from pointer to void into pointer to object.
         void * is used as this macro is used with timers and co-routines too.  Alignment is known to be fine as the type of the pointer stored and retrieved is the same.
+  
+#### Rule 14.3
+
+_Ref 14.3.1_
+
+- MISRA C:2012 Rule 14.3: Controlling expressions shall not be invariant.
+        The expression is variant with other configuration enabled.
         
 #### Rule 17.3
 

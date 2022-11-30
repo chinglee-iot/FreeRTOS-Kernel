@@ -880,6 +880,9 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
                 }
             }
 
+            /* MISRA Ref 14.3.1 [Expression shall not be invariant] */
+            /* More details at: https://github.com/FreeRTOS/FreeRTOS-Kernel/blob/main/MISRA.md#rule-143 */
+            /* coverity[misra_c_2012_rule_14_3_violation] */
             if( ( xYieldCount == 0 ) && taskVALID_CORE_ID( xLowestPriorityCore ) )
             {
                 prvYieldCore( xLowestPriorityCore );
