@@ -942,6 +942,9 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
 
                 for( pxIterator = listGET_HEAD_ENTRY( pxReadyList ); pxIterator != pxEndMarker; pxIterator = listGET_NEXT( pxIterator ) )
                 {
+                    /* MISRA Ref 11.5.1 [Cast to different type] */
+                    /* More details at: https://github.com/FreeRTOS/FreeRTOS-Kernel/blob/main/MISRA.md#rule-115 */
+                    /* coverity[misra_c_2012_rule_11_5_violation] */
                     TCB_t * pxTCB = listGET_LIST_ITEM_OWNER( pxIterator );
 
                     #if ( configRUN_MULTIPLE_PRIORITIES == 0 )
@@ -1305,6 +1308,9 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
             /* Allocate space for the TCB.  Where the memory comes from depends
              * on the implementation of the port malloc function and whether or
              * not static allocation is being used. */
+            /* MISRA Ref 11.5.1 [Cast to different type] */
+            /* More details at: https://github.com/FreeRTOS/FreeRTOS-Kernel/blob/main/MISRA.md#rule-115 */
+            /* coverity[misra_c_2012_rule_11_5_violation] */
             pxNewTCB = ( TCB_t * ) pvPortMalloc( sizeof( TCB_t ) );
 
             if( pxNewTCB != NULL )

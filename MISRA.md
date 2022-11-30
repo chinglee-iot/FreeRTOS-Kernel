@@ -42,6 +42,13 @@ _Ref 11.3.2_
 
 - MISRA C:2012 Rule 11.3: A cast shall not be performed between a pointer to object type and a pointer to a different object type.
         The mini list structure is used as the list end to save RAM.  This is checked and valid.
+  
+#### Rule 11.5
+
+_Ref 11.5.1_
+
+- MISRA C:2012 Rule 11.5: A conversion should not be performed from pointer to void into pointer to object.
+        void * is used as this macro is used with timers and co-routines too.  Alignment is known to be fine as the type of the pointer stored and retrieved is the same.
         
 #### Rule 17.3
 
