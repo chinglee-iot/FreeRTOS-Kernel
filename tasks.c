@@ -773,7 +773,7 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
         /* MISRA Ref 17.3.1 [Function shall not be declared implicitly] */
         /* More details at: https://github.com/FreeRTOS/FreeRTOS-Kernel/blob/main/MISRA.md#rule-173 */
         /* coverity[misra_c_2012_rule_17_3_violation] */
-        if( portCHECK_IF_IN_ISR() && ( xCoreID == portGET_CORE_ID() ) )
+        if( portCHECK_IF_IN_ISR() == pdTRUE && ( xCoreID == portGET_CORE_ID() ) )
         {
             xYieldPendings[ xCoreID ] = pdTRUE;
         }
@@ -840,7 +840,7 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
                     if( xCurrentCoreTaskPriority <= xLowestPriorityToPreempt )
                     {
                         #if ( configUSE_CORE_AFFINITY == 1 )
-                            if( ( pxTCB->uxCoreAffinityMask & ( 1 << xCoreID ) ) != 0 )
+                            if( ( pxTCB->uxCoreAffinityMask & ( 1U << ( UBaseType_t ) xCoreID ) ) != 0U )
                         #endif
                         {
                             #if ( configUSE_TASK_PREEMPTION_DISABLE == 1 )
@@ -959,7 +959,7 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
                     if( pxTCB->xTaskRunState == taskTASK_NOT_RUNNING )
                     {
                         #if ( configUSE_CORE_AFFINITY == 1 )
-                            if( ( pxTCB->uxCoreAffinityMask & ( 1 << xCoreID ) ) != 0 )
+                            if( ( pxTCB->uxCoreAffinityMask & ( 1U << ( UBaseType_t ) xCoreID ) ) != 0U )
                         #endif
                         {
                             /* If the task is not being executed by any core swap it in. */
@@ -977,7 +977,7 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
                         configASSERT( ( pxTCB->xTaskRunState == xCoreID ) || ( pxTCB->xTaskRunState == taskTASK_YIELDING ) );
 
                         #if ( configUSE_CORE_AFFINITY == 1 )
-                            if( ( pxTCB->uxCoreAffinityMask & ( 1 << xCoreID ) ) != 0 )
+                            if( ( pxTCB->uxCoreAffinityMask & ( 1U << ( UBaseType_t ) xCoreID ) ) != 0U )
                         #endif
                         {
                             /* The task is already running on this core, mark it as scheduled. */
@@ -1066,7 +1066,7 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
                         xLowestPriority = xLowestPriority - 1;
                     }
 
-                    if( ( uxCoreMap & ( 1 << xCoreID ) ) != 0 )
+                    if( ( uxCoreMap & ( 1U << ( UBaseType_t ) xCoreID ) ) != 0 )
                     {
                         /* The ready task that was removed from this core is not excluded from it.
                          * Only look at the intersection of the cores the removed task is allowed to run
@@ -1080,7 +1080,7 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
                         /* The ready task that was removed from this core is excluded from it. */
                     }
 
-                    uxCoreMap &= ( ( 1 << configNUMBER_OF_CORES ) - 1 );
+                    uxCoreMap &= ( ( 1U << configNUMBER_OF_CORES ) - 1U );
 
                     for( x = ( configNUMBER_OF_CORES - 1 ); x >= 0; x-- )
                     {
@@ -1096,7 +1096,7 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
                                 xTaskPriority = xTaskPriority - ( BaseType_t ) 1;
                             }
 
-                            uxCoreMap &= ~( 1 << uxCore );
+                            uxCoreMap &= ~( 1U << uxCore );
 
                             if( ( xTaskPriority < xLowestPriority ) &&
                                 ( taskTASK_IS_RUNNING( pxCurrentTCBs[ uxCore ] ) != pdFALSE ) &&
@@ -2574,7 +2574,7 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
 
                     /* If the task can no longer run on the core it was running,
                      * request the core to yield. */
-                    if( ( uxCoreAffinityMask & ( 1 << xCoreID ) ) == 0 )
+                    if( ( uxCoreAffinityMask & ( 1U << ( UBaseType_t ) xCoreID ) ) == 0U )
                     {
                         prvYieldCore( xCoreID );
                     }
