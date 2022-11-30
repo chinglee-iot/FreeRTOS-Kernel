@@ -31,6 +31,18 @@ _Ref 8.4.1_
 - MISRA C:2012 Rule 8.4: A compatible declaration shall be visible when an object or function with external linkage is defined.
         vTaskEnterCriticalFromISR()/vTaskExitCriticalFromISR are used at some ports.
         
+#### Rule 11.3
+
+_Ref 11.3.1_
+
+- MISRA C:2012 Rule 11.3: A cast shall not be performed between a pointer to object type and a pointer to a different object type.
+        Unusual cast is ok as the structures are designed to have the same alignment, this is checked by an assert.
+
+_Ref 11.3.2_
+
+- MISRA C:2012 Rule 11.3: A cast shall not be performed between a pointer to object type and a pointer to a different object type.
+        The mini list structure is used as the list end to save RAM.  This is checked and valid.
+        
 #### Rule 17.3
 
 _Ref 17.3.1_
