@@ -50,7 +50,7 @@ _Ref 8.6.1_
 _Ref 8.9.1_
 
 - MISRA C:2012 Rule 8.9: An object should be defined at block scope if its identifier only appears in a single function.
-        Maintain static variables at global view.
+        False alarm. This variable is actually used by several different functions.
         
 #### Rule 11.3
 
