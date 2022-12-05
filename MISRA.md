@@ -36,14 +36,14 @@ _Ref 8.4.1_
 _Ref 8.5.1_
 
 - MISRA C:2012 Rule 8.5: An external object or function shall be declared once in one and only one file.
-        This is false alarm, function is declared in header file correctly.
+        Function is declared in header file correctly. But the function name in task.h/tasks.c is different if portUSING_MPU_WRAPPERS enabled.
         
 #### Rule 8.6
 
 _Ref 8.6.1_
 
 - MISRA C:2012 Rule 8.6: An identifier with external linkage shall have exactly one external definition.
-        This is false alarm, function is declared in header file correctly.
+        Function is declared in header file correctly. But the function name in task.h/tasks.c is different if portUSING_MPU_WRAPPERS enabled.
         
 #### Rule 8.9
 
