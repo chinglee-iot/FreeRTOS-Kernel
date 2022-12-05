@@ -386,7 +386,7 @@ typedef tskTCB TCB_t;
     /* coverity[misra_c_2012_rule_8_4_violation] */
     portDONT_DISCARD PRIVILEGED_DATA TCB_t * volatile pxCurrentTCBs[ configNUMBER_OF_CORES ] =
     {
-        [ 0 ... configNUMBER_OF_CORES - 1 ] = NULL,
+        [ 0 ... ( configNUMBER_OF_CORES - 1 ) ] = NULL,
     };
     #define pxCurrentTCB    xTaskGetCurrentTaskHandle()
 #endif
@@ -436,7 +436,7 @@ PRIVILEGED_DATA static volatile TickType_t xNextTaskUnblockTime = ( TickType_t )
 /* coverity[misra_c_2012_rule_8_9_violation] */
 PRIVILEGED_DATA static TaskHandle_t xIdleTaskHandles[ configNUMBER_OF_CORES ] = /*< Holds the handles of the idle tasks.  The idle tasks are created automatically when the scheduler is started. */
 {
-    [ 0 ... configNUMBER_OF_CORES - 1 ] = NULL,
+    [ 0 ... ( configNUMBER_OF_CORES - 1 ) ] = NULL,
 };
 
 /* Improve support for OpenOCD. The kernel tracks Ready tasks via priority lists.
@@ -680,7 +680,7 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
 
 #if ( configUSE_MINIMAL_IDLE_HOOK == 1 )
     extern void vApplicationMinimalIdleHook( void );
-#endif /* ( configUSE_MINIMAL_IDLE_HOOK == 1 ) */
+#endif /* #if ( configUSE_MINIMAL_IDLE_HOOK == 1 ) */
 
 /*-----------------------------------------------------------*/
 
@@ -695,12 +695,6 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
          * core is no longer running, then vTaskSwitchContext() probably should
          * be run before returning, but we don't have a way to force that to happen
          * from here. */
-        /* MISRA Ref 4.6.1 [typedef indicates size and signedness] */
-        /* More details at: https://github.com/FreeRTOS/FreeRTOS-Kernel/blob/main/MISRA.md#directive-46 */
-        /* MISRA Ref 17.3.1 [Function shall not be declared implicitly] */
-        /* More details at: https://github.com/FreeRTOS/FreeRTOS-Kernel/blob/main/MISRA.md#rule-173 */
-        /* coverity[misra_c_2012_directive_4_6_violation] */
-        /* coverity[misra_c_2012_rule_17_3_violation] */
         if( portCHECK_IF_IN_ISR() == pdFALSE )
         {
             /* This function is always called with interrupts disabled
@@ -772,9 +766,6 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
     static void prvYieldCore( BaseType_t xCoreID )
     {
         /* This must be called from a critical section and xCoreID must be valid. */
-        /* MISRA Ref 17.3.1 [Function shall not be declared implicitly] */
-        /* More details at: https://github.com/FreeRTOS/FreeRTOS-Kernel/blob/main/MISRA.md#rule-173 */
-        /* coverity[misra_c_2012_rule_17_3_violation] */
         if( portCHECK_IF_IN_ISR() && ( xCoreID == portGET_CORE_ID() ) )
         {
             xYieldPendings[ xCoreID ] = pdTRUE;
@@ -837,7 +828,7 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
                     xCurrentCoreTaskPriority = xCurrentCoreTaskPriority - 1;
                 }
 
-                if( ( taskTASK_IS_RUNNING( pxCurrentTCBs[ xCoreID ] ) ) && ( xYieldPendings[ xCoreID ] == pdFALSE ) )
+                if( ( taskTASK_IS_RUNNING( pxCurrentTCBs[ xCoreID ] ) != pdFALSE ) && ( xYieldPendings[ xCoreID ] == pdFALSE ) )
                 {
                     if( xCurrentCoreTaskPriority <= xLowestPriorityToPreempt )
                     {
@@ -885,7 +876,7 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
             /* MISRA Ref 14.3.1 [Expression shall not be invariant] */
             /* More details at: https://github.com/FreeRTOS/FreeRTOS-Kernel/blob/main/MISRA.md#rule-143 */
             /* coverity[misra_c_2012_rule_14_3_violation] */
-            if( ( xYieldCount == 0 ) && taskVALID_CORE_ID( xLowestPriorityCore ) )
+            if( ( xYieldCount == 0 ) && ( taskVALID_CORE_ID( xLowestPriorityCore ) != pdFALSE ) )
             {
                 prvYieldCore( xLowestPriorityCore );
             }
@@ -1110,7 +1101,7 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
                             uxCoreMap &= ~( ( UBaseType_t ) 1U << uxCore );
 
                             if( ( xTaskPriority < xLowestPriority ) &&
-                                ( taskTASK_IS_RUNNING( pxCurrentTCBs[ uxCore ] ) ) &&
+                                ( taskTASK_IS_RUNNING( pxCurrentTCBs[ uxCore ] ) != pdFALSE ) &&
                                 ( xYieldPendings[ uxCore ] == pdFALSE ) )
                             {
                                 #if ( configUSE_TASK_PREEMPTION_DISABLE == 1 )
@@ -1124,7 +1115,7 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
                         }
                     }
 
-                    if( taskVALID_CORE_ID( xLowestPriorityCore ) )
+                    if( taskVALID_CORE_ID( xLowestPriorityCore ) != pdFALSE )
                     {
                         prvYieldCore( xLowestPriorityCore );
                     }
@@ -4576,9 +4567,6 @@ BaseType_t xTaskIncrementTick( void )
                     #ifdef portALT_GET_RUN_TIME_COUNTER_VALUE
                         portALT_GET_RUN_TIME_COUNTER_VALUE( ulTotalRunTime );
                     #else
-                        /* MISRA Ref 17.3.2 [Function shall not be declared implicitly] */
-                        /* More details at: https://github.com/FreeRTOS/FreeRTOS-Kernel/blob/main/MISRA.md#rule-173 */
-                        /* coverity[misra_c_2012_rule_17_3_violation] */
                         ulTotalRunTime = portGET_RUN_TIME_COUNTER_VALUE();
                     #endif
 
@@ -5796,7 +5784,7 @@ static void prvResetNextTaskUnblockTime( void )
         {
             TaskHandle_t xReturn = NULL;
 
-            if( taskVALID_CORE_ID( xCoreID ) )
+            if( taskVALID_CORE_ID( xCoreID ) != pdFALSE )
             {
                 xReturn = pxCurrentTCBs[ xCoreID ];
             }
@@ -7357,9 +7345,6 @@ TickType_t uxTaskResetEventItemValue( void )
         configRUN_TIME_COUNTER_TYPE ulRunTimeCounter = 0;
         BaseType_t i = 0;
 
-        /* MISRA Ref 17.3.2 [Function shall not be declared implicitly] */
-        /* More details at: https://github.com/FreeRTOS/FreeRTOS-Kernel/blob/main/MISRA.md#rule-173 */
-        /* coverity[misra_c_2012_rule_17_3_violation] */
         ulTotalTime = portGET_RUN_TIME_COUNTER_VALUE() * configNUMBER_OF_CORES;
 
         /* For percentage calculations. */
