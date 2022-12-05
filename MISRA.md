@@ -17,13 +17,6 @@ _Ref 4.6.1_
         MISRA warns against the use of basic numerical types. FreeRTOS-Kerenl 
         uses BaseType_t/UBaseType_t to represent signed/unsigned variables no matter it's 16 or 32 bits.
         
-#### Rule 8.3
-
-_Ref 8.3.1_
-
-- MISRA C:2012 Rule 8.3: All declarations of an object or functionn shall use the same names and type qualifiers.
-        It's a false alarm that portCHECK_IF_IN_ISR() is only declared in portmacro.h.
-        
 #### Rule 8.4
 
 _Ref 8.4.1_
@@ -70,27 +63,6 @@ _Ref 11.5.1_
 
 - MISRA C:2012 Rule 11.5: A conversion should not be performed from pointer to void into pointer to object.
         void * is used as this macro is used with timers and co-routines too.  Alignment is known to be fine as the type of the pointer stored and retrieved is the same.
-  
-#### Rule 14.3
-
-_Ref 14.3.1_
-
-- MISRA C:2012 Rule 14.3: Controlling expressions shall not be invariant.
-        The expression is variant with other configuration enabled.
-        
-#### Rule 17.3
-
-_Ref 17.3.1_
-
-- MISRA C:2012 Rule 17.3: A function shall not be declared implicitly.
-        MISRA warns against the function declared implicitly. It's a false alarm that
-        portCHECK_IF_IN_ISR() is declared in portmacro.h correctly.
-
-_Ref 17.3.2_
-
-- MISRA C:2012 Rule 17.3: A function shall not be declared implicitly.
-        MISRA warns against the function declared implicitly. It's a false alarm that
-        portGET_RUN_TIME_COUNTER_VALUE() is declared in portmacro.h correctly.
         
 #### Rule 18.1
 

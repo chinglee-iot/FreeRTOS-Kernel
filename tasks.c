@@ -796,8 +796,10 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
         BaseType_t xLowestPriorityToPreempt;
         BaseType_t xCurrentCoreTaskPriority;
         BaseType_t xLowestPriorityCore = ( BaseType_t ) -1;
-        BaseType_t xYieldCount = 0;
         BaseType_t xCoreID;
+        #if ( configRUN_MULTIPLE_PRIORITIES == 0 )
+            BaseType_t xYieldCount = 0;
+        #endif /* #if ( configRUN_MULTIPLE_PRIORITIES == 0 ) */
 
         /* This must be called from a critical section. */
         configASSERT( portGET_CRITICAL_NESTING_COUNT() > 0U );
@@ -873,10 +875,11 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
                 }
             }
 
-            /* MISRA Ref 14.3.1 [Expression shall not be invariant] */
-            /* More details at: https://github.com/FreeRTOS/FreeRTOS-Kernel/blob/main/MISRA.md#rule-143 */
-            /* coverity[misra_c_2012_rule_14_3_violation] */
-            if( ( xYieldCount == 0 ) && ( taskVALID_CORE_ID( xLowestPriorityCore ) != pdFALSE ) )
+            #if ( configRUN_MULTIPLE_PRIORITIES == 0 )
+                if( ( xYieldCount == 0 ) && ( taskVALID_CORE_ID( xLowestPriorityCore ) != pdFALSE ) )
+            #else /* #if ( configRUN_MULTIPLE_PRIORITIES == 0 ) */
+                if( taskVALID_CORE_ID( xLowestPriorityCore ) != pdFALSE )
+            #endif /* #if ( configRUN_MULTIPLE_PRIORITIES == 0 ) */
             {
                 prvYieldCore( xLowestPriorityCore );
             }
