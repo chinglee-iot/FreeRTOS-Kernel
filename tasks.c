@@ -782,6 +782,7 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
         BaseType_t xLowestPriorityCore = ( BaseType_t ) -1;
         BaseType_t xYieldCount = 0;
         BaseType_t xCoreID;
+        BaseType_t xTaskIsIdle = pdFALSE;
 
         /* This must be called from a critical section. */
         configASSERT( portGET_CRITICAL_NESTING_COUNT() > 0U );
@@ -809,7 +810,12 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
                 /* System idle tasks are being assigned a priority of tskIDLE_PRIORITY - 1 here. */
                 if( ( pxCurrentTCBs[ xCoreID ]->uxTaskAttributes & taskATTRIBUTE_IS_IDLE ) != 0 )
                 {
+                    xTaskIsIdle = pdTRUE;
                     xCurrentCoreTaskPriority = xCurrentCoreTaskPriority - 1;
+                }
+                else
+                {
+                    xTaskIsIdle = pdFALSE;
                 }
 
                 if( ( taskTASK_IS_RUNNING( pxCurrentTCBs[ xCoreID ] ) != pdFALSE ) && ( xYieldPendings[ xCoreID ] == pdFALSE ) )
@@ -859,6 +865,45 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
 
             if( ( xYieldCount == 0 ) && taskVALID_CORE_ID( xLowestPriorityCore ) )
             {
+                BaseType_t xYieldPriority = pxCurrentTCBs[ xLowestPriorityCore ]->uxPriority;
+                List_t * const pxReadyList = &( pxReadyTasksLists[ xYieldPriority ] );
+                const ListItem_t * pxEndMarker = listGET_END_MARKER( pxReadyList );
+                ListItem_t * pxIterator;
+
+                for( pxIterator = listGET_HEAD_ENTRY( pxReadyList ); pxIterator != pxEndMarker; pxIterator = listGET_NEXT( pxIterator ) )
+                {
+                    TCB_t * pxTCB = listGET_LIST_ITEM_OWNER( pxIterator );
+
+                    /* Find the first running task in the ready list. */
+                    if( taskTASK_IS_RUNNING( pxTCB ) == pdTRUE )
+                    {
+                        #if ( configUSE_CORE_AFFINITY == 1 )
+                            if( ( pxTCB->uxCoreAffinityMask & ( 1 << xCoreID ) ) != 0 )
+                        #endif
+                        {
+                            #if ( configUSE_TASK_PREEMPTION_DISABLE == 1 )
+                                if( pxTCB->xPreemptionDisable == pdFALSE )
+                            #endif
+                            {
+                                if( xTaskIsIdle == pdTRUE )
+                                {
+                                    if( pxTCB->uxTaskAttributes & taskATTRIBUTE_IS_IDLE )
+                                    {
+                                        xLowestPriorityCore = pxTCB->xTaskRunState;
+                                        break;
+                                    }
+                                }
+                                else
+                                {
+                                    xLowestPriorityCore = pxTCB->xTaskRunState;
+                                    break;
+                                }
+                            }
+                        }
+                        break;
+                    }
+                }
+
                 prvYieldCore( xLowestPriorityCore );
             }
 
@@ -889,6 +934,15 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
         #if ( configRUN_MULTIPLE_PRIORITIES == 0 )
             BaseType_t xPriorityDropped = pdFALSE;
         #endif
+
+        /* If this task is yielding itself, it is still on the ready list.
+         * We need to put it to the end of the list. */
+        if( listIS_CONTAINED_WITHIN( &( pxReadyTasksLists[ pxCurrentTCBs[ xCoreID ]->uxPriority ] ),
+            &pxCurrentTCBs[ xCoreID ]->xStateListItem ) == pdTRUE )
+        {
+            uxListRemove( &pxCurrentTCBs[ xCoreID ]->xStateListItem );
+            prvAddTaskToReadyList( pxCurrentTCBs[ xCoreID ] );
+        }
 
         while( xTaskScheduled == pdFALSE )
         {
@@ -4212,14 +4266,70 @@ BaseType_t xTaskIncrementTick( void )
                 {
                     for( x = ( ( UBaseType_t ) 0 ); x < ( ( UBaseType_t ) configNUMBER_OF_CORES ); x++ )
                     {
-                        if( listCURRENT_LIST_LENGTH( &( pxReadyTasksLists[ pxCurrentTCBs[ x ]->uxPriority ] ) ) > ( UBaseType_t ) 1 )
+                        #if ( configUSE_CORE_AFFINITY == 0 )
                         {
-                            xYieldRequiredForCore[ x ] = pdTRUE;
+                            if( xYieldRequiredForCore[ x ] != pdTRUE )
+                            {
+                                UBaseType_t xRunningTaskPriority = pxCurrentTCBs[ x ]->uxPriority;
+                                List_t * const pxReadyList = &( pxReadyTasksLists[ xRunningTaskPriority ] );
+                                const ListItem_t * pxEndMarker = listGET_END_MARKER( pxReadyList );
+                                ListItem_t * pxIterator;
+                                UBaseType_t uxNumRunningTask = 0U;
+                                UBaseType_t uxNumReadyTask = listCURRENT_LIST_LENGTH( &( pxReadyTasksLists[ xRunningTaskPriority ] ) );
+                                UBaseType_t uxNumTaskToYield;
+                                UBaseType_t xRunningCoreID;
+
+                                /* Find out the number running task with this priority. */
+                                for( xRunningCoreID = ( ( UBaseType_t ) 0 ); x < ( ( UBaseType_t ) configNUMBER_OF_CORES ); x++ )
+                                {
+                                    if( pxCurrentTCBs[ xRunningCoreID ]->uxPriority == xRunningTaskPriority )
+                                    {
+                                        if( taskTASK_IS_RUNNING( pxCurrentTCBs[ xRunningCoreID ] ) == pdTRUE )
+                                        {
+                                            uxNumRunningTask++;
+                                        }
+                                    }
+                                }
+                                uxNumTaskToYield = uxNumReadyTask - uxNumRunningTask;
+
+                                if( uxNumTaskToYield > 0 )
+                                {
+                                    /* Yield the first uxNumTaskToYield number of tasks in the ready list. */
+                                    for( pxIterator = listGET_HEAD_ENTRY( pxReadyList ); pxIterator != pxEndMarker; pxIterator = listGET_NEXT( pxIterator ) )
+                                    {
+                                        TCB_t * pxTCB = listGET_LIST_ITEM_OWNER( pxIterator );
+
+                                        if( taskTASK_IS_RUNNING( pxTCB ) == pdTRUE )
+                                        {
+                                            #if ( configUSE_TASK_PREEMPTION_DISABLE == 1 )
+                                                if( pxTCB->xPreemptionDisable == pdFALSE )
+                                            #endif
+                                            {
+                                                xYieldRequiredForCore[ pxTCB->xTaskRunState ] = pdTRUE;
+                                                uxNumTaskToYield--;
+                                            }
+                                        }
+
+                                        if( uxNumTaskToYield == 0 )
+                                        {
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
                         }
-                        else
+                        #else
                         {
-                            mtCOVERAGE_TEST_MARKER();
+                            if( listCURRENT_LIST_LENGTH( &( pxReadyTasksLists[ pxCurrentTCBs[ x ]->uxPriority ] ) ) > ( UBaseType_t ) 1 )
+                            {
+                                xYieldRequiredForCore[ x ] = pdTRUE;
+                            }
+                            else
+                            {
+                                mtCOVERAGE_TEST_MARKER();
+                            }
                         }
+                        #endif
                     }
                 }
                 #endif /* #if ( configNUMBER_OF_CORES == 1 ) */
