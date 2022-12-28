@@ -7,15 +7,8 @@ with the deviations listed below. Compliance is checked with Coverity static ana
 To find the violation references in the source files run grep on the source code
 with ( Assuming rule 4.6 violation; with justification in point 1 ):
 ```
-grep 'MISRA Ref 4.6.1' . -rI
+grep 'MISRA Ref 8.4.1' . -rI
 ```
-#### Directive 4.6
-
-_Ref 4.6.1_
-
-- MISRA C:2012 Directive 4.6: typedef that indicate size and signedness should be used in place of the basic numerical types.
-        MISRA warns against the use of basic numerical types. FreeRTOS-Kerenl 
-        uses BaseType_t/UBaseType_t to represent signed/unsigned variables no matter it's 16 or 32 bits.
         
 #### Rule 8.4
 
