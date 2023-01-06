@@ -1824,7 +1824,8 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB )
 
     void vTaskResume( TaskHandle_t xTaskToResume )
     {
-        TCB_t * const pxTCB = xTaskToResume;
+        TCB_t * pxTCB = NULL;
+        pxTCB = xTaskToResume;
 
         /* It does not make sense to resume the calling task. */
         configASSERT( xTaskToResume );
