@@ -5010,8 +5010,8 @@ void vTaskMissedYield( void )
 
             /* Code below here allows additional code to be inserted into idle task
              * function, especially for loop controlling (for example when performing
-             * unit tests) */
-            portIDLE_TASK_HOOK();
+             * unit tests). */
+            configIDLE_TASK_HOOK();
         }
     }
 #endif /* #if ( configNUMBER_OF_CORES > 1 ) */
@@ -5168,8 +5168,8 @@ static portTASK_FUNCTION( prvIdleTask, pvParameters )
 
         /* Code below here allows additional code to be inserted into idle task
          * function, especially for loop controlling (for example when performing
-         * unit tests) */
-        portIDLE_TASK_HOOK();
+         * unit tests). */
+        configIDLE_TASK_HOOK();
     }
 }
 /*-----------------------------------------------------------*/
