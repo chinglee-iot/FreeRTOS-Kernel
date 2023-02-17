@@ -1268,8 +1268,8 @@
     #define configRUN_ADDITIONAL_TESTS    0
 #endif
 
-#ifndef portIDLE_TASK_TEST_MOCK
-    #define portIDLE_TASK_TEST_MOCK()
+#ifndef portIDLE_TASK_HOOK
+    #define portIDLE_TASK_HOOK()
 #endif
 
 /* Sometimes the FreeRTOSConfig.h settings only allow a task to be created using
