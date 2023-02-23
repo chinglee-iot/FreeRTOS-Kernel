@@ -287,7 +287,7 @@ typedef BaseType_t TaskRunning_t;
     #define portDECREMENT_CRITICAL_NESTING_COUNT()    ( pxCurrentTCBs[ portGET_CORE_ID() ]->uxCriticalNesting-- )
 #endif /* #if ( ( configNUMBER_OF_CORES > 1 ) && ( portCRITICAL_NESTING_IN_TCB == 1 ) ) */
 
-/* Code below here allows infinit loop controlling, especially for the infinite loop
+/* Code below here allows infinite loop controlling, especially for the infinite loop
  * in idle task function. (for example when performing unit tests). */
 #ifndef INFINITE_LOOP
     #define INFINITE_LOOP()  1
