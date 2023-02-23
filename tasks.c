@@ -289,8 +289,8 @@ typedef BaseType_t TaskRunning_t;
 
 /* Code below here allows infinit loop controlling, especially for the infinite loop
  * in idle task function. (for example when performing unit tests). */
-#ifndef INFINIT_LOOP
-    #define INFINIT_LOOP()  1
+#ifndef INFINITE_LOOP
+    #define INFINITE_LOOP()  1
 #endif
 
 /*
@@ -4963,7 +4963,7 @@ void vTaskMissedYield( void )
 
         taskYIELD();
 
-        while( INFINIT_LOOP() )
+        while( INFINITE_LOOP() )
         {
             #if ( configUSE_PREEMPTION == 0 )
             {
@@ -5049,7 +5049,7 @@ static portTASK_FUNCTION( prvIdleTask, pvParameters )
     }
     #endif /* #if ( configNUMBER_OF_CORES > 1 ) */
 
-    while( INFINIT_LOOP() )
+    while( INFINITE_LOOP() )
     {
         /* See if any tasks have deleted themselves - if so then the idle task
          * is responsible for freeing the deleted task's TCB and stack. */
