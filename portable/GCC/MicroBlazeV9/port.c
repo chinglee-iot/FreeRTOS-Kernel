@@ -448,7 +448,7 @@ extern void vApplicationClearTimerInterrupt( void );
 	/*
 	 * The Xilinx implementation of generating run time task stats uses the same timer used for generating
 	 * FreeRTOS ticks. In case user decides to generate run time stats the tick handler is called more
-	 * frequently (10 times faster). The timer/tick handler uses logic to handle the same. It handles
+	 * frequently (10 times faster). The timer    ick handler uses logic to handle the same. It handles
 	 * the FreeRTOS tick once per 10 interrupts.
 	 * For handling generation of run time stats, it increments a pre-defined counter every time the
 	 * interrupt handler executes.
