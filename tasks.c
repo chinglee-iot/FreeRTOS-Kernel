@@ -5630,7 +5630,7 @@ static void prvCheckTasksWaitingTermination( void )
         #if ( ( configUSE_NEWLIB_REENTRANT == 1 ) || ( configUSE_C_RUNTIME_TLS_SUPPORT == 1 ) )
         {
             /* Free up the memory allocated for the task's TLS Block. */
-            configDEINIT_TLS_BLOCK( pxCurrentTCB->xTLSBlock );
+            configDEINIT_TLS_BLOCK( pxTCB->xTLSBlock );
         }
         #endif
 
@@ -6304,7 +6304,7 @@ static void prvResetNextTaskUnblockTime( void )
                      * if so yield. */
                     if( xYieldCurrentTask != pdFALSE )
                     {
-                        portYIELD();
+                        portYIELD_FROM_ISR();
                     }
                 }
                 else
