@@ -460,8 +460,8 @@ PRIVILEGED_DATA static volatile UBaseType_t uxSchedulerSuspended = ( UBaseType_t
 
 /* Do not move these variables to function scope as doing so prevents the
  * code working with debuggers that need to remove the static qualifier. */
-    PRIVILEGED_DATA static configRUN_TIME_COUNTER_TYPE ulTaskSwitchedInTime = 0UL;    /**< Holds the value of a timer/counter the last time a task was switched in. */
-    PRIVILEGED_DATA static volatile configRUN_TIME_COUNTER_TYPE ulTotalRunTime = 0UL; /**< Holds the total amount of execution time as defined by the run time counter clock. */
+    PRIVILEGED_DATA static configRUN_TIME_COUNTER_TYPE ulTaskSwitchedInTime[ configNUM_CORES ] = { 0UL };    /**< Holds the value of a timer/counter the last time a task was switched in. */
+    PRIVILEGED_DATA static volatile configRUN_TIME_COUNTER_TYPE ulTotalRunTime[ configNUM_CORES ] = { 0UL }; /**< Holds the total amount of execution time as defined by the run time counter clock. */
 
 #endif
 
@@ -745,7 +745,6 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
                 if( uxPrevCriticalNesting == 0U )
                 {
                     /* uxPrevSchedulerSuspended must be 1. */
-                    configASSERT( uxPrevSchedulerSuspended != ( UBaseType_t ) pdFALSE );
                     portRELEASE_ISR_LOCK();
                 }
             }
@@ -862,7 +861,7 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
                 }
             }
 
-            if( ( xYieldCount == 0 ) && ( taskVALID_CORE_ID( xLowestPriorityCore ) == pdTRUE ) )
+            if( ( xYieldCount == 0 ) && ( xLowestPriorityCore >= 0 ) )
             {
                 prvYieldCore( xLowestPriorityCore );
             }
@@ -3671,71 +3670,137 @@ char * pcTaskGetName( TaskHandle_t xTaskToQuery ) /*lint !e971 Unqualified char 
 
 #if ( INCLUDE_xTaskGetHandle == 1 )
 
-    static TCB_t * prvSearchForNameWithinSingleList( List_t * pxList,
-                                                     const char pcNameToQuery[] )
-    {
-        TCB_t * pxNextTCB;
-        TCB_t * pxFirstTCB;
-        TCB_t * pxReturn = NULL;
-        UBaseType_t x;
-        char cNextChar;
-        BaseType_t xBreakLoop;
-
-        /* This function is called with the scheduler suspended. */
-
-        if( listCURRENT_LIST_LENGTH( pxList ) > ( UBaseType_t ) 0 )
+    #if ( configNUMBER_OF_CORES == 1 )
+        static TCB_t * prvSearchForNameWithinSingleList( List_t * pxList,
+                                                         const char pcNameToQuery[] )
         {
-            listGET_OWNER_OF_NEXT_ENTRY( pxFirstTCB, pxList ); /*lint !e9079 void * is used as this macro is used with timers too.  Alignment is known to be fine as the type of the pointer stored and retrieved is the same. */
+            TCB_t * pxNextTCB;
+            TCB_t * pxFirstTCB;
+            TCB_t * pxReturn = NULL;
+            UBaseType_t x;
+            char cNextChar;
+            BaseType_t xBreakLoop;
 
-            do
+            /* This function is called with the scheduler suspended. */
+
+            if( listCURRENT_LIST_LENGTH( pxList ) > ( UBaseType_t ) 0 )
             {
-                listGET_OWNER_OF_NEXT_ENTRY( pxNextTCB, pxList ); /*lint !e9079 void * is used as this macro is used with timers too.  Alignment is known to be fine as the type of the pointer stored and retrieved is the same. */
+                listGET_OWNER_OF_NEXT_ENTRY( pxFirstTCB, pxList ); /*lint !e9079 void * is used as this macro is used with timers too.  Alignment is known to be fine as the type of the pointer stored and retrieved is the same. */
 
-                /* Check each character in the name looking for a match or
-                 * mismatch. */
-                xBreakLoop = pdFALSE;
-
-                for( x = ( UBaseType_t ) 0; x < ( UBaseType_t ) configMAX_TASK_NAME_LEN; x++ )
+                do
                 {
-                    cNextChar = pxNextTCB->pcTaskName[ x ];
+                    listGET_OWNER_OF_NEXT_ENTRY( pxNextTCB, pxList ); /*lint !e9079 void * is used as this macro is used with timers too.  Alignment is known to be fine as the type of the pointer stored and retrieved is the same. */
 
-                    if( cNextChar != pcNameToQuery[ x ] )
+                    /* Check each character in the name looking for a match or
+                     * mismatch. */
+                    xBreakLoop = pdFALSE;
+
+                    for( x = ( UBaseType_t ) 0; x < ( UBaseType_t ) configMAX_TASK_NAME_LEN; x++ )
                     {
-                        /* Characters didn't match. */
-                        xBreakLoop = pdTRUE;
-                    }
-                    else if( cNextChar == ( char ) 0x00 )
-                    {
-                        /* Both strings terminated, a match must have been
-                         * found. */
-                        pxReturn = pxNextTCB;
-                        xBreakLoop = pdTRUE;
-                    }
-                    else
-                    {
-                        mtCOVERAGE_TEST_MARKER();
+                        cNextChar = pxNextTCB->pcTaskName[ x ];
+
+                        if( cNextChar != pcNameToQuery[ x ] )
+                        {
+                            /* Characters didn't match. */
+                            xBreakLoop = pdTRUE;
+                        }
+                        else if( cNextChar == ( char ) 0x00 )
+                        {
+                            /* Both strings terminated, a match must have been
+                             * found. */
+                            pxReturn = pxNextTCB;
+                            xBreakLoop = pdTRUE;
+                        }
+                        else
+                        {
+                            mtCOVERAGE_TEST_MARKER();
+                        }
+
+                        if( xBreakLoop != pdFALSE )
+                        {
+                            break;
+                        }
                     }
 
-                    if( xBreakLoop != pdFALSE )
+                    if( pxReturn != NULL )
                     {
+                        /* The handle has been found. */
+                        break;
+                    }
+                } while( pxNextTCB != pxFirstTCB );
+            }
+            else
+            {
+                mtCOVERAGE_TEST_MARKER();
+            }
+
+            return pxReturn;
+        }
+    #else
+        static TCB_t * prvSearchForNameWithinSingleList( List_t * pxList,
+                                                         const char pcNameToQuery[] )
+        {
+            TCB_t * pxReturn = NULL;
+            UBaseType_t x;
+            char cNextChar;
+            BaseType_t xBreakLoop;
+            const ListItem_t * pxEndMarker = listGET_END_MARKER( pxList );
+            ListItem_t * pxIterator;
+
+            /* This function is called with the scheduler suspended. */
+
+            if( listCURRENT_LIST_LENGTH( pxList ) > ( UBaseType_t ) 0 )
+            {
+                for( pxIterator = listGET_HEAD_ENTRY( pxList ); pxIterator != pxEndMarker; pxIterator = listGET_NEXT( pxIterator ) )
+                {
+                    TCB_t * pxTCB = listGET_LIST_ITEM_OWNER( pxIterator );
+
+                    /* Check each character in the name looking for a match or
+                     * mismatch. */
+                    xBreakLoop = pdFALSE;
+
+                    for( x = ( UBaseType_t ) 0; x < ( UBaseType_t ) configMAX_TASK_NAME_LEN; x++ )
+                    {
+                        cNextChar = pxTCB->pcTaskName[ x ];
+
+                        if( cNextChar != pcNameToQuery[ x ] )
+                        {
+                            /* Characters didn't match. */
+                            xBreakLoop = pdTRUE;
+                        }
+                        else if( cNextChar == ( char ) 0x00 )
+                        {
+                            /* Both strings terminated, a match must have been
+                             * found. */
+                            pxReturn = pxTCB;
+                            xBreakLoop = pdTRUE;
+                        }
+                        else
+                        {
+                            mtCOVERAGE_TEST_MARKER();
+                        }
+
+                        if( xBreakLoop != pdFALSE )
+                        {
+                            break;
+                        }
+                    }
+
+                    if( pxReturn != NULL )
+                    {
+                        /* The handle has been found. */
                         break;
                     }
                 }
+            }
+            else
+            {
+                mtCOVERAGE_TEST_MARKER();
+            }
 
-                if( pxReturn != NULL )
-                {
-                    /* The handle has been found. */
-                    break;
-                }
-            } while( pxNextTCB != pxFirstTCB );
+            return pxReturn;
         }
-        else
-        {
-            mtCOVERAGE_TEST_MARKER();
-        }
-
-        return pxReturn;
-    }
+    #endif /* #if ( configNUMBER_OF_CORES == 1 ) */
 
 #endif /* INCLUDE_xTaskGetHandle */
 /*-----------------------------------------------------------*/
@@ -4562,9 +4627,9 @@ BaseType_t xTaskIncrementTick( void )
                 #if ( configGENERATE_RUN_TIME_STATS == 1 )
                 {
                     #ifdef portALT_GET_RUN_TIME_COUNTER_VALUE
-                        portALT_GET_RUN_TIME_COUNTER_VALUE( ulTotalRunTime );
+                        portALT_GET_RUN_TIME_COUNTER_VALUE( ulTotalRunTime[ xCoreID ] );
                     #else
-                        ulTotalRunTime = portGET_RUN_TIME_COUNTER_VALUE();
+                        ulTotalRunTime[ xCoreID ] = portGET_RUN_TIME_COUNTER_VALUE();
                     #endif
 
                     /* Add the amount of time the task has been running to the
@@ -4574,16 +4639,16 @@ BaseType_t xTaskIncrementTick( void )
                      * overflows.  The guard against negative values is to protect
                      * against suspect run time stat counter implementations - which
                      * are provided by the application, not the kernel. */
-                    if( ulTotalRunTime > ulTaskSwitchedInTime )
+                    if( ulTotalRunTime[ xCoreID ] > ulTaskSwitchedInTime[ xCoreID ] )
                     {
-                        pxCurrentTCB->ulRunTimeCounter += ( ulTotalRunTime - ulTaskSwitchedInTime );
+                        pxCurrentTCB->ulRunTimeCounter += ( ulTotalRunTime[ xCoreID ] - ulTaskSwitchedInTime[ xCoreID ] );
                     }
                     else
                     {
                         mtCOVERAGE_TEST_MARKER();
                     }
 
-                    ulTaskSwitchedInTime = ulTotalRunTime;
+                    ulTaskSwitchedInTime[ xCoreID ] = ulTotalRunTime[ xCoreID ];
                 }
                 #endif /* configGENERATE_RUN_TIME_STATS */
 
@@ -5677,7 +5742,7 @@ static void prvCheckTasksWaitingTermination( void )
         #if ( configUSE_C_RUNTIME_TLS_SUPPORT == 1 )
         {
             /* Free up the memory allocated for the task's TLS Block. */
-            configDEINIT_TLS_BLOCK( pxCurrentTCB->xTLSBlock );
+            configDEINIT_TLS_BLOCK( pxTCB->xTLSBlock );
         }
         #endif
 
@@ -5870,6 +5935,16 @@ static void prvResetNextTaskUnblockTime( void )
                     /* Inherit the priority before being moved into the new list. */
                     pxMutexHolderTCB->uxPriority = pxCurrentTCB->uxPriority;
                     prvAddTaskToReadyList( pxMutexHolderTCB );
+                    #if ( configNUMBER_OF_CORES > 1 )
+                    {
+                        /* The priority of the task is raised. Yield for this task
+                         * if it is not running. */
+                        if( taskTASK_IS_RUNNING( pxMutexHolderTCB ) != pdTRUE )
+                        {
+                            prvYieldForTask( pxMutexHolderTCB );
+                        }
+                    }
+                    #endif /* if ( configNUMBER_OF_CORES > 1 ) */
                 }
                 else
                 {
@@ -5960,6 +6035,16 @@ static void prvResetNextTaskUnblockTime( void )
                      * running to give back the mutex. */
                     listSET_LIST_ITEM_VALUE( &( pxTCB->xEventListItem ), ( TickType_t ) configMAX_PRIORITIES - ( TickType_t ) pxTCB->uxPriority ); /*lint !e961 MISRA exception as the casts are only redundant for some ports. */
                     prvAddTaskToReadyList( pxTCB );
+                    #if ( configNUMBER_OF_CORES > 1 )
+                    {
+                        /* The priority of the task is dropped. Yield the core on
+                         * which the task is running. */
+                        if( taskTASK_IS_RUNNING( pxTCB ) == pdTRUE )
+                        {
+                            prvYieldCore( pxTCB->xTaskRunState );
+                        }
+                    }
+                    #endif /* if ( configNUMBER_OF_CORES > 1 ) */
 
                     /* Return true to indicate that a context switch is required.
                      * This is only actually required in the corner case whereby
@@ -6073,6 +6158,16 @@ static void prvResetNextTaskUnblockTime( void )
                         }
 
                         prvAddTaskToReadyList( pxTCB );
+                        #if ( configNUMBER_OF_CORES > 1 )
+                        {
+                            /* The priority of the task is dropped. Yield the core on
+                             * which the task is running. */
+                            if( taskTASK_IS_RUNNING( pxTCB ) == pdTRUE )
+                            {
+                                prvYieldCore( pxTCB->xTaskRunState );
+                            }
+                        }
+                        #endif /* if ( configNUMBER_OF_CORES > 1 ) */
                     }
                     else
                     {
@@ -6325,8 +6420,6 @@ static void prvResetNextTaskUnblockTime( void )
 
     void vTaskExitCriticalFromISR( portBASE_TYPE xSavedInterruptStatus )
     {
-        BaseType_t xYieldCurrentTask;
-
         if( xSchedulerRunning != pdFALSE )
         {
             /* If critical nesting count is zero then this function
@@ -6339,20 +6432,8 @@ static void prvResetNextTaskUnblockTime( void )
 
                 if( portGET_CRITICAL_NESTING_COUNT() == 0U )
                 {
-                    /* Get the xYieldPending stats inside the critical section. */
-                    xYieldCurrentTask = xYieldPendings[ portGET_CORE_ID() ];
-
                     portRELEASE_ISR_LOCK();
                     portCLEAR_INTERRUPT_MASK_FROM_ISR( xSavedInterruptStatus );
-
-                    /* When a task yields in a critical section it just sets
-                     * xYieldPending to true. So now that we have exited the
-                     * critical section check if xYieldPending is true, and
-                     * if so yield. */
-                    if( xYieldCurrentTask != pdFALSE )
-                    {
-                        portYIELD();
-                    }
                 }
                 else
                 {
