@@ -26,6 +26,8 @@ typedef double portDOUBLE;
 typedef int32_t BaseType_t;
 typedef uint32_t UBaseType_t;
 
+#define portBASE_TYPE   BaseType_t
+
 #if( configUSE_16_BIT_TICKS == 1 )
 	typedef uint16_t TickType_t;
 	#define portMAX_DELAY ( TickType_t ) 0xffff
@@ -164,7 +166,7 @@ void vTaskExitCritical(void);
 #define portEXIT_CRITICAL()                    vTaskExitCritical()
 
 extern UBaseType_t vTaskEnterCriticalFromISR( void );
-extern void vTaskExitCriticalFromISR( UBaseType_t uxSavedInterruptStatus );
+extern void vTaskExitCriticalFromISR( BaseType_t xSavedInterruptStatus );
 #define portENTER_CRITICAL_FROM_ISR             vTaskEnterCriticalFromISR
 #define portEXIT_CRITICAL_FROM_ISR              vTaskExitCriticalFromISR
 
