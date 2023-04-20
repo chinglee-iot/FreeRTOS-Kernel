@@ -1012,7 +1012,8 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
 
             /* There are configNUMBER_OF_CORES Idle tasks created when scheduler started.
              * The scheduler should be able to select a task to run when uxCurrentPriority
-             * is tskIDLE_PRIORITY. */
+             * is tskIDLE_PRIORITY. uxCurrentPriority is never decreased to value blow
+             * tskIDLE_PRIORITY. */
             uxCurrentPriority--;
         }
 
