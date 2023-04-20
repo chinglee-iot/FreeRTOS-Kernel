@@ -460,8 +460,8 @@ PRIVILEGED_DATA static volatile UBaseType_t uxSchedulerSuspended = ( UBaseType_t
 
 /* Do not move these variables to function scope as doing so prevents the
  * code working with debuggers that need to remove the static qualifier. */
-    PRIVILEGED_DATA static configRUN_TIME_COUNTER_TYPE ulTaskSwitchedInTime[ configNUM_CORES ] = { 0UL };    /**< Holds the value of a timer/counter the last time a task was switched in. */
-    PRIVILEGED_DATA static volatile configRUN_TIME_COUNTER_TYPE ulTotalRunTime[ configNUM_CORES ] = { 0UL }; /**< Holds the total amount of execution time as defined by the run time counter clock. */
+    PRIVILEGED_DATA static configRUN_TIME_COUNTER_TYPE ulTaskSwitchedInTime[ configNUMBER_OF_CORES ] = { 0UL };    /**< Holds the value of a timer/counter the last time a task was switched in. */
+    PRIVILEGED_DATA static volatile configRUN_TIME_COUNTER_TYPE ulTotalRunTime[ configNUMBER_OF_CORES ] = { 0UL }; /**< Holds the total amount of execution time as defined by the run time counter clock. */
 
 #endif
 
@@ -7438,7 +7438,15 @@ TickType_t uxTaskResetEventItemValue( void )
 
     configRUN_TIME_COUNTER_TYPE ulTaskGetIdleRunTimeCounter( void )
     {
-        return ulTaskGetRunTimeCounter( xIdleTaskHandle );
+        configRUN_TIME_COUNTER_TYPE ulIdleRunTimeCounter = 0;
+        BaseType_t i;
+
+        for( i = 0; i < configNUMBER_OF_CORES; i++ )
+        {
+            ulIdleRunTimeCounter += ulTaskGetRunTimeCounter( xIdleTaskHandles[ i ] );
+        }
+
+        return ulIdleRunTimeCounter;
     }
 
 #endif
@@ -7448,7 +7456,16 @@ TickType_t uxTaskResetEventItemValue( void )
 
     configRUN_TIME_COUNTER_TYPE ulTaskGetIdleRunTimePercent( void )
     {
-        return ulTaskGetRunTimePercent( xIdleTaskHandle );
+
+        configRUN_TIME_COUNTER_TYPE ulIdleRunTimePercent = 0;
+        BaseType_t i;
+
+        for( i = 0; i < configNUMBER_OF_CORES; i++ )
+        {
+            ulIdleRunTimePercent += ulTaskGetRunTimePercent( xIdleTaskHandles[ i ] );
+        }
+
+        return ulIdleRunTimePercent;
     }
 
 #endif
