@@ -7469,7 +7469,7 @@ TickType_t uxTaskResetEventItemValue( void )
     {
         configRUN_TIME_COUNTER_TYPE ulReturn = 0;
 
-        for( BaseType_t i = 0; i < configNUM_CORES; i++ )
+        for( BaseType_t i = 0; i < configNUMBER_OF_CORES; i++ )
         {
             ulReturn += xIdleTaskHandles[ i ]->ulRunTimeCounter;
         }
