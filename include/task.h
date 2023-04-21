@@ -84,7 +84,8 @@
  * \ingroup Tasks
  */
 struct tskTaskControlBlock; /* The old naming convention is used to prevent breaking kernel aware debuggers. */
-typedef struct tskTaskControlBlock * TaskHandle_t;
+typedef struct tskTaskControlBlock         * TaskHandle_t;
+typedef const struct tskTaskControlBlock   * ConstTaskHandle_t;
 
 /*
  * Defines the prototype to which the application task hook function must
@@ -193,7 +194,7 @@ typedef enum
  *
  * \ingroup TaskUtils
  */
-#define tskNO_AFFINITY      ( ( UBaseType_t ) -1U )
+#define tskNO_AFFINITY      ( ( UBaseType_t ) -1 )
 
 /**
  * task. h
@@ -271,7 +272,7 @@ typedef enum
 #define taskSCHEDULER_RUNNING        ( ( BaseType_t ) 2 )
 
 /* Checks if core ID is valid. */
-#define taskVALID_CORE_ID( xCoreID )    ( ( BaseType_t ) ( ( 0 <= xCoreID ) && ( xCoreID < configNUMBER_OF_CORES ) ) )
+#define taskVALID_CORE_ID( xCoreID )    ( ( ( ( BaseType_t ) 0 <= ( xCoreID ) ) && ( ( xCoreID ) < ( BaseType_t ) configNUMBER_OF_CORES ) ) )
 
 /*-----------------------------------------------------------
 * TASK CREATION API
@@ -1363,7 +1364,7 @@ BaseType_t xTaskResumeFromISR( TaskHandle_t xTaskToResume ) PRIVILEGED_FUNCTION;
  *     }
  * }
  */
-    UBaseType_t vTaskCoreAffinityGet( const TaskHandle_t xTask );
+    UBaseType_t vTaskCoreAffinityGet( ConstTaskHandle_t xTask );
 #endif
 
 #if ( configUSE_TASK_PREEMPTION_DISABLE == 1 )
