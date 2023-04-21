@@ -7430,10 +7430,46 @@ TickType_t uxTaskResetEventItemValue( void )
 
     configRUN_TIME_COUNTER_TYPE ulTaskGetRunTimeCounter( const TaskHandle_t xTask )
     {
-        configRUN_TIME_COUNTER_TYPE ulReturn = 0;
-        BaseType_t i = 0;
+        return xTask->ulRunTimeCounter;
+    }
 
-        for( i = ( BaseType_t ) 0; i < ( BaseType_t ) configNUMBER_OF_CORES; i++ )
+#endif
+/*-----------------------------------------------------------*/
+
+#if ( configGENERATE_RUN_TIME_STATS == 1 )
+
+    configRUN_TIME_COUNTER_TYPE ulTaskGetRunTimePercent( const TaskHandle_t xTask )
+    {
+        configRUN_TIME_COUNTER_TYPE ulTotalTime, ulReturn;
+
+        ulTotalTime = ( configRUN_TIME_COUNTER_TYPE ) portGET_RUN_TIME_COUNTER_VALUE();
+
+        /* For percentage calculations. */
+        ulTotalTime /= ( configRUN_TIME_COUNTER_TYPE ) 100;
+
+        /* Avoid divide by zero errors. */
+        if( ulTotalTime > ( configRUN_TIME_COUNTER_TYPE ) 0 )
+        {
+            ulReturn = xTask->ulRunTimeCounter / ulTotalTime;
+        }
+        else
+        {
+            ulReturn = 0;
+        }
+
+        return ulReturn;
+    }
+
+#endif /* if ( configGENERATE_RUN_TIME_STATS == 1 ) */
+/*-----------------------------------------------------------*/
+
+#if ( ( configGENERATE_RUN_TIME_STATS == 1 ) && ( INCLUDE_xTaskGetIdleTaskHandle == 1 ) )
+
+    configRUN_TIME_COUNTER_TYPE ulTaskGetIdleRunTimeCounter( void )
+    {
+        configRUN_TIME_COUNTER_TYPE ulReturn = 0;
+
+        for( BaseType_t i = 0; i < configNUM_CORES; i++ )
         {
             ulReturn += xIdleTaskHandles[ i ]->ulRunTimeCounter;
         }
@@ -7444,15 +7480,14 @@ TickType_t uxTaskResetEventItemValue( void )
 #endif /* if ( ( configGENERATE_RUN_TIME_STATS == 1 ) && ( INCLUDE_xTaskGetIdleTaskHandle == 1 ) ) */
 /*-----------------------------------------------------------*/
 
-#if ( configGENERATE_RUN_TIME_STATS == 1 )
+#if ( ( configGENERATE_RUN_TIME_STATS == 1 ) && ( INCLUDE_xTaskGetIdleTaskHandle == 1 ) )
 
-    configRUN_TIME_COUNTER_TYPE ulTaskGetRunTimePercent( const TaskHandle_t xTask )
+    configRUN_TIME_COUNTER_TYPE ulTaskGetIdleRunTimePercent( void )
     {
         configRUN_TIME_COUNTER_TYPE ulTotalTime, ulReturn;
         configRUN_TIME_COUNTER_TYPE ulRunTimeCounter = 0;
-        BaseType_t i = 0;
 
-        ulTotalTime = ( configRUN_TIME_COUNTER_TYPE ) ( portGET_RUN_TIME_COUNTER_VALUE() * configNUMBER_OF_CORES );
+        ulTotalTime = portGET_RUN_TIME_COUNTER_VALUE() * configNUMBER_OF_CORES;
 
         /* For percentage calculations. */
         ulTotalTime /= ( configRUN_TIME_COUNTER_TYPE ) 100;
@@ -7460,7 +7495,7 @@ TickType_t uxTaskResetEventItemValue( void )
         /* Avoid divide by zero errors. */
         if( ulTotalTime > ( configRUN_TIME_COUNTER_TYPE ) 0 )
         {
-            for( i = ( BaseType_t ) 0; i < ( BaseType_t ) configNUMBER_OF_CORES; i++ )
+            for( BaseType_t i = 0; i < configNUMBER_OF_CORES; i++ )
             {
                 ulRunTimeCounter += xIdleTaskHandles[ i ]->ulRunTimeCounter;
             }
@@ -7475,44 +7510,7 @@ TickType_t uxTaskResetEventItemValue( void )
         return ulReturn;
     }
 
-#endif /* if ( configGENERATE_RUN_TIME_STATS == 1 ) */
-/*-----------------------------------------------------------*/
-
-#if ( configGENERATE_RUN_TIME_STATS == 1 )
-
-    configRUN_TIME_COUNTER_TYPE ulTaskGetIdleRunTimeCounter( void )
-    {
-        configRUN_TIME_COUNTER_TYPE ulIdleRunTimeCounter = 0;
-        BaseType_t i;
-
-        for( i = 0; i < configNUMBER_OF_CORES; i++ )
-        {
-            ulIdleRunTimeCounter += ulTaskGetRunTimeCounter( xIdleTaskHandles[ i ] );
-        }
-
-        return ulIdleRunTimeCounter;
-    }
-
-#endif
-/*-----------------------------------------------------------*/
-
-#if ( configGENERATE_RUN_TIME_STATS == 1 )
-
-    configRUN_TIME_COUNTER_TYPE ulTaskGetIdleRunTimePercent( void )
-    {
-
-        configRUN_TIME_COUNTER_TYPE ulIdleRunTimePercent = 0;
-        BaseType_t i;
-
-        for( i = 0; i < configNUMBER_OF_CORES; i++ )
-        {
-            ulIdleRunTimePercent += ulTaskGetRunTimePercent( xIdleTaskHandles[ i ] );
-        }
-
-        return ulIdleRunTimePercent;
-    }
-
-#endif
+#endif /* if ( ( configGENERATE_RUN_TIME_STATS == 1 ) && ( INCLUDE_xTaskGetIdleTaskHandle == 1 ) ) */
 /*-----------------------------------------------------------*/
 
 static void prvAddCurrentTaskToDelayedList( TickType_t xTicksToWait,
