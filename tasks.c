@@ -294,7 +294,7 @@ typedef BaseType_t TaskRunning_t;
 /* Code below here allows infinite loop controlling, especially for the infinite loop
  * in idle task function (for example when performing unit tests). */
 #ifndef INFINITE_LOOP
-    #define INFINITE_LOOP()  1
+    #define INFINITE_LOOP()    1
 #endif
 
 /*
@@ -466,8 +466,8 @@ PRIVILEGED_DATA static volatile UBaseType_t uxSchedulerSuspended = ( UBaseType_t
 
 /* Do not move these variables to function scope as doing so prevents the
  * code working with debuggers that need to remove the static qualifier. */
-    PRIVILEGED_DATA static configRUN_TIME_COUNTER_TYPE ulTaskSwitchedInTime[ configNUM_CORES ] = { 0UL };    /**< Holds the value of a timer/counter the last time a task was switched in. */
-    PRIVILEGED_DATA static volatile configRUN_TIME_COUNTER_TYPE ulTotalRunTime[ configNUM_CORES ] = { 0UL }; /**< Holds the total amount of execution time as defined by the run time counter clock. */
+PRIVILEGED_DATA static configRUN_TIME_COUNTER_TYPE ulTaskSwitchedInTime[ configNUMBER_OF_CORES ] = { 0UL };    /**< Holds the value of a timer/counter the last time a task was switched in. */
+PRIVILEGED_DATA static volatile configRUN_TIME_COUNTER_TYPE ulTotalRunTime[ configNUMBER_OF_CORES ] = { 0UL }; /**< Holds the total amount of execution time as defined by the run time counter clock. */
 
 #endif
 
@@ -696,7 +696,6 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
     static void prvCheckForRunStateChange( void )
     {
         UBaseType_t uxPrevCriticalNesting;
-        UBaseType_t uxPrevSchedulerSuspended;
         TCB_t * pxThisTCB;
 
         /* This should be skipped if called from an ISR. If the task on the current
@@ -720,24 +719,19 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
                 * and reacquire the correct locks. And then, do it all over again
                 * if our state changed again during the reacquisition. */
                 uxPrevCriticalNesting = portGET_CRITICAL_NESTING_COUNT();
-                uxPrevSchedulerSuspended = uxSchedulerSuspended;
-
-                /* This must only be called the first time we enter into a critical
-                 * section, otherwise it could context switch in the middle of a
-                 * critical section. */
-                configASSERT( ( uxPrevCriticalNesting + uxPrevSchedulerSuspended ) == 1U );
 
                 if( uxPrevCriticalNesting > 0U )
                 {
                     portSET_CRITICAL_NESTING_COUNT( 0U );
+                    portRELEASE_ISR_LOCK();
                 }
                 else
                 {
-                    portGET_ISR_LOCK();
-                    uxSchedulerSuspended = 0U;
+                    /* The scheduler is suspended. uxSchedulerSuspended is updated
+                     * only when the task is not requested to yield. */
+                    mtCOVERAGE_TEST_MARKER();
                 }
 
-                portRELEASE_ISR_LOCK();
                 portRELEASE_TASK_LOCK();
 
                 portMEMORY_BARRIER();
@@ -755,11 +749,9 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
                 portGET_ISR_LOCK();
 
                 portSET_CRITICAL_NESTING_COUNT( uxPrevCriticalNesting );
-                uxSchedulerSuspended = uxPrevSchedulerSuspended;
 
                 if( uxPrevCriticalNesting == 0U )
                 {
-                    /* uxPrevSchedulerSuspended must be 1. */
                     portRELEASE_ISR_LOCK();
                 }
             }
@@ -816,7 +808,6 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
              * than priority level of currently ready tasks. */
             if( pxTCB->uxPriority >= uxTopReadyPriority )
         #else
-
             /* Yield is not required for a task which is already running. */
             if( taskTASK_IS_RUNNING( pxTCB ) == pdFALSE )
         #endif
@@ -3402,14 +3393,11 @@ void vTaskSuspendAll( void )
             portSOFTWARE_BARRIER();
 
             portGET_TASK_LOCK();
-            portGET_ISR_LOCK();
 
-            /* The scheduler is suspended if uxSchedulerSuspended is non-zero.  An increment
-             * is used to allow calls to vTaskSuspendAll() to nest. */
-            ++uxSchedulerSuspended;
-            portRELEASE_ISR_LOCK();
-
-            if( uxSchedulerSuspended == 1U )
+            /* uxSchedulerSuspended is increased after prvCheckForRunStateChange. The
+             * purpose is to prevent altering the variable when fromISR APIs are readying
+             * it. */
+            if( uxSchedulerSuspended == 0U )
             {
                 if( portGET_CRITICAL_NESTING_COUNT() == 0U )
                 {
@@ -3424,6 +3412,13 @@ void vTaskSuspendAll( void )
             {
                 mtCOVERAGE_TEST_MARKER();
             }
+
+            portGET_ISR_LOCK();
+
+            /* The scheduler is suspended if uxSchedulerSuspended is non-zero. An increment
+             * is used to allow calls to vTaskSuspendAll() to nest. */
+            ++uxSchedulerSuspended;
+            portRELEASE_ISR_LOCK();
 
             portCLEAR_INTERRUPT_MASK( ulState );
         }
@@ -3777,7 +3772,7 @@ char * pcTaskGetName( TaskHandle_t xTaskToQuery ) /*lint !e971 Unqualified char 
 
             return pxReturn;
         }
-    #else
+    #else /* if ( configNUMBER_OF_CORES == 1 ) */
         static TCB_t * prvSearchForNameWithinSingleList( List_t * pxList,
                                                          const char pcNameToQuery[] )
         {
@@ -4579,9 +4574,9 @@ BaseType_t xTaskIncrementTick( void )
             #if ( configGENERATE_RUN_TIME_STATS == 1 )
             {
                 #ifdef portALT_GET_RUN_TIME_COUNTER_VALUE
-                    portALT_GET_RUN_TIME_COUNTER_VALUE( ulTotalRunTime );
+                    portALT_GET_RUN_TIME_COUNTER_VALUE( ulTotalRunTime[ 0 ] );
                 #else
-                    ulTotalRunTime = ( configRUN_TIME_COUNTER_TYPE ) portGET_RUN_TIME_COUNTER_VALUE();
+                    ulTotalRunTime[ 0 ] = portGET_RUN_TIME_COUNTER_VALUE();
                 #endif
 
                 /* Add the amount of time the task has been running to the
@@ -4591,16 +4586,16 @@ BaseType_t xTaskIncrementTick( void )
                  * overflows.  The guard against negative values is to protect
                  * against suspect run time stat counter implementations - which
                  * are provided by the application, not the kernel. */
-                if( ulTotalRunTime > ulTaskSwitchedInTime )
+                if( ulTotalRunTime[ 0 ] > ulTaskSwitchedInTime[ 0 ] )
                 {
-                    pxCurrentTCB->ulRunTimeCounter += ( ulTotalRunTime - ulTaskSwitchedInTime );
+                    pxCurrentTCB->ulRunTimeCounter += ( ulTotalRunTime[ 0 ] - ulTaskSwitchedInTime[ 0 ] );
                 }
                 else
                 {
                     mtCOVERAGE_TEST_MARKER();
                 }
 
-                ulTaskSwitchedInTime = ulTotalRunTime;
+                ulTaskSwitchedInTime[ 0 ] = ulTotalRunTime[ 0 ];
             }
             #endif /* configGENERATE_RUN_TIME_STATS */
 
@@ -7431,10 +7426,46 @@ TickType_t uxTaskResetEventItemValue( void )
 
     configRUN_TIME_COUNTER_TYPE ulTaskGetRunTimeCounter( const TaskHandle_t xTask )
     {
-        configRUN_TIME_COUNTER_TYPE ulReturn = 0;
-        BaseType_t i = 0;
+        return xTask->ulRunTimeCounter;
+    }
 
-        for( i = ( BaseType_t ) 0; i < ( BaseType_t ) configNUMBER_OF_CORES; i++ )
+#endif
+/*-----------------------------------------------------------*/
+
+#if ( configGENERATE_RUN_TIME_STATS == 1 )
+
+    configRUN_TIME_COUNTER_TYPE ulTaskGetRunTimePercent( const TaskHandle_t xTask )
+    {
+        configRUN_TIME_COUNTER_TYPE ulTotalTime, ulReturn;
+
+        ulTotalTime = ( configRUN_TIME_COUNTER_TYPE ) portGET_RUN_TIME_COUNTER_VALUE();
+
+        /* For percentage calculations. */
+        ulTotalTime /= ( configRUN_TIME_COUNTER_TYPE ) 100;
+
+        /* Avoid divide by zero errors. */
+        if( ulTotalTime > ( configRUN_TIME_COUNTER_TYPE ) 0 )
+        {
+            ulReturn = xTask->ulRunTimeCounter / ulTotalTime;
+        }
+        else
+        {
+            ulReturn = 0;
+        }
+
+        return ulReturn;
+    }
+
+#endif /* if ( configGENERATE_RUN_TIME_STATS == 1 ) */
+/*-----------------------------------------------------------*/
+
+#if ( ( configGENERATE_RUN_TIME_STATS == 1 ) && ( INCLUDE_xTaskGetIdleTaskHandle == 1 ) )
+
+    configRUN_TIME_COUNTER_TYPE ulTaskGetIdleRunTimeCounter( void )
+    {
+        configRUN_TIME_COUNTER_TYPE ulReturn = 0;
+
+        for( BaseType_t i = 0; i < configNUMBER_OF_CORES; i++ )
         {
             ulReturn += xIdleTaskHandles[ i ]->ulRunTimeCounter;
         }
@@ -7445,15 +7476,14 @@ TickType_t uxTaskResetEventItemValue( void )
 #endif /* if ( ( configGENERATE_RUN_TIME_STATS == 1 ) && ( INCLUDE_xTaskGetIdleTaskHandle == 1 ) ) */
 /*-----------------------------------------------------------*/
 
-#if ( configGENERATE_RUN_TIME_STATS == 1 )
+#if ( ( configGENERATE_RUN_TIME_STATS == 1 ) && ( INCLUDE_xTaskGetIdleTaskHandle == 1 ) )
 
-    configRUN_TIME_COUNTER_TYPE ulTaskGetRunTimePercent( const TaskHandle_t xTask )
+    configRUN_TIME_COUNTER_TYPE ulTaskGetIdleRunTimePercent( void )
     {
         configRUN_TIME_COUNTER_TYPE ulTotalTime, ulReturn;
         configRUN_TIME_COUNTER_TYPE ulRunTimeCounter = 0;
-        BaseType_t i = 0;
 
-        ulTotalTime = ( configRUN_TIME_COUNTER_TYPE ) ( portGET_RUN_TIME_COUNTER_VALUE() * configNUMBER_OF_CORES );
+        ulTotalTime = portGET_RUN_TIME_COUNTER_VALUE() * configNUMBER_OF_CORES;
 
         /* For percentage calculations. */
         ulTotalTime /= ( configRUN_TIME_COUNTER_TYPE ) 100;
@@ -7461,7 +7491,7 @@ TickType_t uxTaskResetEventItemValue( void )
         /* Avoid divide by zero errors. */
         if( ulTotalTime > ( configRUN_TIME_COUNTER_TYPE ) 0 )
         {
-            for( i = ( BaseType_t ) 0; i < ( BaseType_t ) configNUMBER_OF_CORES; i++ )
+            for( BaseType_t i = 0; i < configNUMBER_OF_CORES; i++ )
             {
                 ulRunTimeCounter += xIdleTaskHandles[ i ]->ulRunTimeCounter;
             }
@@ -7476,27 +7506,7 @@ TickType_t uxTaskResetEventItemValue( void )
         return ulReturn;
     }
 
-#endif /* if ( configGENERATE_RUN_TIME_STATS == 1 ) */
-/*-----------------------------------------------------------*/
-
-#if ( configGENERATE_RUN_TIME_STATS == 1 )
-
-    configRUN_TIME_COUNTER_TYPE ulTaskGetIdleRunTimeCounter( void )
-    {
-        return ulTaskGetRunTimeCounter( xIdleTaskHandle );
-    }
-
-#endif
-/*-----------------------------------------------------------*/
-
-#if ( configGENERATE_RUN_TIME_STATS == 1 )
-
-    configRUN_TIME_COUNTER_TYPE ulTaskGetIdleRunTimePercent( void )
-    {
-        return ulTaskGetRunTimePercent( xIdleTaskHandle );
-    }
-
-#endif
+#endif /* if ( ( configGENERATE_RUN_TIME_STATS == 1 ) && ( INCLUDE_xTaskGetIdleTaskHandle == 1 ) ) */
 /*-----------------------------------------------------------*/
 
 static void prvAddCurrentTaskToDelayedList( TickType_t xTicksToWait,
