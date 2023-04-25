@@ -7464,8 +7464,9 @@ TickType_t uxTaskResetEventItemValue( void )
     configRUN_TIME_COUNTER_TYPE ulTaskGetIdleRunTimeCounter( void )
     {
         configRUN_TIME_COUNTER_TYPE ulReturn = 0;
+        BaseType_t i;
 
-        for( BaseType_t i = 0; i < configNUMBER_OF_CORES; i++ )
+        for( i = 0; i < configNUMBER_OF_CORES; i++ )
         {
             ulReturn += xIdleTaskHandles[ i ]->ulRunTimeCounter;
         }
@@ -7482,6 +7483,7 @@ TickType_t uxTaskResetEventItemValue( void )
     {
         configRUN_TIME_COUNTER_TYPE ulTotalTime, ulReturn;
         configRUN_TIME_COUNTER_TYPE ulRunTimeCounter = 0;
+        BaseType_t i;
 
         ulTotalTime = portGET_RUN_TIME_COUNTER_VALUE() * configNUMBER_OF_CORES;
 
@@ -7491,7 +7493,7 @@ TickType_t uxTaskResetEventItemValue( void )
         /* Avoid divide by zero errors. */
         if( ulTotalTime > ( configRUN_TIME_COUNTER_TYPE ) 0 )
         {
-            for( BaseType_t i = 0; i < configNUMBER_OF_CORES; i++ )
+            for( i = 0; i < configNUMBER_OF_CORES; i++ )
             {
                 ulRunTimeCounter += xIdleTaskHandles[ i ]->ulRunTimeCounter;
             }
