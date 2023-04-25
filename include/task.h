@@ -747,7 +747,7 @@ typedef enum
  * \defgroup vTaskAllocateMPURegions vTaskAllocateMPURegions
  * \ingroup Tasks
  */
-void vTaskAllocateMPURegions( TaskHandle_t xTask,
+void vTaskAllocateMPURegions( TaskHandle_t xTaskToModify,
                               const MemoryRegion_t * const pxRegions ) PRIVILEGED_FUNCTION;
 
 /**
