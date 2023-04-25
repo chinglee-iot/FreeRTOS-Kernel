@@ -441,7 +441,7 @@ PRIVILEGED_DATA static volatile BaseType_t xYieldPendings[ configNUMBER_OF_CORES
 PRIVILEGED_DATA static volatile BaseType_t xNumOfOverflows = ( BaseType_t ) 0;
 PRIVILEGED_DATA static UBaseType_t uxTaskNumber = ( UBaseType_t ) 0U;
 PRIVILEGED_DATA static volatile TickType_t xNextTaskUnblockTime = ( TickType_t ) 0U; /* Initialised to portMAX_DELAY before the scheduler starts. */
-PRIVILEGED_DATA static TaskHandle_t xIdleTaskHandles[ configNUMBER_OF_CORES ];  /**< Holds the handles of the idle tasks.  The idle tasks are created automatically when the scheduler is started. */
+PRIVILEGED_DATA static TaskHandle_t xIdleTaskHandles[ configNUMBER_OF_CORES ];       /**< Holds the handles of the idle tasks.  The idle tasks are created automatically when the scheduler is started. */
 
 /* Improve support for OpenOCD. The kernel tracks Ready tasks via priority lists.
  * For tracking the state of remote threads, OpenOCD uses uxTopUsedPriority
@@ -795,6 +795,7 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
         BaseType_t xCurrentCoreTaskPriority;
         BaseType_t xLowestPriorityCore = ( BaseType_t ) -1;
         BaseType_t xCoreID;
+
         #if ( configRUN_MULTIPLE_PRIORITIES == 0 )
             BaseType_t xYieldCount = 0;
         #endif /* #if ( configRUN_MULTIPLE_PRIORITIES == 0 ) */
@@ -7466,7 +7467,7 @@ TickType_t uxTaskResetEventItemValue( void )
         configRUN_TIME_COUNTER_TYPE ulReturn = 0;
         BaseType_t i;
 
-        for( i = 0; i < configNUMBER_OF_CORES; i++ )
+        for( i = 0; i < ( BaseType_t ) configNUMBER_OF_CORES; i++ )
         {
             ulReturn += xIdleTaskHandles[ i ]->ulRunTimeCounter;
         }
@@ -7493,7 +7494,7 @@ TickType_t uxTaskResetEventItemValue( void )
         /* Avoid divide by zero errors. */
         if( ulTotalTime > ( configRUN_TIME_COUNTER_TYPE ) 0 )
         {
-            for( i = 0; i < configNUMBER_OF_CORES; i++ )
+            for( i = 0; i < ( BaseType_t ) configNUMBER_OF_CORES; i++ )
             {
                 ulRunTimeCounter += xIdleTaskHandles[ i ]->ulRunTimeCounter;
             }
