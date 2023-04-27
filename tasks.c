@@ -391,9 +391,6 @@ typedef tskTCB TCB_t;
 #if ( configNUMBER_OF_CORES == 1 )
     portDONT_DISCARD PRIVILEGED_DATA TCB_t * volatile pxCurrentTCB = NULL;
 #else
-/* MISRA Ref 8.4.1 [Declaration shall be visible] */
-/* More details at: https://github.com/FreeRTOS/FreeRTOS-Kernel/blob/main/MISRA.md#rule-84 */
-/* coverity[misra_c_2012_rule_8_4_violation] */
 portDONT_DISCARD PRIVILEGED_DATA TCB_t * volatile pxCurrentTCBs[ configNUMBER_OF_CORES ] = { NULL };
     #define pxCurrentTCB    xTaskGetCurrentTaskHandle()
 #endif
@@ -951,9 +948,6 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
             if( listLIST_IS_EMPTY( &( pxReadyTasksLists[ uxCurrentPriority ] ) ) == pdFALSE )
             {
                 List_t * const pxReadyList = &( pxReadyTasksLists[ uxCurrentPriority ] );
-                /* MISRA Ref 11.3.2 [Cast to different type] */
-                /* More details at: https://github.com/FreeRTOS/FreeRTOS-Kernel/blob/main/MISRA.md#rule-113 */
-                /* coverity[misra_c_2012_rule_11_3_violation] */
                 const ListItem_t * pxEndMarker = listGET_END_MARKER( pxReadyList );
                 ListItem_t * pxIterator;
 
@@ -963,10 +957,7 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
 
                 for( pxIterator = listGET_HEAD_ENTRY( pxReadyList ); pxIterator != pxEndMarker; pxIterator = listGET_NEXT( pxIterator ) )
                 {
-                    /* MISRA Ref 11.5.1 [Cast to different type] */
-                    /* More details at: https://github.com/FreeRTOS/FreeRTOS-Kernel/blob/main/MISRA.md#rule-115 */
-                    /* coverity[misra_c_2012_rule_11_5_violation] */
-                    TCB_t * pxTCB = listGET_LIST_ITEM_OWNER( pxIterator );
+                    TCB_t * pxTCB = ( TCB_t * ) listGET_LIST_ITEM_OWNER( pxIterator );
 
                     #if ( configRUN_MULTIPLE_PRIORITIES == 0 )
                     {
@@ -1311,12 +1302,6 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
 
         if( pxTaskDefinition->puxStackBuffer != NULL )
         {
-            /* Allocate space for the TCB.  Where the memory comes from depends
-             * on the implementation of the port malloc function and whether or
-             * not static allocation is being used. */
-            /* MISRA Ref 11.5.1 [Cast to different type] */
-            /* More details at: https://github.com/FreeRTOS/FreeRTOS-Kernel/blob/main/MISRA.md#rule-115 */
-            /* coverity[misra_c_2012_rule_11_5_violation] */
             pxNewTCB = ( TCB_t * ) pvPortMalloc( sizeof( TCB_t ) );
 
             if( pxNewTCB != NULL )
@@ -3140,9 +3125,6 @@ static BaseType_t prvCreateIdleTasks( void )
 
             for( x = ( BaseType_t ) 0; x < ( BaseType_t ) configMAX_TASK_NAME_LEN; x++ )
             {
-                /* MISRA Ref 18.1.1 [Overrun] */
-                /* More details at: https://github.com/FreeRTOS/FreeRTOS-Kernel/blob/main/MISRA.md#rule-181 */
-                /* coverity[misra_c_2012_rule_18_1_violation] */
                 cIdleName[ x ] = configIDLE_TASK_NAME[ x ];
 
                 /* Don't copy all configMAX_TASK_NAME_LEN if the string is shorter than
@@ -5851,12 +5833,6 @@ static void prvResetNextTaskUnblockTime( void )
             return xReturn;
         }
     #else /* #if ( configNUMBER_OF_CORES == 1 ) */
-        /* MISRA Ref 8.5.1 [External function shall be declared once.] */
-        /* More details at: https://github.com/FreeRTOS/FreeRTOS-Kernel/blob/main/MISRA.md#rule-85 */
-        /* MISRA Ref 8.6.1 [External function shall be declared once.] */
-        /* More details at: https://github.com/FreeRTOS/FreeRTOS-Kernel/blob/main/MISRA.md#rule-86 */
-        /* coverity[misra_c_2012_rule_8_5_violation] */
-        /* coverity[misra_c_2012_rule_8_6_violation] */
         TaskHandle_t xTaskGetCurrentTaskHandle( void )
         {
             TaskHandle_t xReturn;
@@ -6282,9 +6258,6 @@ static void prvResetNextTaskUnblockTime( void )
 
 #if ( configNUMBER_OF_CORES > 1 )
 
-/* MISRA Ref 8.4.1 [Declaration shall be visible] */
-/* More details at: https://github.com/FreeRTOS/FreeRTOS-Kernel/blob/main/MISRA.md#rule-84 */
-/* coverity[misra_c_2012_rule_8_4_violation] */
     void vTaskEnterCritical( void )
     {
         portDISABLE_INTERRUPTS();

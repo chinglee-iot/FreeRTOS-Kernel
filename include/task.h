@@ -3419,6 +3419,42 @@ void vTaskInternalSetTimeOutState( TimeOut_t * const pxTimeOut ) PRIVILEGED_FUNC
  */
 void vTaskYieldWithinAPI( void );
 
+/*
+ * This function is only intended for use when implementing a port of the scheduler
+ * and is only available when portCRITICAL_NESTING_IN_TCB is set to 1 or configNUMBER_OF_CORES
+ * is greater than 1. This function can be used in the implementation of portENTER_CRITICAL
+ * if port requires maintaing critical nesting count in TCB in single core FreeRTOS.
+ * It should be used in the implementation of portENTER_CRITICAL if port is running a
+ * multiple core FreeRTOS.
+ */
+void vTaskEnterCritical( void );
+
+/*
+ * This function is only intended for use when implementing a port of the scheduler
+ * and is only available when portCRITICAL_NESTING_IN_TCB is set to 1 or configNUMBER_OF_CORES
+ * is greater than 1. This function can be used in the implementation of portEXIT_CRITICAL
+ * if port requires maintaing critical nesting count in TCB in single core FreeRTOS.
+ * It should be used in the implementation of portEXIT_CRITICAL if port is running a
+ * multiple core FreeRTOS.
+ */
+void vTaskExitCritical( void );
+
+/*
+ * This function is only intended for use when implementing a port of the scheduler
+ * and is only available when configNUMBER_OF_CORES is greater than 1. This function
+ * should be used in the implementation of portENTER_CRITICAL_FROM_ISR if port is
+ * running a multiple core FreeRTOS.
+ */
+portBASE_TYPE vTaskEnterCriticalFromISR( void );
+
+/*
+ * This function is only intended for use when implementing a port of the scheduler
+ * and is only available when configNUMBER_OF_CORES is greater than 1. This function
+ * should be used in the implementation of portEXIT_CRITICAL_FROM_ISR if port is
+ * running a multiple core FreeRTOS.
+ */
+void vTaskExitCriticalFromISR( portBASE_TYPE xSavedInterruptStatus );
+
 /* *INDENT-OFF* */
 #ifdef __cplusplus
     }
