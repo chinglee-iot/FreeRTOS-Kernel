@@ -3423,7 +3423,7 @@ void vTaskYieldWithinAPI( void );
  * This function is only intended for use when implementing a port of the scheduler
  * and is only available when portCRITICAL_NESTING_IN_TCB is set to 1 or configNUMBER_OF_CORES
  * is greater than 1. This function can be used in the implementation of portENTER_CRITICAL
- * if port requires maintaing critical nesting count in TCB in single core FreeRTOS.
+ * if port wants to maintain critical nesting count in TCB in single core FreeRTOS.
  * It should be used in the implementation of portENTER_CRITICAL if port is running a
  * multiple core FreeRTOS.
  */
@@ -3433,7 +3433,7 @@ void vTaskEnterCritical( void );
  * This function is only intended for use when implementing a port of the scheduler
  * and is only available when portCRITICAL_NESTING_IN_TCB is set to 1 or configNUMBER_OF_CORES
  * is greater than 1. This function can be used in the implementation of portEXIT_CRITICAL
- * if port requires maintaing critical nesting count in TCB in single core FreeRTOS.
+ * if port wants to maintain critical nesting count in TCB in single core FreeRTOS.
  * It should be used in the implementation of portEXIT_CRITICAL if port is running a
  * multiple core FreeRTOS.
  */
