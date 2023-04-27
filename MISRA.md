@@ -21,13 +21,6 @@ _Ref 8.4.1_
         a declaration in header file is not useful as the assembly code will still need to
         declare it separately.
 
-#### Rule 11.3
-
-_Ref 11.3.1_
-
-- MISRA C:2012 Rule 11.3: A cast shall not be performed between a pointer to object type and a pointer to a different object type.
-        Unusual cast is ok as the structures are designed to have the same alignment, this is checked by an assert.
-
 ### MISRA configuration
 
 Copy below content as misra.conf to run coverity on FreeRTOS-Kernel.
