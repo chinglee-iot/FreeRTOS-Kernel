@@ -274,11 +274,11 @@ typedef BaseType_t TaskRunning_t;
  *                        but scheduled to yield.
  */
 #if ( configNUMBER_OF_CORES == 1 )
-    #define taskTASK_IS_RUNNING( pxTCB )     ( ( pxTCB ) == pxCurrentTCB )
+    #define taskTASK_IS_RUNNING( pxTCB )     ( ( ( pxTCB ) == pxCurrentTCB ) ? ( pdTRUE ) : ( pdFALSE ) )
     #define taskTASK_IS_YIELDING( pxTCB )    ( pdFALSE )
 #else
-    #define taskTASK_IS_RUNNING( pxTCB )     ( ( ( pxTCB )->xTaskRunState >= ( BaseType_t ) 0 ) && ( ( pxTCB )->xTaskRunState < ( BaseType_t ) configNUMBER_OF_CORES ) )
-    #define taskTASK_IS_YIELDING( pxTCB )    ( ( pxTCB )->xTaskRunState == taskTASK_YIELDING )
+    #define taskTASK_IS_RUNNING( pxTCB )     ( ( ( ( pxTCB )->xTaskRunState >= ( BaseType_t ) 0 ) && ( ( pxTCB )->xTaskRunState < ( BaseType_t ) configNUMBER_OF_CORES ) ) ? ( pdTRUE ) : ( pdFALSE ) )
+    #define taskTASK_IS_YIELDING( pxTCB )    ( ( ( pxTCB )->xTaskRunState == taskTASK_YIELDING ) ? ( pdTRUE ) : ( pdFALSE ) )
 #endif
 
 /* Indicates that the task is an Idle task. */
@@ -391,10 +391,10 @@ typedef tskTCB TCB_t;
 #if ( configNUMBER_OF_CORES == 1 )
     portDONT_DISCARD PRIVILEGED_DATA TCB_t * volatile pxCurrentTCB = NULL;
 #else
-/* MISRA Ref 8.4.1 [Declaration shall be visible] */
-/* More details at: https://github.com/FreeRTOS/FreeRTOS-Kernel/blob/main/MISRA.md#rule-84 */
-/* coverity[misra_c_2012_rule_8_4_violation] */
-portDONT_DISCARD PRIVILEGED_DATA TCB_t * volatile pxCurrentTCBs[ configNUMBER_OF_CORES ] = { NULL };
+    /* MISRA Ref 8.4.1 [Declaration shall be visible] */
+    /* More details at: https://github.com/FreeRTOS/FreeRTOS-Kernel/blob/main/MISRA.md#rule-84 */
+    /* coverity[misra_c_2012_rule_8_4_violation] */
+    portDONT_DISCARD PRIVILEGED_DATA TCB_t * volatile pxCurrentTCBs[ configNUMBER_OF_CORES ];
     #define pxCurrentTCB    xTaskGetCurrentTaskHandle()
 #endif
 
@@ -511,7 +511,7 @@ static BaseType_t prvCreateIdleTasks( void );
  * Yields a core, or cores if multiple priorities are not allowed to run
  * simultaneously, to allow the task pxTCB to run.
  */
-    static void prvYieldForTask( TCB_t * pxTCB );
+    static void prvYieldForTask( const TCB_t * pxTCB );
 #endif /* #if ( configNUMBER_OF_CORES > 1 ) */
 
 #if ( configNUMBER_OF_CORES > 1 )
@@ -790,7 +790,7 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
 /*-----------------------------------------------------------*/
 
 #if ( configNUMBER_OF_CORES > 1 )
-    static void prvYieldForTask( TCB_t * pxTCB )
+    static void prvYieldForTask( const TCB_t * pxTCB )
     {
         BaseType_t xLowestPriorityToPreempt;
         BaseType_t xCurrentCoreTaskPriority;
@@ -1100,7 +1100,7 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
                     UBaseType_t uxCore = ( UBaseType_t ) x;
                     BaseType_t xTaskPriority;
 
-                    if( ( uxCoreMap & ( 1U << ( UBaseType_t ) uxCore ) ) != 0U )
+                    if( ( uxCoreMap & ( ( UBaseType_t ) 1U << uxCore ) ) != 0U )
                     {
                         xTaskPriority = ( BaseType_t ) pxCurrentTCBs[ uxCore ]->uxPriority;
 
@@ -4187,8 +4187,7 @@ BaseType_t xTaskIncrementTick( void )
     BaseType_t xSwitchRequired = pdFALSE;
 
     #if ( configUSE_PREEMPTION == 1 ) && ( configNUMBER_OF_CORES > 1 )
-        UBaseType_t x;
-        BaseType_t xYieldRequiredForCore[ configNUMBER_OF_CORES ] = { pdFALSE };
+    BaseType_t xYieldRequiredForCore[ configNUMBER_OF_CORES ] = { pdFALSE };
     #endif /* #if ( configUSE_PREEMPTION == 1 ) && ( configNUMBER_OF_CORES > 1 ) */
 
     /* Called by the portable layer each time a tick interrupt occurs.
@@ -4331,11 +4330,13 @@ BaseType_t xTaskIncrementTick( void )
             }
             #else /* #if ( configNUMBER_OF_CORES == 1 ) */
             {
-                for( x = ( ( UBaseType_t ) 0 ); x < ( ( UBaseType_t ) configNUMBER_OF_CORES ); x++ )
+                BaseType_t xCoreID;
+
+                for( xCoreID = 0; xCoreID < ( ( BaseType_t ) configNUMBER_OF_CORES ); xCoreID++ )
                 {
-                    if( listCURRENT_LIST_LENGTH( &( pxReadyTasksLists[ pxCurrentTCBs[ x ]->uxPriority ] ) ) > ( UBaseType_t ) 1 )
+                    if( listCURRENT_LIST_LENGTH( &( pxReadyTasksLists[ pxCurrentTCBs[ xCoreID ]->uxPriority ] ) ) > 1 )
                     {
-                        xYieldRequiredForCore[ x ] = pdTRUE;
+                        xYieldRequiredForCore[ xCoreID ] = pdTRUE;
                     }
                     else
                     {
@@ -4378,24 +4379,24 @@ BaseType_t xTaskIncrementTick( void )
             }
             #else /* #if ( configNUMBER_OF_CORES == 1 ) */
             {
-                BaseType_t xCoreID;
-                xCoreID = portGET_CORE_ID();
+                BaseType_t xCoreID, xCurrentCoreID;
+                xCurrentCoreID = portGET_CORE_ID();
 
-                for( x = ( UBaseType_t ) 0; x < ( UBaseType_t ) configNUMBER_OF_CORES; x++ )
+                for( xCoreID = 0; xCoreID < ( BaseType_t ) configNUMBER_OF_CORES; xCoreID++ )
                 {
                     #if ( configUSE_TASK_PREEMPTION_DISABLE == 1 )
-                        if( pxCurrentTCBs[ x ]->xPreemptionDisable == pdFALSE )
+                        if( pxCurrentTCBs[ xCoreID ]->xPreemptionDisable == pdFALSE )
                     #endif
                     {
-                        if( ( xYieldRequiredForCore[ x ] != pdFALSE ) || ( xYieldPendings[ x ] != pdFALSE ) )
+                        if( ( xYieldRequiredForCore[ xCoreID ] != pdFALSE ) || ( xYieldPendings[ xCoreID ] != pdFALSE ) )
                         {
-                            if( x == ( UBaseType_t ) xCoreID )
+                            if( xCoreID == xCurrentCoreID )
                             {
                                 xSwitchRequired = pdTRUE;
                             }
                             else
                             {
-                                prvYieldCore( x );
+                                prvYieldCore( xCoreID );
                             }
                         }
                         else
