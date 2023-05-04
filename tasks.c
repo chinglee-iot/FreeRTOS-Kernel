@@ -1040,10 +1040,20 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
              * The scheduler should be able to select a task to run when uxCurrentPriority
              * is tskIDLE_PRIORITY. uxCurrentPriority is never decreased to value blow
              * tskIDLE_PRIORITY. */
-            uxCurrentPriority--;
+            if( uxCurrentPriority > tskIDLE_PRIORITY )
+            {
+                uxCurrentPriority--;
+            }
+            else
+            {
+                /* This function is called when idle task is not created. Break the
+                 * loop to prevent uxCurrentPriority overrun. */
+                break;
+            }
         }
 
         #if ( configRUN_MULTIPLE_PRIORITIES == 0 )
+        if( xTaskScheduled == pdTRUE )
         {
             if( xPriorityDropped != pdFALSE )
             {
@@ -1064,6 +1074,7 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
         #endif /* #if ( configRUN_MULTIPLE_PRIORITIES == 0 ) */
 
         #if ( configUSE_CORE_AFFINITY == 1 )
+        if( xTaskScheduled == pdTRUE )
         {
             if( ( pxPreviousTCB != NULL ) && ( listIS_CONTAINED_WITHIN( &( pxReadyTasksLists[ pxPreviousTCB->uxPriority ] ), &( pxPreviousTCB->xStateListItem ) ) != pdFALSE ) )
             {
