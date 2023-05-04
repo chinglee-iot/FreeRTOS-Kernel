@@ -463,14 +463,18 @@ PRIVILEGED_DATA static volatile UBaseType_t uxSchedulerSuspended = ( UBaseType_t
 
 /* Do not move these variables to function scope as doing so prevents the
  * code working with debuggers that need to remove the static qualifier. */
-PRIVILEGED_DATA static configRUN_TIME_COUNTER_TYPE ulTaskSwitchedInTime[ configNUMBER_OF_CORES ] = { 0UL };    /**< Holds the value of a timer/counter the last time a task was switched in. */
-PRIVILEGED_DATA static volatile configRUN_TIME_COUNTER_TYPE ulTotalRunTime[ configNUMBER_OF_CORES ] = { 0UL }; /**< Holds the total amount of execution time as defined by the run time counter clock. */
+PRIVILEGED_DATA static configRUN_TIME_COUNTER_TYPE ulTaskSwitchedInTime[ configNUMBER_OF_CORES ] = { 0U };    /**< Holds the value of a timer/counter the last time a task was switched in. */
+PRIVILEGED_DATA static volatile configRUN_TIME_COUNTER_TYPE ulTotalRunTime[ configNUMBER_OF_CORES ] = { 0U }; /**< Holds the total amount of execution time as defined by the run time counter clock. */
 
 #endif
 
 #if ( configSUPPORT_STATIC_ALLOCATION == 1 ) && ( configNUMBER_OF_CORES > 1 )
+
+/* Do not move these variables to function scope as doing so prevents the
+ * code working with debuggers that need to remove the static qualifier. */
     static StaticTask_t xIdleTCBBuffers[ configNUMBER_OF_CORES - 1 ];
     static StackType_t xIdleTaskStackBuffers[ configNUMBER_OF_CORES - 1 ][ configMINIMAL_STACK_SIZE ];
+
 #endif /* #if ( configSUPPORT_STATIC_ALLOCATION == 1 ) && ( configNUMBER_OF_CORES > 1 ) */
 
 /*lint -restore */
@@ -693,7 +697,7 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
     static void prvCheckForRunStateChange( void )
     {
         UBaseType_t uxPrevCriticalNesting;
-        TCB_t * pxThisTCB;
+        const TCB_t * pxThisTCB;
 
         /* This should be skipped if called from an ISR. If the task on the current
          * core is no longer running, then vTaskSwitchContext() probably should
@@ -929,7 +933,7 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
         if( listIS_CONTAINED_WITHIN( &( pxReadyTasksLists[ pxCurrentTCBs[ xCoreID ]->uxPriority ] ),
                                      &pxCurrentTCBs[ xCoreID ]->xStateListItem ) == pdTRUE )
         {
-            uxListRemove( &pxCurrentTCBs[ xCoreID ]->xStateListItem );
+            ( void ) uxListRemove( &pxCurrentTCBs[ xCoreID ]->xStateListItem );
             vListInsertEnd( &( pxReadyTasksLists[ pxCurrentTCBs[ xCoreID ]->uxPriority ] ),
                             &pxCurrentTCBs[ xCoreID ]->xStateListItem );
         }
@@ -950,9 +954,9 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
 
             if( listLIST_IS_EMPTY( &( pxReadyTasksLists[ uxCurrentPriority ] ) ) == pdFALSE )
             {
-                List_t * const pxReadyList = &( pxReadyTasksLists[ uxCurrentPriority ] );
+                const List_t * const pxReadyList = &( pxReadyTasksLists[ uxCurrentPriority ] );
                 const ListItem_t * pxEndMarker = listGET_END_MARKER( pxReadyList );
-                ListItem_t * pxIterator;
+                const ListItem_t * pxIterator;
 
                 /* The ready task list for uxCurrentPriority is not empty, so uxTopReadyPriority
                  * must not be decremented any further. */
@@ -1096,7 +1100,7 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
                     UBaseType_t uxCore = ( UBaseType_t ) x;
                     BaseType_t xTaskPriority;
 
-                    if( ( uxCoreMap & ( 1 << uxCore ) ) != 0 )
+                    if( ( uxCoreMap & ( ( 1U << ( UBaseType_t ) uxCore ) ) != 0U )
                     {
                         xTaskPriority = ( BaseType_t ) pxCurrentTCBs[ uxCore ]->uxPriority;
 
@@ -1380,7 +1384,7 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
 
             if( pxNewTCB != NULL )
             {
-                memset( ( void * ) pxNewTCB, 0x00, sizeof( TCB_t ) );
+                ( void ) memset( ( void * ) pxNewTCB, 0x00, sizeof( TCB_t ) );
 
                 /* Allocate space for the stack used by the task being created.
                  * The base of the stack memory stored in the TCB so the task can
@@ -1409,7 +1413,7 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
 
                 if( pxNewTCB != NULL )
                 {
-                    memset( ( void * ) pxNewTCB, 0x00, sizeof( TCB_t ) );
+                    ( void ) memset( ( void * ) pxNewTCB, 0x00, sizeof( TCB_t ) );
 
                     /* Store the stack location in the TCB. */
                     pxNewTCB->pxStack = pxStack;
@@ -2589,7 +2593,7 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
                     {
                         /* Calculate the cores on which this task was not allowed to
                          * run previously. */
-                        uxPrevNotAllowedCores = ( ~uxPrevCoreAffinityMask ) & ( ( 1 << configNUMBER_OF_CORES ) - 1 );
+                        uxPrevNotAllowedCores = ( ~uxPrevCoreAffinityMask ) & ( ( 1U << configNUMBER_OF_CORES ) - 1U );
 
                         /* Does the new core mask enables this task to run on any of the
                          * previously not allowed cores? If yes, check if this task can be
@@ -3758,7 +3762,7 @@ char * pcTaskGetName( TaskHandle_t xTaskToQuery ) /*lint !e971 Unqualified char 
             char cNextChar;
             BaseType_t xBreakLoop;
             const ListItem_t * pxEndMarker = listGET_END_MARKER( pxList );
-            ListItem_t * pxIterator;
+            const ListItem_t * pxIterator;
 
             /* This function is called with the scheduler suspended. */
 
@@ -6735,14 +6739,18 @@ TickType_t uxTaskResetEventItemValue( void )
 
     TaskHandle_t pvTaskIncrementMutexHeldCount( void )
     {
+        TCB_t * pxTCB;
+
+        pxTCB = pxCurrentTCB;
+
         /* If xSemaphoreCreateMutex() is called before any tasks have been created
          * then pxCurrentTCB will be NULL. */
-        if( pxCurrentTCB != NULL )
+        if( pxTCB != NULL )
         {
-            ( pxCurrentTCB->uxMutexesHeld )++;
+            ( pxTCB->uxMutexesHeld )++;
         }
 
-        return pxCurrentTCB;
+        return pxTCB;
     }
 
 #endif /* configUSE_MUTEXES */
