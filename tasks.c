@@ -956,7 +956,7 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
             {
                 const List_t * const pxReadyList = &( pxReadyTasksLists[ uxCurrentPriority ] );
                 const ListItem_t * pxEndMarker = listGET_END_MARKER( pxReadyList );
-                const ListItem_t * pxIterator;
+                ListItem_t * pxIterator;
 
                 /* The ready task list for uxCurrentPriority is not empty, so uxTopReadyPriority
                  * must not be decremented any further. */
@@ -3773,7 +3773,7 @@ char * pcTaskGetName( TaskHandle_t xTaskToQuery ) /*lint !e971 Unqualified char 
             char cNextChar;
             BaseType_t xBreakLoop;
             const ListItem_t * pxEndMarker = listGET_END_MARKER( pxList );
-            const ListItem_t * pxIterator;
+            ListItem_t * pxIterator;
 
             /* This function is called with the scheduler suspended. */
 
