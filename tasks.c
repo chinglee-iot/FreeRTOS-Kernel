@@ -1100,7 +1100,7 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
                     UBaseType_t uxCore = ( UBaseType_t ) x;
                     BaseType_t xTaskPriority;
 
-                    if( ( uxCoreMap & ( ( 1U << ( UBaseType_t ) uxCore ) ) != 0U )
+                    if( ( uxCoreMap & ( 1U << ( UBaseType_t ) uxCore ) ) != 0U )
                     {
                         xTaskPriority = ( BaseType_t ) pxCurrentTCBs[ uxCore ]->uxPriority;
 
