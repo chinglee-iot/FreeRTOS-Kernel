@@ -1053,20 +1053,22 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
         }
 
         #if ( configRUN_MULTIPLE_PRIORITIES == 0 )
-        if( xTaskScheduled == pdTRUE )
         {
-            if( xPriorityDropped != pdFALSE )
+            if( xTaskScheduled == pdTRUE )
             {
-                /* There may be several ready tasks that were being prevented from running because there was
-                 * a higher priority task running. Now that the last of the higher priority tasks is no longer
-                 * running, make sure all the other idle tasks yield. */
-                BaseType_t x;
-
-                for( x = ( BaseType_t ) 0; x < ( BaseType_t ) configNUMBER_OF_CORES; x++ )
+                if( xPriorityDropped != pdFALSE )
                 {
-                    if( ( pxCurrentTCBs[ x ]->uxTaskAttributes & taskATTRIBUTE_IS_IDLE ) != 0 )
+                    /* There may be several ready tasks that were being prevented from running because there was
+                     * a higher priority task running. Now that the last of the higher priority tasks is no longer
+                     * running, make sure all the other idle tasks yield. */
+                    BaseType_t x;
+
+                    for( x = ( BaseType_t ) 0; x < ( BaseType_t ) configNUMBER_OF_CORES; x++ )
                     {
-                        prvYieldCore( x );
+                        if( ( pxCurrentTCBs[ x ]->uxTaskAttributes & taskATTRIBUTE_IS_IDLE ) != 0 )
+                        {
+                            prvYieldCore( x );
+                        }
                     }
                 }
             }
@@ -1074,72 +1076,74 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
         #endif /* #if ( configRUN_MULTIPLE_PRIORITIES == 0 ) */
 
         #if ( configUSE_CORE_AFFINITY == 1 )
-        if( xTaskScheduled == pdTRUE )
         {
-            if( ( pxPreviousTCB != NULL ) && ( listIS_CONTAINED_WITHIN( &( pxReadyTasksLists[ pxPreviousTCB->uxPriority ] ), &( pxPreviousTCB->xStateListItem ) ) != pdFALSE ) )
+            if( xTaskScheduled == pdTRUE )
             {
-                /* A ready task was just evicted from this core. See if it can be
-                 * scheduled on any other core. */
-                UBaseType_t uxCoreMap = pxPreviousTCB->uxCoreAffinityMask;
-                BaseType_t xLowestPriority = ( BaseType_t ) pxPreviousTCB->uxPriority;
-                BaseType_t xLowestPriorityCore = -1;
-                BaseType_t x;
-
-                if( ( pxPreviousTCB->uxTaskAttributes & taskATTRIBUTE_IS_IDLE ) != 0U )
+                if( ( pxPreviousTCB != NULL ) && ( listIS_CONTAINED_WITHIN( &( pxReadyTasksLists[ pxPreviousTCB->uxPriority ] ), &( pxPreviousTCB->xStateListItem ) ) != pdFALSE ) )
                 {
-                    xLowestPriority = xLowestPriority - 1;
-                }
+                    /* A ready task was just evicted from this core. See if it can be
+                     * scheduled on any other core. */
+                    UBaseType_t uxCoreMap = pxPreviousTCB->uxCoreAffinityMask;
+                    BaseType_t xLowestPriority = ( BaseType_t ) pxPreviousTCB->uxPriority;
+                    BaseType_t xLowestPriorityCore = -1;
+                    BaseType_t x;
 
-                if( ( uxCoreMap & ( ( UBaseType_t ) 1U << ( UBaseType_t ) xCoreID ) ) != 0U )
-                {
-                    /* The ready task that was removed from this core is not excluded from it.
-                     * Only look at the intersection of the cores the removed task is allowed to run
-                     * on with the cores that the new task is excluded from. It is possible that the
-                     * new task was only placed onto this core because it is excluded from another.
-                     * Check to see if the previous task could run on one of those cores. */
-                    uxCoreMap &= ~( pxCurrentTCBs[ xCoreID ]->uxCoreAffinityMask );
-                }
-                else
-                {
-                    /* The ready task that was removed from this core is excluded from it. */
-                }
-
-                uxCoreMap &= ( ( 1U << configNUMBER_OF_CORES ) - 1U );
-
-                for( x = ( ( BaseType_t ) configNUMBER_OF_CORES - 1 ); x >= ( BaseType_t ) 0; x-- )
-                {
-                    UBaseType_t uxCore = ( UBaseType_t ) x;
-                    BaseType_t xTaskPriority;
-
-                    if( ( uxCoreMap & ( ( UBaseType_t ) 1U << uxCore ) ) != 0U )
+                    if( ( pxPreviousTCB->uxTaskAttributes & taskATTRIBUTE_IS_IDLE ) != 0U )
                     {
-                        xTaskPriority = ( BaseType_t ) pxCurrentTCBs[ uxCore ]->uxPriority;
+                        xLowestPriority = xLowestPriority - 1;
+                    }
 
-                        if( ( pxCurrentTCBs[ uxCore ]->uxTaskAttributes & taskATTRIBUTE_IS_IDLE ) != 0U )
+                    if( ( uxCoreMap & ( ( UBaseType_t ) 1U << ( UBaseType_t ) xCoreID ) ) != 0U )
+                    {
+                        /* The ready task that was removed from this core is not excluded from it.
+                         * Only look at the intersection of the cores the removed task is allowed to run
+                         * on with the cores that the new task is excluded from. It is possible that the
+                         * new task was only placed onto this core because it is excluded from another.
+                         * Check to see if the previous task could run on one of those cores. */
+                        uxCoreMap &= ~( pxCurrentTCBs[ xCoreID ]->uxCoreAffinityMask );
+                    }
+                    else
+                    {
+                        /* The ready task that was removed from this core is excluded from it. */
+                    }
+
+                    uxCoreMap &= ( ( 1U << configNUMBER_OF_CORES ) - 1U );
+
+                    for( x = ( ( BaseType_t ) configNUMBER_OF_CORES - 1 ); x >= ( BaseType_t ) 0; x-- )
+                    {
+                        UBaseType_t uxCore = ( UBaseType_t ) x;
+                        BaseType_t xTaskPriority;
+
+                        if( ( uxCoreMap & ( ( UBaseType_t ) 1U << uxCore ) ) != 0U )
                         {
-                            xTaskPriority = xTaskPriority - ( BaseType_t ) 1;
-                        }
+                            xTaskPriority = ( BaseType_t ) pxCurrentTCBs[ uxCore ]->uxPriority;
 
-                        uxCoreMap &= ~( ( UBaseType_t ) 1U << uxCore );
-
-                        if( ( xTaskPriority < xLowestPriority ) &&
-                            ( taskTASK_IS_RUNNING( pxCurrentTCBs[ uxCore ] ) != pdFALSE ) &&
-                            ( xYieldPendings[ uxCore ] == pdFALSE ) )
-                        {
-                            #if ( configUSE_TASK_PREEMPTION_DISABLE == 1 )
-                                if( pxCurrentTCBs[ uxCore ]->xPreemptionDisable == pdFALSE )
-                            #endif
+                            if( ( pxCurrentTCBs[ uxCore ]->uxTaskAttributes & taskATTRIBUTE_IS_IDLE ) != 0U )
                             {
-                                xLowestPriority = xTaskPriority;
-                                xLowestPriorityCore = ( BaseType_t ) uxCore;
+                                xTaskPriority = xTaskPriority - ( BaseType_t ) 1;
+                            }
+
+                            uxCoreMap &= ~( ( UBaseType_t ) 1U << uxCore );
+
+                            if( ( xTaskPriority < xLowestPriority ) &&
+                                ( taskTASK_IS_RUNNING( pxCurrentTCBs[ uxCore ] ) != pdFALSE ) &&
+                                ( xYieldPendings[ uxCore ] == pdFALSE ) )
+                            {
+                                #if ( configUSE_TASK_PREEMPTION_DISABLE == 1 )
+                                    if( pxCurrentTCBs[ uxCore ]->xPreemptionDisable == pdFALSE )
+                                #endif
+                                {
+                                    xLowestPriority = xTaskPriority;
+                                    xLowestPriorityCore = ( BaseType_t ) uxCore;
+                                }
                             }
                         }
                     }
-                }
 
-                if( xLowestPriorityCore >= 0 )
-                {
-                    prvYieldCore( xLowestPriorityCore );
+                    if( xLowestPriorityCore >= 0 )
+                    {
+                        prvYieldCore( xLowestPriorityCore );
+                    }
                 }
             }
         }
