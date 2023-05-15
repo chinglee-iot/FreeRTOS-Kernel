@@ -1,29 +1,39 @@
-# MISRA Compliance (for configNUMBER_OF_CORES > 1)
+# MISRA Compliance
 
-For now, FreeRTOS-Kernel only conforms [MISRA C:2012](https://www.misra.org.uk/misra-c) guidelines in SMP part (configNUMBER_OF_CORES > 1), 
-with the deviations listed below. Compliance is checked with Coverity static analysis. Refer to [configuration](#misra-configuration) to build an application for the tool to analyze.
+FreeRTOS-Kernel conforms to [MISRA C:2012](https://www.misra.org.uk/misra-c)
+guidelines, with the deviations listed below. Compliance is checked with
+Coverity static analysis. Since the FreeRTOS kernel is designed for
+small-embedded devices, it needs to have a very small memory footprint and
+has to be efficient. To achieve that and to increase the performance, it
+deviates from some MISRA rules. The specific deviations, suppressed inline,
+are listed below.
+
+Additionally, [MISRA configuration](#misra-configuration) contains project
+wide deviations.
 
 ### Suppressed with Coverity Comments
 To find the violation references in the source files run grep on the source code
-with ( Assuming rule 4.6 violation; with justification in point 1 ):
+with ( Assuming rule 8.4 violation; with justification in point 1 ):
 ```
 grep 'MISRA Ref 8.4.1' . -rI
 ```
-        
+
 #### Rule 8.4
 
 _Ref 8.4.1_
 
-- MISRA C:2012 Rule 8.4: A compatible declaration shall be visible when an object or function with external linkage is defined.
-        This rule requires that a compatiable declaration is made available in a header
-        file when an object with external linkage is defined. pxCurrentTCB(s) is defined
-        with external linkage but it is only used in port assembly files. Therefore, adding
-        a declaration in header file is not useful as the assembly code will still need to
-        declare it separately.
+- MISRA C:2012 Rule 8.4: A compatible declaration shall be visible when an
+        object or function with external linkage is defined.
+        This rule requires that a compatible declaration is made available
+        in a header file when an object with external linkage is defined.
+        pxCurrentTCB(s) is defined with external linkage but it is only
+        referenced from the assembly code in the port files. Therefore, adding
+        a declaration in header file is not useful as the assembly code will
+        still need to declare it separately.
 
 ### MISRA configuration
 
-Copy below content as misra.conf to run coverity on FreeRTOS-Kernel.
+Copy below content to `misra.conf` to run Coverity on FreeRTOS-Kernel.
 
 ```
 // MISRA C-2012 Rules
