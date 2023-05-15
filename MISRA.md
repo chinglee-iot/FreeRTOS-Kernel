@@ -58,6 +58,14 @@ Copy below content to `misra.conf` to run Coverity on FreeRTOS-Kernel.
         {
             deviation: "Rule 3.1",
             reason: "We post HTTP links in code comments which contain // inside comments blocks."
+        },
+        {
+            deviation: "Rule 8.7",
+            reason: "API functions are not used by the library outside of the files they are defined; however, they must be externally visible in order to be used by an application."
+        },
+        {
+            deviation: "Rule 11.5",
+            reason: "Allow casts from `void *`. List owner, pvOwner, is stored as `void *` and are cast to various types for use in functions."
         }
     ]
 }
