@@ -45,35 +45,19 @@ Copy below content to `misra.conf` to run Coverity on FreeRTOS-Kernel.
         // Disable the following rules.
         {
             deviation: "Directive 4.8",
-            reason: "We include lots of header files from other sources such as the kernel which defines structures that violate that Dir"
+            reason: "HeapRegion_t and HeapStats_t are used only in heap files but declared in portable.h which is included in multiple source files. As a result, these definitions appear in multiple source files where they are not used."
         },
         {
             deviation: "Directive 4.9",
-            reason: "It is important the FreeRTOS-Kernel is optimised to work on small micro-controllers. To achieve that, macros are being used."
+            reason: "FreeRTOS-Kernel is optimised to work on small micro-controllers. To achieve that, function-like macros are used."
         },
         {
             deviation: "Rule 1.2",
-            reason: "Allow FreeRTOS-Kernel to use attributes."
-        },
-        {
-            deviation: "Rule 2.3",
-            reason: "The way we declare structures are conformant with the FreeRTOS libraries, which leaves somes types unused."
-        },
-        {
-            deviation: "Rule 2.4",
-            reason: "Structures are always declared with both a struct tag and typedef alias. Some of these structs are always referred to by their typedef alias and thus the corresponding tags are unused."
-        },
-        {
-            deviation: "Rule 2.5",
-            reason: "We use unused macros for backward compatibility in addition to macros comming from FreeRTOS"
+            reason: "The __attribute__ tags are used via macros which are defined in port files."
         },
         {
             deviation: "Rule 3.1",
-            reason: "We post links which contain // inside comments blocks"
-        },
-        {
-            deviation: "Rule 21.2",
-            reason: "Allow use of all names."
+            reason: "We post HTTP links in code comments which contain // inside comments blocks."
         }
     ]
 }
