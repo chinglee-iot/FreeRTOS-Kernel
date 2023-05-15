@@ -58,18 +58,15 @@
     #include <stdio.h>
 #endif /* configUSE_STATS_FORMATTING_FUNCTIONS == 1 ) */
 
-#if ( configUSE_PREEMPTION == 0 )
-
-/* If the cooperative scheduler is being used then a yield should not be
- * performed just because a higher priority task has been woken. */
-    #define taskYIELD_IF_USING_PREEMPTION()
-#else
-    #if ( configNUMBER_OF_CORES == 1 )
-        #define taskYIELD_IF_USING_PREEMPTION()    portYIELD_WITHIN_API()
+#if ( configNUMBER_OF_CORES == 1 )
+    #if ( configUSE_PREEMPTION == 0 )
+    /* If the cooperative scheduler is being used then a yield should not be
+     * performed just because a higher priority task has been woken. */
+        #define taskYIELD_IF_USING_PREEMPTION()
     #else
-        #define taskYIELD_IF_USING_PREEMPTION()    vTaskYieldWithinAPI()
+        #define taskYIELD_IF_USING_PREEMPTION()    portYIELD_WITHIN_API()
     #endif
-#endif
+#endif  /* if ( configNUMBER_OF_CORES == 1 ) */
 
 /* Values that can be assigned to the ucNotifyState member of the TCB. */
 #define taskNOT_WAITING_NOTIFICATION              ( ( uint8_t ) 0 ) /* Must be zero as it is the initialised value. */
@@ -137,22 +134,24 @@
 
 /*-----------------------------------------------------------*/
 
-    #define taskSELECT_HIGHEST_PRIORITY_TASK()                                \
-    do {                                                                      \
-        UBaseType_t uxTopPriority = uxTopReadyPriority;                       \
-                                                                              \
-        /* Find the highest priority queue that contains ready tasks. */      \
-        while( listLIST_IS_EMPTY( &( pxReadyTasksLists[ uxTopPriority ] ) ) ) \
-        {                                                                     \
-            configASSERT( uxTopPriority );                                    \
-            --uxTopPriority;                                                  \
-        }                                                                     \
-                                                                              \
-        /* listGET_OWNER_OF_NEXT_ENTRY indexes through the list, so the tasks of \
-         * the  same priority get an equal share of the processor time. */                    \
-        listGET_OWNER_OF_NEXT_ENTRY( pxCurrentTCB, &( pxReadyTasksLists[ uxTopPriority ] ) ); \
-        uxTopReadyPriority = uxTopPriority;                                                   \
-    } while( 0 ) /* taskSELECT_HIGHEST_PRIORITY_TASK */
+    #if ( configNUMBER_OF_CORES == 1 )
+        #define taskSELECT_HIGHEST_PRIORITY_TASK()                                \
+        do {                                                                      \
+            UBaseType_t uxTopPriority = uxTopReadyPriority;                       \
+                                                                                  \
+            /* Find the highest priority queue that contains ready tasks. */      \
+            while( listLIST_IS_EMPTY( &( pxReadyTasksLists[ uxTopPriority ] ) ) ) \
+            {                                                                     \
+                configASSERT( uxTopPriority );                                    \
+                --uxTopPriority;                                                  \
+            }                                                                     \
+                                                                                  \
+            /* listGET_OWNER_OF_NEXT_ENTRY indexes through the list, so the tasks of \
+             * the  same priority get an equal share of the processor time. */                    \
+            listGET_OWNER_OF_NEXT_ENTRY( pxCurrentTCB, &( pxReadyTasksLists[ uxTopPriority ] ) ); \
+            uxTopReadyPriority = uxTopPriority;                                                   \
+        } while( 0 ) /* taskSELECT_HIGHEST_PRIORITY_TASK */
+    #endif  /* if ( configNUMBER_OF_CORES == 1 ) */
 
 /*-----------------------------------------------------------*/
 
@@ -268,17 +267,11 @@ typedef BaseType_t TaskRunning_t;
 /* Indicates that the task is actively running but scheduled to yield. */
 #define taskTASK_YIELDING       ( TaskRunning_t ) ( -2 )
 
-/* taskTASK_IS_RUNNING - Returns pdTRUE if the task is actively running
- *                       and not scheduled to yield.
- * taskTASK_IS_YIELDING - Returns pdTRUE if the task is actively running
- *                        but scheduled to yield.
- */
+/* Returns pdTRUE if the task is actively running and not scheduled to yield. */
 #if ( configNUMBER_OF_CORES == 1 )
     #define taskTASK_IS_RUNNING( pxTCB )     ( ( ( pxTCB ) == pxCurrentTCB ) ? ( pdTRUE ) : ( pdFALSE ) )
-    #define taskTASK_IS_YIELDING( pxTCB )    ( pdFALSE )
 #else
     #define taskTASK_IS_RUNNING( pxTCB )     ( ( ( ( pxTCB )->xTaskRunState >= ( BaseType_t ) 0 ) && ( ( pxTCB )->xTaskRunState < ( BaseType_t ) configNUMBER_OF_CORES ) ) ? ( pdTRUE ) : ( pdFALSE ) )
-    #define taskTASK_IS_YIELDING( pxTCB )    ( ( ( pxTCB )->xTaskRunState == taskTASK_YIELDING ) ? ( pdTRUE ) : ( pdFALSE ) )
 #endif
 
 /* Indicates that the task is an Idle task. */
