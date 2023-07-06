@@ -99,18 +99,18 @@
     store_x x31, 28 * portWORD_SIZE( sp )
 #endif
 
-    load_x  t0, xCriticalNesting         /* Load the value of xCriticalNesting into t0. */
-    store_x t0, portCRITICAL_NESTING_OFFSET * portWORD_SIZE( sp ) /* Store the critical nesting value to the stack. */
+    load_x  t1, xCriticalNesting         /* Load the value of xCriticalNesting into t0. */
+    store_x t1, portCRITICAL_NESTING_OFFSET * portWORD_SIZE( sp ) /* Store the critical nesting value to the stack. */
 
 
-    csrr t0, mstatus                     /* Required for MPIE bit. */
-    store_x t0, portMSTATUS_OFFSET * portWORD_SIZE( sp )
+    csrr t1, mstatus                     /* Required for MPIE bit. */
+    store_x t1, portMSTATUS_OFFSET * portWORD_SIZE( sp )
 
 
     portasmSAVE_ADDITIONAL_REGISTERS     /* Defined in freertos_risc_v_chip_specific_extensions.h to save any registers unique to the RISC-V implementation. */
 
-    load_x  t0, pxCurrentTCB             /* Load pxCurrentTCB. */
-    store_x  sp, 0( t0 )                 /* Write sp to first TCB member. */
+    load_x  t1, pxCurrentTCB             /* Load pxCurrentTCB. */
+    store_x  sp, 0( t1 )                 /* Write sp to first TCB member. */
 
     .endm
 /*-----------------------------------------------------------*/
