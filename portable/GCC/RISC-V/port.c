@@ -84,6 +84,14 @@
  */
 void vPortSetupTimerInterrupt( void ) __attribute__(( weak ));
 
+
+#if ( configENABLE_MPU == 1 )
+
+/**
+ * @brief Setup the Memory Protection Unit (MPU).
+ */
+    static void prvSetupMPU( void ) PRIVILEGED_FUNCTION;
+#endif /* configENABLE_MPU */
 /*-----------------------------------------------------------*/
 
 /* Used to program the machine timer compare register. */
@@ -201,3 +209,78 @@ void vPortEndScheduler( void )
     for( ;; );
 }
 /*-----------------------------------------------------------*/
+
+/*
+ * Defines the memory ranges allocated to the task when an MPU is used.
+ */
+void vPortStoreTaskMPUSettings( xMPU_SETTINGS * xMPUSettings,
+                                const struct xMEMORY_REGION * const xRegions,
+                                StackType_t * pxBottomOfStack,
+                                uint32_t ulStackDepth )
+{
+    /* Setup stack protection. */
+
+    /* Setup user defined region protection. */
+}
+/*-----------------------------------------------------------*/
+
+#if ( configENABLE_MPU == 1 )
+    #include "pmp_apis.h"
+
+    #define BITS_SIZE_MASK( x )  (~( ( 1 << x ) - 1 ) )
+    #define BITS_SIZE_NAPOT( x )  ( ( 1 << ( x - 3 ) ) - 1 )
+
+    static void prvSetupMPU( void ) /* PRIVILEGED_FUNCTION */
+    {
+        struct pmp_config xPmpConfig;
+        size_t xPmpAddress = 0x0;
+
+        /* Declaration when these variable are defined in code instead of being
+         * exported from linker scripts. */
+        extern uint32_t __privileged_functions_start__[];
+        extern uint32_t __privileged_functions_end__[];
+        extern uint32_t __FLASH_segment_start__[];
+        extern uint32_t __FLASH_segment_end__[];
+        extern uint32_t __privileged_data_start__[];
+        extern uint32_t __privileged_data_end__[];
+
+        /* Setup privileged flash as Read Only so that privileged tasks can
+         * read it but not modify. */
+        /* unprivileged access control. */
+        xPmpConfig.R = 0;
+        xPmpConfig.W = 0;
+        xPmpConfig.L = METAL_PMP_UNLOCKED;
+        xPmpConfig.X = 0;
+        xPmpConfig.A = METAL_PMP_NAPOT;
+        
+        /* 32k. */
+        xPmpAddress = __privileged_functions_start__ & ( BITS_SIZE_MASK( 15 ) );
+        xPmpAddress = xPmpAddress | BITS_SIZE_NAPOT( 15 );
+        xPortPmpSetRegion( 1, xPmpConfig, xPmpAddress );
+
+        /* First setup the unprivileged flash for unprivileged read only access. */
+        xPmpConfig.R = 1;
+        xPmpConfig.W = 0;
+        xPmpConfig.L = METAL_PMP_UNLOCKED;
+        xPmpConfig.X = 1;
+        xPmpConfig.A = METAL_PMP_NAPOT;
+
+        /* 512K. */
+        xPmpAddress = __FLASH_segment_start__ & ( BITS_SIZE_MASK( 19 ) );
+        xPmpAddress = xPmpAddress | BITS_SIZE_NAPOT( 19 );
+        xPortPmpSetRegion( 0, xPmpConfig, xPmpAddress );
+
+        /* Setup the privileged data RAM region.  This is where the kernel data
+         * is placed. */
+        xPmpConfig.R = 0;
+        xPmpConfig.W = 0;
+        xPmpConfig.L = METAL_PMP_UNLOCKED;
+        xPmpConfig.X = 0;
+        xPmpConfig.A = METAL_PMP_NAPOT;
+        
+        /* 64K. */
+        xPmpAddress = __privileged_data_start__ & ( BITS_SIZE_MASK( 16 ) );
+        xPmpAddress = xPmpAddress | BITS_SIZE_NAPOT( 16 );
+        xPortPmpSetRegion( 3, xPmpConfig, xPmpAddress );
+    }
+#endif /* configENABLE_MPU */
