@@ -3199,9 +3199,9 @@ void vTaskInternalSetTimeOutState( TimeOut_t * const pxTimeOut ) PRIVILEGED_FUNC
 
 #if ( portUSING_MPU_WRAPPERS == 1 )
 
-    /*
-     * For internal use only.  Get MPU settings associated with a task.
-     */
+/*
+ * For internal use only.  Get MPU settings associated with a task.
+ */
     xMPU_SETTINGS * xTaskGetMPUSettings( TaskHandle_t xTask ) PRIVILEGED_FUNCTION;
 
 #endif /* portUSING_MPU_WRAPPERS */
