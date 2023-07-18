@@ -3445,7 +3445,7 @@ void vTaskExitCritical( void );
  * should be used in the implementation of portENTER_CRITICAL_FROM_ISR if port is
  * running a multiple core FreeRTOS.
  */
-portBASE_TYPE vTaskEnterCriticalFromISR( void );
+UBaseType_t vTaskEnterCriticalFromISR( void );
 
 /*
  * This function is only intended for use when implementing a port of the scheduler
@@ -3453,7 +3453,7 @@ portBASE_TYPE vTaskEnterCriticalFromISR( void );
  * should be used in the implementation of portEXIT_CRITICAL_FROM_ISR if port is
  * running a multiple core FreeRTOS.
  */
-void vTaskExitCriticalFromISR( portBASE_TYPE xSavedInterruptStatus );
+void vTaskExitCriticalFromISR( UBaseType_t uxSavedInterruptStatus );
 
 /* *INDENT-OFF* */
 #ifdef __cplusplus
