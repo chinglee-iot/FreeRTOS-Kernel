@@ -151,7 +151,7 @@
          * the  same priority get an equal share of the processor time. */                    \
         listGET_OWNER_OF_NEXT_ENTRY( pxCurrentTCB, &( pxReadyTasksLists[ uxTopPriority ] ) ); \
         uxTopReadyPriority = uxTopPriority;                                                   \
-    } while( 0 )         /* taskSELECT_HIGHEST_PRIORITY_TASK */
+    } while( 0 ) /* taskSELECT_HIGHEST_PRIORITY_TASK */
     #endif /* if ( configNUMBER_OF_CORES == 1 ) */
 
 /*-----------------------------------------------------------*/
