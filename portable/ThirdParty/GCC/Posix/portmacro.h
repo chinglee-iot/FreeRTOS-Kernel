@@ -94,8 +94,8 @@ extern void vPortEnableInterrupts( void );
 #define portSET_INTERRUPT_MASK()        ( vPortDisableInterrupts() )
 #define portCLEAR_INTERRUPT_MASK()      ( vPortEnableInterrupts() )
 
-extern portBASE_TYPE xPortSetInterruptMask( void );
-extern void vPortClearInterruptMask( portBASE_TYPE xMask );
+extern UBaseType_t xPortSetInterruptMask( void );
+extern void vPortClearInterruptMask( UBaseType_t xMask );
 
 extern void vPortEnterCritical( void );
 extern void vPortExitCritical( void );
@@ -114,7 +114,7 @@ extern void vPortCancelThread( void *pxTaskToDelete );
 #define portCLEAN_UP_TCB( pxTCB )   vPortCancelThread( pxTCB )
 /*-----------------------------------------------------------*/
 
-#define portTASK_FUNCTION_PROTO( vFunction, pvParameters ) void vFunction( void *pvParameters )
+#define portTASK_FUNCTION_PROTO( vFunction, pvParameters ) void vFunction( void *pvParameters ) __attribute__( ( noreturn ) )
 #define portTASK_FUNCTION( vFunction, pvParameters ) void vFunction( void *pvParameters )
 /*-----------------------------------------------------------*/
 
