@@ -297,9 +297,9 @@ freertos_risc_v_application_interrupt_handler:
 .section .text.freertos_risc_v_exception_handler
 freertos_risc_v_exception_handler:
     portcontextSAVE_EXCEPTION_CONTEXT
-    /* s0 now contains mcause. */
-    li t1, 11                           /* 11 == environment call. */
-    bne s0, t1, other_exception         /* Not an M environment call, so some other exception. */
+    /* a0 now contains mcause. */
+    li t0, 11                           /* 11 == environment call. */
+    bne a0, t0, other_exception         /* Not an M environment call, so some other exception. */
     call vTaskSwitchContext
     portcontextRESTORE_CONTEXT
 
@@ -326,35 +326,24 @@ exit_without_context_switch:
     portcontextRESTORE_CONTEXT
 /*-----------------------------------------------------------*/
 
-/* syscall calling convention
- * a0 : arg0
- * a1 : arg0
- * a2 : arg0
- * a3 : arg0
- * a4 : arg0
- * a5 : arg0
- * a7 : syscall number 
- * t0 : ( __riscv_32e ) syscall number.
- * All the registers are save in portcontextSAVE_CONTEXT_INTERNAL.
- * use s0, s1 and t1 in the assembly. */
 .section .text.freertos_risc_v_trap_handler
 .align 8
 freertos_risc_v_trap_handler:
     portcontextSAVE_CONTEXT_INTERNAL
 
-    csrr s0, mcause
-    csrr s1, mepc
+    csrr a0, mcause
+    csrr a1, mepc
 
-    bge s0, x0, synchronous_exception
+    bge a0, x0, synchronous_exception
 
 asynchronous_interrupt:
-    store_x s1, 0( sp )                 /* Asynchronous interrupt so save unmodified exception return address. */
+    store_x a1, 0( sp )                 /* Asynchronous interrupt so save unmodified exception return address. */
     load_x sp, xISRStackTop             /* Switch to ISR stack. */
     j handle_interrupt
 
 synchronous_exception:
-    addi s1, s1, 4                      /* Synchronous so update exception return address to the instruction after the instruction that generated the exeption. */
-    store_x s1, 0( sp )                 /* Save updated exception return address. */
+    addi a1, a1, 4                      /* Synchronous so update exception return address to the instruction after the instruction that generated the exeption. */
+    store_x a1, 0( sp )                 /* Save updated exception return address. */
     load_x sp, xISRStackTop             /* Switch to ISR stack. */
     j handle_exception
 
@@ -365,11 +354,11 @@ handle_interrupt:
         addi t0, x0, 1
         slli t0, t0, __riscv_xlen - 1   /* LSB is already set, shift into MSB.  Shift 31 on 32-bit or 63 on 64-bit cores. */
         addi t1, t0, 7                  /* 0x8000[]0007 == machine timer interrupt. */
-        bne s0, t1, application_interrupt_handler
+        bne a0, t1, application_interrupt_handler
 
         portUPDATE_MTIMER_COMPARE_REGISTER
         call xTaskIncrementTick
-        beqz s0, processed_source       /* Don't switch context if incrementing tick didn't unblock a task. */
+        beqz a0, processed_source       /* Don't switch context if incrementing tick didn't unblock a task. */
         call vTaskSwitchContext
         j processed_source
 
@@ -380,23 +369,13 @@ application_interrupt_handler:
     j processed_source
 
 handle_exception:
-    /* s0 contains mcause. */
-    li t1, 11                                   /* 11 == environment call. */
-    bne s0, t1, application_exception_handler   /* Not an M environment call, so some other exception. */
-#ifndef __riscv_32e
-    bne a7, x0, application_exception_handler   /* t0 is the syscall number. */
-#else
-    bne t0, x0, application_exception_handler   /* t0 is the syscall number. */
-#endif
+    /* a0 contains mcause. */
+    li t0, 11                                   /* 11 == environment call. */
+    bne a0, t0, application_exception_handler   /* Not an M environment call, so some other exception. */
     call vTaskSwitchContext
     j processed_source
 
 application_exception_handler:
-#ifndef __riscv_32e
-    addi s0, a7, 0      /* TODO : syscall table. */
-#else
-    addi s0, t0, 0
-#endif
     call freertos_risc_v_application_exception_handler
     j processed_source                  /* No other exceptions handled yet. */
 
