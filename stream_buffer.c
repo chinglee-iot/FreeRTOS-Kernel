@@ -98,7 +98,7 @@
     do {                                                                             \
         UBaseType_t uxSavedInterruptStatus;                                          \
                                                                                      \
-        uxSavedInterruptStatus = taskENTER_CRITICAL_FROM_ISR();                  \
+        uxSavedInterruptStatus = taskENTER_CRITICAL_FROM_ISR();                      \
         {                                                                            \
             if( ( pxStreamBuffer )->xTaskWaitingToSend != NULL )                     \
             {                                                                        \
@@ -109,7 +109,7 @@
                 ( pxStreamBuffer )->xTaskWaitingToSend = NULL;                       \
             }                                                                        \
         }                                                                            \
-        taskEXIT_CRITICAL_FROM_ISR( uxSavedInterruptStatus );                 \
+        taskEXIT_CRITICAL_FROM_ISR( uxSavedInterruptStatus );                        \
     } while( 0 )
 #endif /* sbRECEIVE_COMPLETED_FROM_ISR */
 
@@ -175,7 +175,7 @@
     do {                                                                                \
         UBaseType_t uxSavedInterruptStatus;                                             \
                                                                                         \
-        uxSavedInterruptStatus = taskENTER_CRITICAL_FROM_ISR();                     \
+        uxSavedInterruptStatus = taskENTER_CRITICAL_FROM_ISR();                         \
         {                                                                               \
             if( ( pxStreamBuffer )->xTaskWaitingToReceive != NULL )                     \
             {                                                                           \
@@ -186,7 +186,7 @@
                 ( pxStreamBuffer )->xTaskWaitingToReceive = NULL;                       \
             }                                                                           \
         }                                                                               \
-        taskEXIT_CRITICAL_FROM_ISR( uxSavedInterruptStatus );                    \
+        taskEXIT_CRITICAL_FROM_ISR( uxSavedInterruptStatus );                           \
     } while( 0 )
 #endif /* sbSEND_COMPLETE_FROM_ISR */
 

@@ -136,22 +136,22 @@
 /*-----------------------------------------------------------*/
 
     #if ( configNUMBER_OF_CORES == 1 )
-        #define taskSELECT_HIGHEST_PRIORITY_TASK()                                                      \
-            do {                                                                                        \
-                UBaseType_t uxTopPriority = uxTopReadyPriority;                                         \
-                                                                                                        \
-                /* Find the highest priority queue that contains ready tasks. */                        \
-                while( listLIST_IS_EMPTY( &( pxReadyTasksLists[ uxTopPriority ] ) ) )                   \
-                {                                                                                       \
-                    configASSERT( uxTopPriority );                                                      \
-                    --uxTopPriority;                                                                    \
-                }                                                                                       \
-                                                                                                        \
-                /* listGET_OWNER_OF_NEXT_ENTRY indexes through the list, so the tasks of                \
-                 * the  same priority get an equal share of the processor time. */                      \
-                listGET_OWNER_OF_NEXT_ENTRY( pxCurrentTCB, &( pxReadyTasksLists[ uxTopPriority ] ) );   \
-                uxTopReadyPriority = uxTopPriority;                                                     \
-            } while( 0 ) /* taskSELECT_HIGHEST_PRIORITY_TASK */
+        #define taskSELECT_HIGHEST_PRIORITY_TASK()                            \
+    do {                                                                      \
+        UBaseType_t uxTopPriority = uxTopReadyPriority;                       \
+                                                                              \
+        /* Find the highest priority queue that contains ready tasks. */      \
+        while( listLIST_IS_EMPTY( &( pxReadyTasksLists[ uxTopPriority ] ) ) ) \
+        {                                                                     \
+            configASSERT( uxTopPriority );                                    \
+            --uxTopPriority;                                                  \
+        }                                                                     \
+                                                                              \
+        /* listGET_OWNER_OF_NEXT_ENTRY indexes through the list, so the tasks of \
+         * the  same priority get an equal share of the processor time. */                    \
+        listGET_OWNER_OF_NEXT_ENTRY( pxCurrentTCB, &( pxReadyTasksLists[ uxTopPriority ] ) ); \
+        uxTopReadyPriority = uxTopPriority;                                                   \
+    } while( 0 )         /* taskSELECT_HIGHEST_PRIORITY_TASK */
     #endif /* if ( configNUMBER_OF_CORES == 1 ) */
 
 /*-----------------------------------------------------------*/
@@ -7412,43 +7412,6 @@ TickType_t uxTaskResetEventItemValue( void )
     }
 
 #endif /* configUSE_TASK_NOTIFICATIONS */
-/*-----------------------------------------------------------*/
-
-#if ( configGENERATE_RUN_TIME_STATS == 1 )
-
-    configRUN_TIME_COUNTER_TYPE ulTaskGetRunTimeCounter( const TaskHandle_t xTask )
-    {
-        return xTask->ulRunTimeCounter;
-    }
-
-#endif
-/*-----------------------------------------------------------*/
-
-#if ( configGENERATE_RUN_TIME_STATS == 1 )
-
-    configRUN_TIME_COUNTER_TYPE ulTaskGetRunTimePercent( const TaskHandle_t xTask )
-    {
-        configRUN_TIME_COUNTER_TYPE ulTotalTime, ulReturn;
-
-        ulTotalTime = ( configRUN_TIME_COUNTER_TYPE ) portGET_RUN_TIME_COUNTER_VALUE();
-
-        /* For percentage calculations. */
-        ulTotalTime /= ( configRUN_TIME_COUNTER_TYPE ) 100;
-
-        /* Avoid divide by zero errors. */
-        if( ulTotalTime > ( configRUN_TIME_COUNTER_TYPE ) 0 )
-        {
-            ulReturn = xTask->ulRunTimeCounter / ulTotalTime;
-        }
-        else
-        {
-            ulReturn = 0;
-        }
-
-        return ulReturn;
-    }
-
-#endif /* if ( configGENERATE_RUN_TIME_STATS == 1 ) */
 /*-----------------------------------------------------------*/
 
 #if ( configGENERATE_RUN_TIME_STATS == 1 )
