@@ -3655,7 +3655,7 @@ TickType_t xTaskGetTickCount( void )
 TickType_t xTaskGetTickCountFromISR( void )
 {
     TickType_t xReturn;
-    portBASE_TYPE xSavedInterruptStatus;
+    UBaseType_t uxSavedInterruptStatus;
 
     /* RTOS ports that support interrupt nesting have the concept of a maximum
      * system call (or maximum API call) interrupt priority.  Interrupts that are
@@ -3673,11 +3673,11 @@ TickType_t xTaskGetTickCountFromISR( void )
      * link: https://www.FreeRTOS.org/RTOS-Cortex-M3-M4.html */
     portASSERT_IF_INTERRUPT_PRIORITY_INVALID();
 
-    xSavedInterruptStatus = portTICK_TYPE_SET_INTERRUPT_MASK_FROM_ISR();
+    uxSavedInterruptStatus = portTICK_TYPE_SET_INTERRUPT_MASK_FROM_ISR();
     {
         xReturn = xTickCount;
     }
-    portTICK_TYPE_CLEAR_INTERRUPT_MASK_FROM_ISR( xSavedInterruptStatus );
+    portTICK_TYPE_CLEAR_INTERRUPT_MASK_FROM_ISR( uxSavedInterruptStatus );
 
     return xReturn;
 }
@@ -5856,13 +5856,13 @@ static void prvResetNextTaskUnblockTime( void )
         TaskHandle_t xTaskGetCurrentTaskHandle( void )
         {
             TaskHandle_t xReturn;
-            portBASE_TYPE xSavedInterruptStatus;
+            UBaseType_t uxSavedInterruptStatus;
 
-            xSavedInterruptStatus = portSET_INTERRUPT_MASK();
+            uxSavedInterruptStatus = portSET_INTERRUPT_MASK();
             {
                 xReturn = pxCurrentTCBs[ portGET_CORE_ID() ];
             }
-            portCLEAR_INTERRUPT_MASK( xSavedInterruptStatus );
+            portCLEAR_INTERRUPT_MASK( uxSavedInterruptStatus );
 
             return xReturn;
         }
