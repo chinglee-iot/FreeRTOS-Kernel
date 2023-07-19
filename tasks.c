@@ -6450,7 +6450,7 @@ static void prvResetNextTaskUnblockTime( void )
 
 #if ( configNUMBER_OF_CORES > 1 )
 
-    void vTaskExitCriticalFromISR( portBASE_TYPE xSavedInterruptStatus )
+    void vTaskExitCriticalFromISR( UBaseType_t uxSavedInterruptStatus )
     {
         if( xSchedulerRunning != pdFALSE )
         {
@@ -6465,7 +6465,7 @@ static void prvResetNextTaskUnblockTime( void )
                 if( portGET_CRITICAL_NESTING_COUNT() == 0U )
                 {
                     portRELEASE_ISR_LOCK();
-                    portCLEAR_INTERRUPT_MASK_FROM_ISR( xSavedInterruptStatus );
+                    portCLEAR_INTERRUPT_MASK_FROM_ISR( uxSavedInterruptStatus );
                 }
                 else
                 {

@@ -182,8 +182,8 @@
     #else
         extern void vTaskEnterCritical( void );
         extern void vTaskExitCritical( void );
-        extern portBASE_TYPE vTaskEnterCriticalFromISR( void );
-        extern void vTaskExitCriticalFromISR( portBASE_TYPE xSavedInterruptStatus );
+        extern UBaseType_t vTaskEnterCriticalFromISR( void );
+        extern void vTaskExitCriticalFromISR( UBaseType_t uxSavedInterruptStatus );
         #define portENTER_CRITICAL()                      vTaskEnterCritical()
         #define portEXIT_CRITICAL()                       vTaskExitCritical()
         #define portENTER_CRITICAL_FROM_ISR()             vTaskEnterCriticalFromISR()
