@@ -62,10 +62,6 @@
 #include "portmacrocommon.h"
 /*-----------------------------------------------------------*/
 
-/* ARMv8-M common port configurations. */
-#include "portmacrocommon.h"
-/*-----------------------------------------------------------*/
-
 /**
  * @brief Critical section management.
  */
