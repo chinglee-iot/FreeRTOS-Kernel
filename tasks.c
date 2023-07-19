@@ -549,9 +549,9 @@ static void prvInitialiseTaskLists( void ) PRIVILEGED_FUNCTION;
  * void prvMinimalIdleTask( void *pvParameters );
  *
  */
-static portTASK_FUNCTION_PROTO( prvIdleTask, pvParameters ) portNORETURN PRIVILEGED_FUNCTION;
+static portTASK_FUNCTION_PROTO( prvIdleTask, pvParameters ) PRIVILEGED_FUNCTION;
 #if ( configNUMBER_OF_CORES > 1 )
-    static portTASK_FUNCTION_PROTO( prvMinimalIdleTask, pvParameters ) portNORETURN PRIVILEGED_FUNCTION;
+    static portTASK_FUNCTION_PROTO( prvMinimalIdleTask, pvParameters ) PRIVILEGED_FUNCTION;
 #endif
 
 /*

@@ -1022,10 +1022,6 @@
     #define portDONT_DISCARD
 #endif
 
-#ifndef portNORETURN
-    #define portNORETURN
-#endif
-
 #ifndef configUSE_TIME_SLICING
     #define configUSE_TIME_SLICING    1
 #endif
