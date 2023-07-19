@@ -2319,7 +2319,7 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
     {
         TCB_t const * pxTCB;
         UBaseType_t uxReturn;
-        UBaseType_t uxSavedInterruptState;
+        UBaseType_t uxSavedInterruptStatus;
 
         /* RTOS ports that support interrupt nesting have the concept of a
          * maximum  system call (or maximum API call) interrupt priority.
@@ -2339,14 +2339,14 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
          * https://www.FreeRTOS.org/RTOS-Cortex-M3-M4.html */
         portASSERT_IF_INTERRUPT_PRIORITY_INVALID();
 
-        uxSavedInterruptState = taskENTER_CRITICAL_FROM_ISR();
+        uxSavedInterruptStatus = taskENTER_CRITICAL_FROM_ISR();
         {
             /* If null is passed in here then it is the priority of the calling
              * task that is being queried. */
             pxTCB = prvGetTCBFromHandle( xTask );
             uxReturn = pxTCB->uxPriority;
         }
-        taskEXIT_CRITICAL_FROM_ISR( uxSavedInterruptState );
+        taskEXIT_CRITICAL_FROM_ISR( uxSavedInterruptStatus );
 
         return uxReturn;
     }
