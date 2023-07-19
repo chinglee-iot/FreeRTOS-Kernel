@@ -2461,6 +2461,7 @@ uxprevschedulersuspended
 uxpriority
 uxprioritytouse
 uxqueue
+uxqueuegetqueueitemsize
 uxqueuelength
 uxqueuemessageswaiting
 uxqueuespacesavailable
