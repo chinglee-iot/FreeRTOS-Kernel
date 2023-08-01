@@ -185,39 +185,6 @@ extern size_t xCriticalNesting;
 #elif !defined( configMTIME_BASE_ADDRESS ) || !defined( configMTIMECMP_BASE_ADDRESS )
     #error configMTIME_BASE_ADDRESS and configMTIMECMP_BASE_ADDRESS must be defined in FreeRTOSConfig.h.  Set them to zero if there is no MTIME (machine time) clock.  See https://www.FreeRTOS.org/Using-FreeRTOS-on-RISC-V.html
 #endif
-/*-----------------------------------------------------------*/
-
-/* MPU specific constants. */
-    #define portUSING_MPU_WRAPPERS                                   1
-    /* TODO set the bit for context switch. */
-    #define portPRIVILEGE_BIT                                        ( 0x00000000UL )
-
-    #define portMPU_REGION_READ_WRITE                                ( 0x03UL << 24UL )
-    #define portMPU_REGION_PRIVILEGED_READ_ONLY                      ( 0x05UL << 24UL )
-    #define portMPU_REGION_READ_ONLY                                 ( 0x06UL << 24UL )
-    #define portMPU_REGION_PRIVILEGED_READ_WRITE                     ( 0x01UL << 24UL )
-    #define portMPU_REGION_PRIVILEGED_READ_WRITE_UNPRIV_READ_ONLY    ( 0x02UL << 24UL )
-    #define portMPU_REGION_CACHEABLE_BUFFERABLE                      ( 0x07UL << 16UL )
-    #define portMPU_REGION_EXECUTE_NEVER                             ( 0x01UL << 28UL )
-
-    #define portGENERAL_PERIPHERALS_REGION                           ( 3UL )
-    #define portSTACK_REGION                                         ( 4UL )
-    #define portUNPRIVILEGED_FLASH_REGION                            ( 5UL )
-    #define portPRIVILEGED_FLASH_REGION                              ( 6UL )
-    #define portPRIVILEGED_RAM_REGION                                ( 7UL )
-    #define portFIRST_CONFIGURABLE_REGION                            ( 0UL )
-    #define portLAST_CONFIGURABLE_REGION                             ( 2UL )
-    #define portNUM_CONFIGURABLE_REGIONS                             ( ( portLAST_CONFIGURABLE_REGION - portFIRST_CONFIGURABLE_REGION ) + 1 )
-    #define portTOTAL_NUM_REGIONS_IN_TCB                             ( portNUM_CONFIGURABLE_REGIONS + 1 ) /* Plus one to make space for the stack region. */
-
-#define IMPLEMENTED_PMP_REGIONS 16
-
-/* Plus 1 to create space for the stack region. */
-    typedef struct MPU_SETTINGS
-    {
-        uint32_t pmpcfg[ ( IMPLEMENTED_PMP_REGIONS >> 2 ) ];
-        size_t pmpaddress[ IMPLEMENTED_PMP_REGIONS ];
-    } xMPU_SETTINGS;
 
 #ifdef __cplusplus
 }

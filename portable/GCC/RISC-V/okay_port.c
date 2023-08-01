@@ -84,14 +84,6 @@
  */
 void vPortSetupTimerInterrupt( void ) __attribute__(( weak ));
 
-
-#if ( configENABLE_MPU == 1 )
-
-/**
- * @brief Setup the Memory Protection Unit (MPU).
- */
-    static void prvSetupMPU( void ) PRIVILEGED_FUNCTION;
-#endif /* configENABLE_MPU */
 /*-----------------------------------------------------------*/
 
 /* Used to program the machine timer compare register. */
@@ -162,12 +154,9 @@ size_t xTaskReturnAddress = ( size_t ) portTASK_RETURN_ADDRESS;
 #endif /* ( configMTIME_BASE_ADDRESS != 0 ) && ( configMTIME_BASE_ADDRESS != 0 ) */
 /*-----------------------------------------------------------*/
 
-BaseType_t xPortStarted = pdFALSE;
-
 BaseType_t xPortStartScheduler( void )
 {
 extern void xPortStartFirstTask( void );
-    xPortStarted = pdTRUE;
 
     #if( configASSERT_DEFINED == 1 )
     {
@@ -183,13 +172,6 @@ extern void xPortStartFirstTask( void );
         #endif /* configISR_STACK_SIZE_WORDS */
     }
     #endif /* configASSERT_DEFINED */
-
-    #if ( configENABLE_MPU == 1 )
-    {
-        /* Setup the Memory Protection Unit (MPU). */
-        prvSetupMPU();
-    }
-    #endif /* configENABLE_MPU */
 
     /* If there is a CLINT then it is ok to use the default implementation
      * in this file, otherwise vPortSetupTimerInterrupt() must be implemented to
@@ -219,124 +201,3 @@ void vPortEndScheduler( void )
     for( ;; );
 }
 /*-----------------------------------------------------------*/
-
-/*
- * Defines the memory ranges allocated to the task when an MPU is used.
- */
-void vPortStoreTaskMPUSettings( xMPU_SETTINGS * xMPUSettings,
-                                const struct xMEMORY_REGION * const xRegions,
-                                StackType_t * pxBottomOfStack,
-                                uint32_t ulStackDepth )
-{
-    /* Setup stack protection. */
-
-    /* Setup user defined region protection. */
-}
-
-/*-----------------------------------------------------------*/
-
-#if ( configENABLE_MPU == 1 )
-    #include "pmp_apis.h"
-
-    #define BITS_SIZE_MASK( x )  (~( ( 1 << x ) - 1 ) )
-    #define BITS_SIZE_NAPOT( x )  ( ( 1 << ( x - 3 ) ) - 1 )
-
-    /* Declaration when these variable are defined in code instead of being
-     * exported from linker scripts. */
-    extern uint32_t __privileged_functions_start__[];
-    extern uint32_t __privileged_functions_end__[];
-    extern uint32_t __FLASH_segment_start__[];
-    extern uint32_t __FLASH_segment_end__[];
-    extern uint32_t __privileged_data_start__[];
-    extern uint32_t __privileged_data_end__[];
-
-    struct RegionTable
-    {
-        size_t startAddress;
-        size_t regionSize;
-        struct pmp_config pmpConfig;
-    };
-
-    struct RegionTable xPmpTable[] =
-    {
-        /* user stack start. */
-        { .startAddress = 0x0, .regionSize = 0, /* ( __privileged_functions_end__ - __privileged_functions_start__ ), */
-            .pmpConfig = { .L = 0, .R = 0, .W = 0, .X = 0, .A = METAL_PMP_OFF } },
-        /* user stack end. */
-        { .startAddress = 0x0, .regionSize = 0, /* ( __privileged_functions_end__ - __privileged_functions_start__ ), */
-            .pmpConfig = { .L = 0, .R = 0, .W = 0, .X = 0, .A = METAL_PMP_OFF } },
-
-        /* privileged_functions unprivileged access. */
-        { .startAddress = __privileged_functions_start__, .regionSize = 32*1024, /* ( __privileged_functions_end__ - __privileged_functions_start__ ), */
-            .pmpConfig = { .L = 0, .R = 0, .W = 0, .X = 0, .A = METAL_PMP_NAPOT } },
-        /* privileged_data unprivileged access. */
-        { .startAddress = __privileged_data_start__, .regionSize = 64*1024, /* ( __privileged_data_end___ - __privileged_data_start__ ), */
-            .pmpConfig = { .L = 0, .R = 0, .W = 0, .X = 0, .A = METAL_PMP_NAPOT } },
-
-        /* unprivileged_functions unprivileged access. */
-        { .startAddress = __privileged_functions_start__, .regionSize = 512*1024, /* ( __FLASH_segment_end__ - __FLASH_segment_start__ ),*/
-            .pmpConfig = { .L = 0, .R = 1, .W = 0, .X = 1, .A = METAL_PMP_NAPOT } },
-        /* unprivileged_data unprivileged access. */
-        { .startAddress = __privileged_data_start__, .regionSize = 512*1024, /* ( 256 * 1024 ), */
-            .pmpConfig = { .L = 0, .R = 1, .W = 1, .X = 0, .A = METAL_PMP_NAPOT } },
-
-        /* Peripheral for UART. */
-        { .startAddress = 0x10000000, .regionSize = 128, /* ( 256 * 1024 ), */
-            .pmpConfig = { .L = 0, .R = 1, .W = 1, .X = 0, .A = METAL_PMP_NAPOT } },
-    };
-
-    static void prvListPmpRegions( void )
-    {
-        char temp[ 128 ];
-        int xPmpRegions;
-        struct pmp_config xPmpConfig;
-        size_t pmp_address;
-        int i;
-
-        /* List all the PMP region. */
-        xPmpRegions = xPortPmpGetNumRegions();
-        for( i = 0; i < xPmpRegions; i++ )
-        {
-            xPortPmpGetRegion( i, &xPmpConfig, &pmp_address );
-            snprintf( temp, 128, "PMP %d : 0x%08x R %d W %d X %d L %d A %d", i,
-                pmp_address,
-                xPmpConfig.R,
-                xPmpConfig.W,
-                xPmpConfig.X,
-                xPmpConfig.L,
-                xPmpConfig.A );
-            vSendString( temp );
-        }
-    }
-
-    static void prvSetupMPU( void ) /* PRIVILEGED_FUNCTION */
-    {
-        uint32_t uxPmpIndex;
-        struct pmp_config xPmpConfig;
-        size_t xPmpAddress = 0x0;
-
-        /* Initialize all the PMP regions to off state. */
-        xPmpConfig.R = 0;
-        xPmpConfig.W = 0;
-        xPmpConfig.L = METAL_PMP_UNLOCKED;
-        xPmpConfig.X = 0;
-        xPmpConfig.A = METAL_PMP_OFF;
-        for( uxPmpIndex = 0; uxPmpIndex < xPortPmpGetNumRegions(); uxPmpIndex++ )
-        {
-            xPortPmpSetRegion( uxPmpIndex, xPmpConfig, 0 );
-        }
-
-        /* Setup common PMP regions. */
-        for( uxPmpIndex = 0; uxPmpIndex < 7; uxPmpIndex++ )
-        {
-            if( xPmpTable[ uxPmpIndex ].pmpConfig.A == METAL_PMP_NAPOT )
-            {
-                xPmpAddress = xConvertNAPOTSize( xPmpTable[ uxPmpIndex ].startAddress, xPmpTable[ uxPmpIndex ].regionSize );
-            }
-            xPortPmpSetRegion( uxPmpIndex, xPmpTable[ uxPmpIndex ].pmpConfig, xPmpAddress );
-        }
-
-        /* Dump all the table. */
-        prvListPmpRegions();
-    }
-#endif /* configENABLE_MPU */
