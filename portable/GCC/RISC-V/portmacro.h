@@ -189,8 +189,7 @@ extern size_t xCriticalNesting;
 
 /* MPU specific constants. */
     #define portUSING_MPU_WRAPPERS                                   1
-    /* TODO set the bit for context switch. */
-    #define portPRIVILEGE_BIT                                        ( 0x00000000UL )
+    #define portPRIVILEGE_BIT                                        ( 0x80000000UL )
 
     #define portMPU_REGION_READ_WRITE                                ( 0x03UL << 24UL )
     #define portMPU_REGION_PRIVILEGED_READ_ONLY                      ( 0x05UL << 24UL )
@@ -210,13 +209,13 @@ extern size_t xCriticalNesting;
     #define portNUM_CONFIGURABLE_REGIONS                             ( ( portLAST_CONFIGURABLE_REGION - portFIRST_CONFIGURABLE_REGION ) + 1 )
     #define portTOTAL_NUM_REGIONS_IN_TCB                             ( portNUM_CONFIGURABLE_REGIONS + 1 ) /* Plus one to make space for the stack region. */
 
-#define IMPLEMENTED_PMP_REGIONS 16
+#define UNPRIVILEGED_PMP_REGIONS 4
 
 /* Plus 1 to create space for the stack region. */
     typedef struct MPU_SETTINGS
     {
-        uint32_t pmpcfg[ ( IMPLEMENTED_PMP_REGIONS >> 2 ) ];
-        size_t pmpaddress[ IMPLEMENTED_PMP_REGIONS ];
+        uint32_t pmpcfg[ ( UNPRIVILEGED_PMP_REGIONS >> 2 ) ];
+        size_t pmpaddress[ UNPRIVILEGED_PMP_REGIONS ];
     } xMPU_SETTINGS;
 
 #ifdef __cplusplus

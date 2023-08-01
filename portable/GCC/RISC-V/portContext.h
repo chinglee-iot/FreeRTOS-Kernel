@@ -66,6 +66,17 @@
 .extern pxCriticalNesting
 /*-----------------------------------------------------------*/
 
+.macro portasmRESTORE_PMP_SETTINGS
+    load_x  t0, pxCurrentTCB                /* Load pxCurrentTCB. */
+    load_x  t1, 4( t0 )                     /* pmp config. */
+    load_x  t2, 8( t0 )                     /* pmp address 0. */
+    load_x  t3, 12( t0 )                    /* pmp address 1. */
+    csrw    pmpaddr0, t2
+    csrw    pmpaddr1, t3
+    csrw    pmpcfg0, t1
+    .endm
+/*-----------------------------------------------------------*/
+
 .macro portcontextSAVE_CONTEXT_INTERNAL
     addi sp, sp, -portCONTEXT_SIZE
     store_x x1, 1 * portWORD_SIZE( sp )
@@ -141,6 +152,9 @@
     /* Load mepc with the address of the instruction in the task to run next. */
     load_x t0, 0( sp )
     csrw mepc, t0
+
+    /* Restore PMP settings. */
+    portasmRESTORE_PMP_SETTINGS
 
     /* Defined in freertos_risc_v_chip_specific_extensions.h to restore any registers unique to the RISC-V implementation. */
     portasmRESTORE_ADDITIONAL_REGISTERS

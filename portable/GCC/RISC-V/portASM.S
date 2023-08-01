@@ -198,7 +198,14 @@ definitions. */
 pxPortInitialiseStack:
     csrr t0, mstatus                    /* Obtain current mstatus value. */
     andi t0, t0, ~0x8                   /* Ensure interrupts are disabled when the stack is restored within an ISR.  Required when a task is created after the schedulre has been started, otherwise interrupts would be disabled anyway. */
+
+    beq a4, x0, 2f                      /* xRunPrivileged is set or not. */
     addi t1, x0, 0x188                  /* Generate the value 0x1880, which are the MPIE and MPP bits to set in mstatus. */
+    j set_mpp_done
+2:
+    addi t1, x0, 0x008                  /* PMP if this is an unprivilege task set 0x0080 to stack. */
+set_mpp_done:
+
     slli t1, t1, 4
     or t0, t0, t1                       /* Set MPIE and MPP bits in mstatus value. */
 

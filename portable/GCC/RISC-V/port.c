@@ -35,6 +35,8 @@
 #include "task.h"
 #include "portmacro.h"
 
+#include "pmp_apis.h"
+
 /* Standard includes. */
 #include "string.h"
 
@@ -228,9 +230,39 @@ void vPortStoreTaskMPUSettings( xMPU_SETTINGS * xMPUSettings,
                                 StackType_t * pxBottomOfStack,
                                 uint32_t ulStackDepth )
 {
-    /* Setup stack protection. */
+    uint32_t i;
+    struct pmp_config xPmpConfig;
+    size_t uxTaskStackPointer = ( size_t )pxBottomOfStack;
+    uint32_t xPmpConfig0 = 0;
 
-    /* Setup user defined region protection. */
+    memset( xMPUSettings, 0, sizeof( xMPU_SETTINGS ) );
+
+    if( ulStackDepth > 0 )
+    {
+        /* Setup the stack start address. */
+        xPmpConfig.R = 0;
+        xPmpConfig.W = 0;
+        xPmpConfig.L = METAL_PMP_UNLOCKED;
+        xPmpConfig.X = 0;
+        xPmpConfig.A = METAL_PMP_OFF;
+        // xPortPmpSetRegion( 0, xPmpConfig, uxTaskStackPointer >> 2 );
+        xPmpConfig0 = ( xPmpConfig0 & 0xffffff00 ) | ( CONFIG_TO_INT( xPmpConfig ) << 0 );
+        xMPUSettings->pmpaddress[ 0 ] = uxTaskStackPointer >> 2;
+
+        /* Setup the stack end address. */
+        xPmpConfig.R = 1;
+        xPmpConfig.W = 1;
+        xPmpConfig.L = METAL_PMP_UNLOCKED;
+        xPmpConfig.X = 0;
+        xPmpConfig.A = METAL_PMP_TOR;
+        // xPortPmpSetRegion( 1, xPmpConfig, ( uxTaskStackPointer + ulStackDepth * sizeof( StackType_t ) ) >> 2 );
+        xPmpConfig0 = ( xPmpConfig0 & 0xffff00ff ) | ( CONFIG_TO_INT( xPmpConfig ) << 8 );
+        xMPUSettings->pmpaddress[ 1 ] = ( uxTaskStackPointer + ulStackDepth * sizeof( StackType_t ) ) >> 2;
+
+        xMPUSettings->pmpcfg[ 0 ] = xPmpConfig0;
+    }
+
+    /* TODO : implement the region. */
 }
 
 /*-----------------------------------------------------------*/
@@ -263,6 +295,13 @@ void vPortStoreTaskMPUSettings( xMPU_SETTINGS * xMPUSettings,
         { .startAddress = 0x0, .regionSize = 0, /* ( __privileged_functions_end__ - __privileged_functions_start__ ), */
             .pmpConfig = { .L = 0, .R = 0, .W = 0, .X = 0, .A = METAL_PMP_OFF } },
         /* user stack end. */
+        { .startAddress = 0x0, .regionSize = 0, /* ( __privileged_functions_end__ - __privileged_functions_start__ ), */
+            .pmpConfig = { .L = 0, .R = 0, .W = 0, .X = 0, .A = METAL_PMP_OFF } },
+
+        /* user defined start. */
+        { .startAddress = 0x0, .regionSize = 0, /* ( __privileged_functions_end__ - __privileged_functions_start__ ), */
+            .pmpConfig = { .L = 0, .R = 0, .W = 0, .X = 0, .A = METAL_PMP_OFF } },
+        /* user defined end. */
         { .startAddress = 0x0, .regionSize = 0, /* ( __privileged_functions_end__ - __privileged_functions_start__ ), */
             .pmpConfig = { .L = 0, .R = 0, .W = 0, .X = 0, .A = METAL_PMP_OFF } },
 
@@ -327,7 +366,7 @@ void vPortStoreTaskMPUSettings( xMPU_SETTINGS * xMPUSettings,
         }
 
         /* Setup common PMP regions. */
-        for( uxPmpIndex = 0; uxPmpIndex < 7; uxPmpIndex++ )
+        for( uxPmpIndex = 0; uxPmpIndex < 9; uxPmpIndex++ )
         {
             if( xPmpTable[ uxPmpIndex ].pmpConfig.A == METAL_PMP_NAPOT )
             {
