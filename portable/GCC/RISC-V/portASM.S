@@ -199,7 +199,7 @@ pxPortInitialiseStack:
     csrr t0, mstatus                    /* Obtain current mstatus value. */
     andi t0, t0, ~0x8                   /* Ensure interrupts are disabled when the stack is restored within an ISR.  Required when a task is created after the schedulre has been started, otherwise interrupts would be disabled anyway. */
 
-    beq a4, x0, 2f                      /* xRunPrivileged is set or not. */
+    beq a3, x0, 2f                      /* xRunPrivileged is set or not. TODO: stack overflow check. */
     addi t1, x0, 0x188                  /* Generate the value 0x1880, which are the MPIE and MPP bits to set in mstatus. */
     j set_mpp_done
 2:
@@ -379,6 +379,7 @@ handle_exception:
     /* a0 contains mcause. */
     li t0, 11                                   /* 11 == environment call. */
     bne a0, t0, application_exception_handler   /* Not an M environment call, so some other exception. */
+    bne x0, a7, application_exception_handler   /* Check ECALL number. TODO : other misa for example embedded. */
     call vTaskSwitchContext
     j processed_source
 
