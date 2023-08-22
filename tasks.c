@@ -6777,7 +6777,7 @@ static void prvResetNextTaskUnblockTime( void )
                      * if so yield. */
                     if( xYieldCurrentTask != pdFALSE )
                     {
-                        portYIELD_FROM_ISR();
+                        portYIELD_FROM_ISR( xYieldCurrentTask );
                     }
                 }
                 else
@@ -6942,7 +6942,7 @@ static void prvResetNextTaskUnblockTime( void )
                      * if so yield. */
                     if( xYieldCurrentTask != pdFALSE )
                     {
-                        portYIELD_FROM_ISR();
+                        portYIELD_FROM_ISR( xYieldCurrentTask );
                     }
                 }
                 else
@@ -7197,7 +7197,7 @@ static void prvResetNextTaskUnblockTime( void )
                      * if so yield. */
                     if( xYieldCurrentTask != pdFALSE )
                     {
-                        portYIELD_FROM_ISR();
+                        portYIELD_FROM_ISR( xYieldCurrentTask );
                     }
                 }
                 else
