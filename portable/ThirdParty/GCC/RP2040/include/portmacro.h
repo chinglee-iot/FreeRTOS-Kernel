@@ -141,11 +141,13 @@
 /*-----------------------------------------------------------*/
 
 /* Critical nesting count management. */
+#if portCRITICAL_NESTING_IN_TCB == 1
     extern UBaseType_t uxCriticalNestings[ configNUMBER_OF_CORES ];
     #define portGET_CRITICAL_NESTING_COUNT()        ( uxCriticalNestings[ portGET_CORE_ID() ] )
     #define portSET_CRITICAL_NESTING_COUNT( x )     ( uxCriticalNestings[ portGET_CORE_ID() ] = ( x ) )
     #define portINCREMENT_CRITICAL_NESTING_COUNT()  ( uxCriticalNestings[ portGET_CORE_ID() ]++ )
     #define portDECREMENT_CRITICAL_NESTING_COUNT()  ( uxCriticalNestings[ portGET_CORE_ID() ]-- )
+#endif
 
 /*-----------------------------------------------------------*/
 
@@ -185,14 +187,16 @@
         #define portEXIT_CRITICAL_FROM_ISR( x )           vTaskExitCriticalFromISR( x )
     #endif
 
-	#define portRTOS_SPINLOCK_COUNT 2
+	#define portRTOS_SPINLOCK_COUNT         ( 7 )
 
     /* Note this is a single method with uxAcquire parameter since we have
      * static vars, the method is always called with a compile time constant for
      * uxAcquire, and the compiler should dothe right thing! */
+    extern uint8_t ucOwnedByCore[ portMAX_CORE_COUNT ];
+    extern uint8_t ucRecursionCountByLock[ portRTOS_SPINLOCK_COUNT ];
+        
     static inline void vPortRecursiveLock(uint32_t ulLockNum, spin_lock_t *pxSpinLock, BaseType_t uxAcquire) {
-        static uint8_t ucOwnedByCore[ portMAX_CORE_COUNT ];
-        static uint8_t ucRecursionCountByLock[ portRTOS_SPINLOCK_COUNT ];
+
         configASSERT(ulLockNum >= 0 && ulLockNum < portRTOS_SPINLOCK_COUNT );
         uint32_t ulCoreNum = get_core_num();
         uint32_t ulLockBit = 1u << ulLockNum;
@@ -257,5 +261,75 @@
     #ifdef __cplusplus
         }
     #endif
+
+/*-----------------------------------------------------------*/
+#define portGRANULAR_LOCKING            ( 1 )
+#define portCRITICAL_NESTING_IN_TCB     ( 1 )
+
+typedef struct{
+    uint32_t uxSpinlockNumber;
+    volatile uint32_t uxSpinlockValue;
+} SoftwareSpinlock_t;
+
+#define RP2040_SPINLOCK_NUMBER_ISR              ( PICO_SPINLOCK_ID_OS1 + 0 )
+#define RP2040_SPINLOCK_NUMBER_TASK             ( PICO_SPINLOCK_ID_OS1 + 1 )
+#define RP2040_SPINLOCK_NUMBER_EVENT_GROUP      ( PICO_SPINLOCK_ID_OS1 + 2 )
+#define RP2040_SPINLOCK_NUMBER_QUEUE            ( PICO_SPINLOCK_ID_OS1 + 3 )
+#define RP2040_SPINLOCK_NUMBER_STREAM_BUFFER    ( PICO_SPINLOCK_ID_OS1 + 4 )
+#define RP2040_SPINLOCK_NUMBER_TIMER            ( PICO_SPINLOCK_ID_OS1 + 5 )
+#define RP2040_SPINLOCK_NUMBER_USER             ( PICO_SPINLOCK_ID_OS1 + 6 )
+
+#define portSPINLOCK_TYPE           SoftwareSpinlock_t
+
+#define portSPINLOCK_EVENT_GROUP_INIT( pxSpinlock ) \
+do {   \
+    ( pxSpinlock )->uxSpinlockNumber = RP2040_SPINLOCK_NUMBER_EVENT_GROUP;  \
+    ( pxSpinlock )->uxSpinlockValue = 0;   \
+} while( 0 )
+
+#define portSPINLOCK_QUEUE_INIT( pxSpinlock ) \
+do {   \
+    ( pxSpinlock )->uxSpinlockNumber = RP2040_SPINLOCK_NUMBER_QUEUE;  \
+    ( pxSpinlock )->uxSpinlockValue = 0;   \
+} while( 0 )
+
+#define  portSPINLOCK_STREAM_BUFFER_INIT( pxSpinlock ) \
+do {   \
+    ( pxSpinlock )->uxSpinlockNumber = RP2040_SPINLOCK_NUMBER_STREAM_BUFFER;  \
+    ( pxSpinlock )->uxSpinlockValue = 0;   \
+} while( 0 )
+
+
+#define portSPINLOCK_KERNEL_TASK_INIT_STATIC \
+{   \
+    .uxSpinlockNumber = RP2040_SPINLOCK_NUMBER_TASK,    \
+    .uxSpinlockValue = 0U                               \
+}
+
+#define portSPINLOCK_KERNEL_ISR_INIT_STATIC \
+{   \
+    .uxSpinlockNumber = RP2040_SPINLOCK_NUMBER_ISR,    \
+    .uxSpinlockValue = 0U                               \
+}
+
+#define portSPINLOCK_TIMER_INIT_STATIC \
+{   \
+    .uxSpinlockNumber = RP2040_SPINLOCK_NUMBER_TIMER,    \
+    .uxSpinlockValue = 0U                               \
+}
+
+#define portSPINLOCK_USER_INIT_STATIC \
+{   \
+    .uxSpinlockNumber = RP2040_SPINLOCK_NUMBER_USER,    \
+    .uxSpinlockValue = 0U                               \
+}
+
+#define portSPINLOCK_NUMBER_TO_INDEX( x )       ( ( x ) - PICO_SPINLOCK_ID_OS1 )
+
+void vPortSpinlockTake( portSPINLOCK_TYPE *pxSpinlock );
+#define portTAKE_LOCK   vPortSpinlockTake
+
+void vPortSpinlockRelease( portSPINLOCK_TYPE *pxSpinlock );
+#define portRELEASE_LOCK vPortSpinlockRelease
 
 #endif /* PORTMACRO_H */

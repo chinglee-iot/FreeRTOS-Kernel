@@ -164,6 +164,9 @@ static void prvTaskExitError( void );
     static uint32_t ulStoppedTimerCompensation = 0;
 #endif /* configUSE_TICKLESS_IDLE */
 
+uint8_t ucOwnedByCore[ portMAX_CORE_COUNT ] = { 0 };
+uint8_t ucRecursionCountByLock[ portRTOS_SPINLOCK_COUNT ] = { 0 };
+
 /*-----------------------------------------------------------*/
 
 #define INVALID_PRIMARY_CORE_NUM 0xffu
@@ -1136,3 +1139,43 @@ __attribute__( ( weak ) ) void vPortSetupTimerInterrupt( void )
         }
     }
 #endif /* configSUPPORT_PICO_TIME_INTEROP */
+
+
+void vPortSpinlockTake( portSPINLOCK_TYPE *pxSpinlock )
+{
+    uint32_t uxSpinlockIndex = portSPINLOCK_NUMBER_TO_INDEX( pxSpinlock->uxSpinlockNumber );
+
+    if( uxSpinlockIndex < 2 )
+    {
+        vPortRecursiveLock(uxSpinlockIndex, spin_lock_instance(pxSpinlock->uxSpinlockNumber), pdTRUE);
+    }
+    else
+    {
+        for(;;)
+        {
+            vPortRecursiveLock(uxSpinlockIndex, spin_lock_instance(pxSpinlock->uxSpinlockNumber), pdTRUE);
+            if( pxSpinlock->uxSpinlockValue == 0U )
+            {
+                pxSpinlock->uxSpinlockValue = 1;
+                vPortRecursiveLock(uxSpinlockIndex, spin_lock_instance(pxSpinlock->uxSpinlockNumber), pdFALSE);
+                break;
+            }
+            vPortRecursiveLock(uxSpinlockIndex, spin_lock_instance(pxSpinlock->uxSpinlockNumber), pdFALSE);
+        }
+    }
+}
+
+void vPortSpinlockRelease( portSPINLOCK_TYPE *pxSpinlock )
+{
+    uint32_t uxSpinlockIndex = portSPINLOCK_NUMBER_TO_INDEX( pxSpinlock->uxSpinlockNumber );
+    if( uxSpinlockIndex < 2 )
+    {
+        vPortRecursiveLock(uxSpinlockIndex, spin_lock_instance(pxSpinlock->uxSpinlockNumber), pdFALSE);
+    }
+    else
+    {
+        vPortRecursiveLock(uxSpinlockIndex, spin_lock_instance(pxSpinlock->uxSpinlockNumber), pdTRUE);
+        pxSpinlock->uxSpinlockValue = 0;
+        vPortRecursiveLock(uxSpinlockIndex, spin_lock_instance(pxSpinlock->uxSpinlockNumber), pdFALSE);
+    }
+}
