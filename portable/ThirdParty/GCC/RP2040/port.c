@@ -377,6 +377,19 @@ void vPortStartFirstTask( void )
         spin_lock_claim( configSMP_SPINLOCK_0 );
         spin_lock_claim( configSMP_SPINLOCK_1 );
 
+        #if portGRANULAR_LOCKING == 1
+            spin_lock_claim( RP2040_SPINLOCK_NUMBER_EVENT_GROUP );
+            spin_lock_init( RP2040_SPINLOCK_NUMBER_EVENT_GROUP );
+            spin_lock_claim( RP2040_SPINLOCK_NUMBER_QUEUE );
+            spin_lock_init( RP2040_SPINLOCK_NUMBER_QUEUE );
+            spin_lock_claim( RP2040_SPINLOCK_NUMBER_STREAM_BUFFER );
+            spin_lock_init( RP2040_SPINLOCK_NUMBER_STREAM_BUFFER );
+            spin_lock_claim( RP2040_SPINLOCK_NUMBER_TIMER );
+            spin_lock_init( RP2040_SPINLOCK_NUMBER_TIMER );
+            spin_lock_claim( RP2040_SPINLOCK_NUMBER_USER );
+            spin_lock_init( RP2040_SPINLOCK_NUMBER_USER );
+        #endif
+
         #if portRUNNING_ON_BOTH_CORES
             ucPrimaryCoreNum = configTICK_CORE;
             configASSERT( get_core_num() == 0) ; // we must be started on core 0
@@ -1153,14 +1166,21 @@ void vPortSpinlockTake( portSPINLOCK_TYPE *pxSpinlock )
     {
         for(;;)
         {
-            vPortRecursiveLock(uxSpinlockIndex, spin_lock_instance(pxSpinlock->uxSpinlockNumber), pdTRUE);
-            if( pxSpinlock->uxSpinlockValue == 0U )
+            spin_lock_unsafe_blocking( spin_lock_instance(pxSpinlock->uxSpinlockNumber) );
+            if( pxSpinlock->xOwnerCore == portGET_CORE_ID() )
             {
-                pxSpinlock->uxSpinlockValue = 1;
-                vPortRecursiveLock(uxSpinlockIndex, spin_lock_instance(pxSpinlock->uxSpinlockNumber), pdFALSE);
+                pxSpinlock->uxSpinlockValue = pxSpinlock->uxSpinlockValue + 1;
+                spin_unlock_unsafe( spin_lock_instance(pxSpinlock->uxSpinlockNumber) );
                 break;
             }
-            vPortRecursiveLock(uxSpinlockIndex, spin_lock_instance(pxSpinlock->uxSpinlockNumber), pdFALSE);
+            else if( pxSpinlock->uxSpinlockValue == 0U )
+            {
+                pxSpinlock->uxSpinlockValue = 1;
+                pxSpinlock->xOwnerCore = portGET_CORE_ID();
+                spin_unlock_unsafe( spin_lock_instance(pxSpinlock->uxSpinlockNumber) );
+                break;
+            }
+            spin_unlock_unsafe( spin_lock_instance(pxSpinlock->uxSpinlockNumber) );
         }
     }
 }
@@ -1174,8 +1194,15 @@ void vPortSpinlockRelease( portSPINLOCK_TYPE *pxSpinlock )
     }
     else
     {
-        vPortRecursiveLock(uxSpinlockIndex, spin_lock_instance(pxSpinlock->uxSpinlockNumber), pdTRUE);
-        pxSpinlock->uxSpinlockValue = 0;
-        vPortRecursiveLock(uxSpinlockIndex, spin_lock_instance(pxSpinlock->uxSpinlockNumber), pdFALSE);
+        spin_lock_unsafe_blocking( spin_lock_instance(pxSpinlock->uxSpinlockNumber) );
+        if( pxSpinlock->xOwnerCore == portGET_CORE_ID() )
+        {
+            pxSpinlock->uxSpinlockValue = pxSpinlock->uxSpinlockValue - 1U;
+            if( pxSpinlock->uxSpinlockValue == 0 )
+            {
+                pxSpinlock->xOwnerCore = -1;
+            }
+        }
+        spin_unlock_unsafe( spin_lock_instance(pxSpinlock->uxSpinlockNumber) );
     }
 }
