@@ -201,23 +201,14 @@ extern size_t xCriticalNesting;
     #define portMPU_REGION_CACHEABLE_BUFFERABLE                      ( 0x07UL << 16UL )
     #define portMPU_REGION_EXECUTE_NEVER                             ( 0x01UL << 28UL )
 
-    #define portGENERAL_PERIPHERALS_REGION                           ( 3UL )
-    #define portSTACK_REGION                                         ( 4UL )
-    #define portUNPRIVILEGED_FLASH_REGION                            ( 5UL )
-    #define portPRIVILEGED_FLASH_REGION                              ( 6UL )
-    #define portPRIVILEGED_RAM_REGION                                ( 7UL )
-    #define portFIRST_CONFIGURABLE_REGION                            ( 0UL )
-    #define portLAST_CONFIGURABLE_REGION                             ( 2UL )
-    #define portNUM_CONFIGURABLE_REGIONS                             ( ( portLAST_CONFIGURABLE_REGION - portFIRST_CONFIGURABLE_REGION ) + 1 )
-    #define portTOTAL_NUM_REGIONS_IN_TCB                             ( portNUM_CONFIGURABLE_REGIONS + 1 ) /* Plus one to make space for the stack region. */
-
-#define UNPRIVILEGED_PMP_REGIONS 4
+#define portNUM_CONFIGURABLE_REGIONS                3
+#define portTOTAL_NUM_REGIONS_IN_TCB                8   /* Plus one to make space for the stack region. */
 
 /* Plus 1 to create space for the stack region. */
     typedef struct MPU_SETTINGS
     {
-        uint32_t pmpcfg[ ( UNPRIVILEGED_PMP_REGIONS >> 2 ) ];
-        size_t pmpaddress[ UNPRIVILEGED_PMP_REGIONS ];
+        uint32_t pmpcfg[ ( portTOTAL_NUM_REGIONS_IN_TCB >> 2 ) ];
+        size_t pmpaddress[ portTOTAL_NUM_REGIONS_IN_TCB ];
     } xMPU_SETTINGS;
 
 /* *INDENT-OFF* */

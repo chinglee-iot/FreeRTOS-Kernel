@@ -222,6 +222,23 @@ void vPortEndScheduler( void )
 }
 /*-----------------------------------------------------------*/
 
+#define PMP_ENTRY_PER_CONFIG        4
+
+#define SETUP_PMP_CONFIG( xPmpConfigs, xPmpEnteryIndex, xPmpConfigValue )           \
+do{                                                                                 \
+    char temp[64];                                                                  \
+    uint32_t xPmpConfigIndex = ( xPmpEnteryIndex ) / PMP_ENTRY_PER_CONFIG;          \
+    uint32_t xPmpConfigOffsetIndex = ( xPmpEnteryIndex ) % PMP_ENTRY_PER_CONFIG;    \
+    uint32_t xTempPmpConfig;                                                        \
+                                                                                    \
+    xTempPmpConfig = ( xPmpConfigs )[ xPmpConfigIndex ];                            \
+    xTempPmpConfig = xTempPmpConfig & ( ( 0xffffffff ) ^ ( ( ( uint32_t ) 0xff ) << ( xPmpConfigOffsetIndex * 8 ) ) ); \
+    xTempPmpConfig = xTempPmpConfig | ( ( xPmpConfigValue ) << ( xPmpConfigOffsetIndex * 8 ) ); \
+    ( xPmpConfigs )[ xPmpConfigIndex ] = xTempPmpConfig;                            \
+    snprintf( temp, 64, "0x%08x, 0x%08x, 0x%08x, 0x%08x", xPmpConfigIndex, xPmpConfigOffsetIndex, xPmpConfigValue, ( xPmpConfigs )[ xPmpConfigIndex ] ); \
+    vSendString( temp );\
+}while( 0 )
+
 /*
  * Defines the memory ranges allocated to the task when an MPU is used.
  */
@@ -234,6 +251,9 @@ void vPortStoreTaskMPUSettings( xMPU_SETTINGS * xMPUSettings,
     struct pmp_config xPmpConfig;
     size_t uxTaskStackPointer = ( size_t )pxBottomOfStack;
     uint32_t xPmpConfig0 = 0;
+    uint32_t uxMpuSettingIndex = 0;
+    size_t uxMpuSettingStartAddr = 0;
+    size_t uxMpuSettingEndAddr = 0;
 
     memset( xMPUSettings, 0, sizeof( xMPU_SETTINGS ) );
 
@@ -246,8 +266,10 @@ void vPortStoreTaskMPUSettings( xMPU_SETTINGS * xMPUSettings,
         xPmpConfig.X = 0;
         xPmpConfig.A = METAL_PMP_OFF;
         // xPortPmpSetRegion( 0, xPmpConfig, uxTaskStackPointer >> 2 );
-        xPmpConfig0 = ( xPmpConfig0 & 0xffffff00 ) | ( CONFIG_TO_INT( xPmpConfig ) << 0 );
-        xMPUSettings->pmpaddress[ 0 ] = uxTaskStackPointer >> 2;
+        SETUP_PMP_CONFIG( xMPUSettings->pmpcfg, uxMpuSettingIndex, CONFIG_TO_INT( xPmpConfig ) );
+        // xPmpConfig0 = ( xPmpConfig0 & 0xffffff00 ) | ( CONFIG_TO_INT( xPmpConfig ) << 0 );
+        xMPUSettings->pmpaddress[ uxMpuSettingIndex ] = uxTaskStackPointer >> 2;
+        uxMpuSettingIndex = uxMpuSettingIndex + 1;
 
         /* Setup the stack end address. */
         xPmpConfig.R = 1;
@@ -256,13 +278,60 @@ void vPortStoreTaskMPUSettings( xMPU_SETTINGS * xMPUSettings,
         xPmpConfig.X = 0;
         xPmpConfig.A = METAL_PMP_TOR;
         // xPortPmpSetRegion( 1, xPmpConfig, ( uxTaskStackPointer + ulStackDepth * sizeof( StackType_t ) ) >> 2 );
-        xPmpConfig0 = ( xPmpConfig0 & 0xffff00ff ) | ( CONFIG_TO_INT( xPmpConfig ) << 8 );
-        xMPUSettings->pmpaddress[ 1 ] = ( uxTaskStackPointer + ulStackDepth * sizeof( StackType_t ) ) >> 2;
-
-        xMPUSettings->pmpcfg[ 0 ] = xPmpConfig0;
+        SETUP_PMP_CONFIG( xMPUSettings->pmpcfg, uxMpuSettingIndex, CONFIG_TO_INT( xPmpConfig ) );
+        // xPmpConfig0 = ( xPmpConfig0 & 0xffff00ff ) | ( CONFIG_TO_INT( xPmpConfig ) << 8 );
+        xMPUSettings->pmpaddress[ uxMpuSettingIndex ] = ( uxTaskStackPointer + ulStackDepth * sizeof( StackType_t ) ) >> 2;
+        uxMpuSettingIndex = uxMpuSettingIndex + 1;
     }
 
-    /* TODO : implement the region. */
+    if( xRegions == NULL )
+    {
+        /* TODO : implements the xRegions is NULL scenario. */
+    }
+    else
+    {
+        uxMpuSettingIndex = 2;
+        for( i = 0; i < portNUM_CONFIGURABLE_REGIONS; i++ )
+        {
+            if( xRegions[ i ].ulLengthInBytes > 0 )
+            {
+                uxMpuSettingStartAddr = ( size_t )( xRegions[ i ].pvBaseAddress );
+                uxMpuSettingEndAddr = uxMpuSettingStartAddr + xRegions[ i ].ulLengthInBytes;
+
+                /* Set the empty PMP region. */
+                xPmpConfig.R = 0;
+                xPmpConfig.W = 0;
+                xPmpConfig.L = METAL_PMP_UNLOCKED;
+                xPmpConfig.X = 0;
+                xPmpConfig.A = METAL_PMP_OFF;
+                
+                SETUP_PMP_CONFIG( xMPUSettings->pmpcfg, uxMpuSettingIndex, CONFIG_TO_INT( xPmpConfig ) );
+                xMPUSettings->pmpaddress[ uxMpuSettingIndex ] = ( uxMpuSettingStartAddr ) >> 2;
+                uxMpuSettingIndex = uxMpuSettingIndex + 1;
+
+                /* Set the TOR PMP region. */
+                /* Translate the xRegions settings. */
+                xPmpConfig.R = 0;
+                xPmpConfig.W = 0;
+                xPmpConfig.L = METAL_PMP_UNLOCKED;
+                xPmpConfig.X = 0;
+                xPmpConfig.A = METAL_PMP_TOR;
+                if( ( ( xRegions[ i ].ulParameters & portMPU_REGION_READ_ONLY ) == portMPU_REGION_READ_ONLY ) ||
+                    ( ( xRegions[ i ].ulParameters & portMPU_REGION_PRIVILEGED_READ_WRITE_UNPRIV_READ_ONLY ) == portMPU_REGION_PRIVILEGED_READ_WRITE_UNPRIV_READ_ONLY ) )
+                {
+                    xPmpConfig.R = 1;
+                }
+                if( ( xRegions[ i ].ulParameters & portMPU_REGION_READ_WRITE ) == portMPU_REGION_READ_WRITE )
+                {
+                    xPmpConfig.R = 1;
+                    xPmpConfig.W = 1;
+                }
+                SETUP_PMP_CONFIG( xMPUSettings->pmpcfg, uxMpuSettingIndex, CONFIG_TO_INT( xPmpConfig ) );
+                xMPUSettings->pmpaddress[ uxMpuSettingIndex ] = ( uxMpuSettingEndAddr ) >> 2;
+                uxMpuSettingIndex = uxMpuSettingIndex + 1;
+            }
+        }
+    }
 }
 
 /*-----------------------------------------------------------*/
@@ -302,6 +371,20 @@ void vPortStoreTaskMPUSettings( xMPU_SETTINGS * xMPUSettings,
         { .startAddress = 0x0, .regionSize = 0, /* ( __privileged_functions_end__ - __privileged_functions_start__ ), */
             .pmpConfig = { .L = 0, .R = 0, .W = 0, .X = 0, .A = METAL_PMP_OFF } },
         /* user defined end. */
+        { .startAddress = 0x0, .regionSize = 0, /* ( __privileged_functions_end__ - __privileged_functions_start__ ), */
+            .pmpConfig = { .L = 0, .R = 0, .W = 0, .X = 0, .A = METAL_PMP_OFF } },
+
+        /* user defined2 start. */
+        { .startAddress = 0x0, .regionSize = 0, /* ( __privileged_functions_end__ - __privileged_functions_start__ ), */
+            .pmpConfig = { .L = 0, .R = 0, .W = 0, .X = 0, .A = METAL_PMP_OFF } },
+        /* user defined2 end. */
+        { .startAddress = 0x0, .regionSize = 0, /* ( __privileged_functions_end__ - __privileged_functions_start__ ), */
+            .pmpConfig = { .L = 0, .R = 0, .W = 0, .X = 0, .A = METAL_PMP_OFF } },
+
+        /* user defined3 start. */
+        { .startAddress = 0x0, .regionSize = 0, /* ( __privileged_functions_end__ - __privileged_functions_start__ ), */
+            .pmpConfig = { .L = 0, .R = 0, .W = 0, .X = 0, .A = METAL_PMP_OFF } },
+        /* user defined3 end. */
         { .startAddress = 0x0, .regionSize = 0, /* ( __privileged_functions_end__ - __privileged_functions_start__ ), */
             .pmpConfig = { .L = 0, .R = 0, .W = 0, .X = 0, .A = METAL_PMP_OFF } },
 
@@ -366,7 +449,7 @@ void vPortStoreTaskMPUSettings( xMPU_SETTINGS * xMPUSettings,
         }
 
         /* Setup common PMP regions. */
-        for( uxPmpIndex = 0; uxPmpIndex < 9; uxPmpIndex++ )
+        for( uxPmpIndex = 0; uxPmpIndex < 13; uxPmpIndex++ )
         {
             if( xPmpTable[ uxPmpIndex ].pmpConfig.A == METAL_PMP_NAPOT )
             {

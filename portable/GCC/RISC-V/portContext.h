@@ -68,12 +68,28 @@
 
 .macro portasmRESTORE_PMP_SETTINGS
     load_x  t0, pxCurrentTCB                /* Load pxCurrentTCB. */
-    load_x  t1, 4( t0 )                     /* pmp config. */
-    load_x  t2, 8( t0 )                     /* pmp address 0. */
-    load_x  t3, 12( t0 )                    /* pmp address 1. */
+    load_x  t2, 12( t0 )                    /* pmp address 0. */
     csrw    pmpaddr0, t2
-    csrw    pmpaddr1, t3
+    load_x  t2, 16( t0 )                    /* pmp address 1. */
+    csrw    pmpaddr1, t2
+    load_x  t2, 20( t0 )                    /* pmp address 2. */
+    csrw    pmpaddr2, t2
+    load_x  t2, 24( t0 )                    /* pmp address 3. */
+    csrw    pmpaddr3, t2
+
+    load_x  t2, 28( t0 )                    /* pmp address 4. */
+    csrw    pmpaddr4, t2
+    load_x  t2, 32( t0 )                    /* pmp address 5. */
+    csrw    pmpaddr5, t2
+    load_x  t2, 36( t0 )                    /* pmp address 6. */
+    csrw    pmpaddr6, t2
+    load_x  t2, 40( t0 )                    /* pmp address 7. */
+    csrw    pmpaddr7, t2
+    
+    load_x  t1, 4( t0 )                     /* pmp config0. */
     csrw    pmpcfg0, t1
+    load_x  t1, 8( t0 )                     /* pmp config1. */
+    csrw    pmpcfg1, t1
     .endm
 /*-----------------------------------------------------------*/
 
