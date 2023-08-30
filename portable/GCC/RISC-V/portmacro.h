@@ -32,9 +32,11 @@
 
 #include "portMachineEcall.h"
 
+/* *INDENT-OFF* */
 #ifdef __cplusplus
-extern "C" {
+    extern "C" {
 #endif
+/* *INDENT-ON* */
 
 /*-----------------------------------------------------------
  * Port specific definitions.
@@ -218,8 +220,10 @@ extern size_t xCriticalNesting;
         size_t pmpaddress[ UNPRIVILEGED_PMP_REGIONS ];
     } xMPU_SETTINGS;
 
+/* *INDENT-OFF* */
 #ifdef __cplusplus
-}
+    }
 #endif
+/* *INDENT-ON* */
 
 #endif /* PORTMACRO_H */

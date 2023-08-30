@@ -14,10 +14,11 @@ jobs:
           submodules: 'recursive'
           fetch-depth: 1
 
-      - name: Fetch Kernel Submodule
-        shell: bash
-        run: |
-          git submodule update --checkout --init --depth 1 FreeRTOS/Source
+      # Checkout user pull request changes
+      - name: Checkout Pull Request
+        uses: actions/checkout@v2
+        with:
+          path: ./FreeRTOS/Source
 
       - name: Add msbuild to PATH
         uses: microsoft/setup-msbuild@v1.1
@@ -42,10 +43,11 @@ jobs:
           submodules: 'recursive'
           fetch-depth: 1
 
-      - name: Fetch Kernel Submodule
-        shell: bash
-        run: |
-          git submodule update --checkout --init --depth 1 FreeRTOS/Source
+      # Checkout user pull request changes
+      - name: Checkout Pull Request
+        uses: actions/checkout@v2
+        with:
+          path: ./FreeRTOS/Source
 
       - name: Build WIN32-MingW Demo
         working-directory: FreeRTOS/Demo/WIN32-MingW
@@ -66,9 +68,11 @@ jobs:
           submodules: 'recursive'
           fetch-depth: 1
 
-      - name: Fetch Kernel Submodule
-        shell: bash
-        run: git submodule update --checkout --init --depth 1 FreeRTOS/Source
+      # Checkout user pull request changes
+      - name: Checkout Pull Request
+        uses: actions/checkout@v2
+        with:
+          path: ./FreeRTOS/Source
 
       - name: Install GCC
         shell: bash
@@ -80,6 +84,11 @@ jobs:
         shell: bash
         working-directory: FreeRTOS/Demo/Posix_GCC
         run: make -j
+
+      - name: Build Posix_GCC Demo for Coverage Test
+        shell: bash
+        working-directory: FreeRTOS/Demo/Posix_GCC
+        run: make -j COVERAGE_TEST=1
 
   MSP430-GCC:
     name: GNU MSP430 Toolchain
@@ -93,9 +102,11 @@ jobs:
           submodules: 'recursive'
           fetch-depth: 1
 
-      - name: Fetch Kernel Submodule
-        shell: bash
-        run: git submodule update --checkout --init --depth 1 FreeRTOS/Source
+      # Checkout user pull request changes
+      - name: Checkout Pull Request
+        uses: actions/checkout@v2
+        with:
+          path: ./FreeRTOS/Source
 
       - name: Install MSP430 Toolchain
         shell: bash
@@ -117,12 +128,27 @@ jobs:
         with:
           ref: main
           repository: FreeRTOS/FreeRTOS
-          submodules: 'recursive'
           fetch-depth: 1
 
-      - name: Fetch Kernel Submodule
+      - name: Fetch Community-Supported-Demos Submodule
         shell: bash
-        run: git submodule update --checkout --init --depth 1 FreeRTOS/Source
+        run: |
+          # Fetch Community-Supported-Demos Submodule
+          echo "::group::Fetch Community-Supported-Demos Submodule"
+          git submodule update --checkout --init --depth 1 FreeRTOS/Demo/ThirdParty/Community-Supported-Demos
+          echo "::engdroup::"
+          if [ "$?" = "0" ]; then
+            echo -e "\033[32;3mCloned the Community-Supported-Demos\033[0m"
+          else
+            echo -e "\033[32;31mCommunity-Supported-Demos Clone Failed...\033[0m"
+            exit 1
+          fi
+
+      # Checkout user pull request changes
+      - name: Checkout Pull Request
+        uses: actions/checkout@v2
+        with:
+          path: ./FreeRTOS/Source
 
       - name: Install GNU ARM Toolchain
         shell: bash
@@ -161,7 +187,7 @@ jobs:
 
       - name: Build CORTEX_M0+_RP2040 Demos
         shell: bash
-        working-directory: FreeRTOS/Demo/ThirdParty/Community-Supported/CORTEX_M0+_RP2040
+        working-directory: FreeRTOS/Demo/ThirdParty/Community-Supported-Demos/CORTEX_M0+_RP2040
         run: |
           git clone https://github.com/raspberrypi/pico-sdk.git
           cmake -B build -DPICO_SDK_PATH=pico-sdk -GNinja

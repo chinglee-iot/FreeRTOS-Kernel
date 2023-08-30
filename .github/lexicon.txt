@@ -1,3 +1,4 @@
+  GNU nano 5.9                     .github/lexicon.txt                     Modified
 aa
 aaaa
 aarch
@@ -317,6 +318,8 @@ coproc
 coprocessor
 coprocessors
 coreid
+coroutinehandle
+coverity
 covfs
 cp
 cpacr
@@ -343,10 +346,16 @@ cpu
 cr
 crc
 crcb
+crcoroutine
+crdelay
 creadonlyarray
 creadwritearray
 createevent
+crend
 crgint
+croutine
+crqueue
+crstart
 crt
 crtv
 crxedchar
@@ -1054,6 +1063,7 @@ mclk
 mconfigintcoresw
 mcr
 mcu
+md
 mddr
 mder
 mdh
@@ -1090,6 +1100,7 @@ mikroc
 min
 mingw
 minilistitem
+minimalidle
 mips
 misadd
 misc
@@ -1335,6 +1346,7 @@ phy
 phya
 pic
 picnt
+picolibc
 pien
 piir
 pimr
@@ -1462,13 +1474,24 @@ ppdc
 ppio
 ppitc
 ppmc
+ppucmessagebufferstoragearea
+ppucqueuestorage
+ppucstreambufferstoragearea
 ppudr
 ppuer
 ppusr
+ppuxstackbuffer
 ppvdestination
 ppwm
+ppxeventgroupbuffer
 ppxidletaskstackbuffer
 ppxidletasktcbbuffer
+ppxsemaphorebuffer
+ppxstaticmessagebuffer
+ppxstaticqueue
+ppxstaticstreambuffer
+ppxtaskbuffer
+ppxtimerbuffer
 ppxtimertaskstackbuffer
 ppxtimertasktcbbuffer
 pr
@@ -1507,19 +1530,24 @@ prstc
 prttc
 prv
 prvaddcurrenttasktodelayedlist
+prvcheckforrunstatechange
 prvcheckinterfaces
 prvchecktaskswaitingtermination
 prvcopydatatoqueue
+prvcoroutineflashtask
+prvcoroutineflashworktask
 prvdeletetcb
 prvexitfunction
 prvgettimens
 prvheapinit
 prvidletask
+prvinitialisecoroutinelists
 prvinitialisemutex
 prvinitialisenewstreambuffer
 prvinitialisenewtimer
 prvinsertblockintofreelist
 prvlockqueue
+prvminimalidletask
 prvnotifyqueuesetcontainer
 prvportmalloc
 prvportresetpic
@@ -1537,6 +1565,7 @@ prvtickcount
 prvtimercallback
 prvwritebytestobuffer
 prvwritemessagetobuffer
+prvyieldfortask
 prvyieldhandler
 ps
 psp
@@ -1593,6 +1622,7 @@ putchar
 puxstackbuffer
 puxvariabletoincrement
 pv
+pvallocatedmemory
 pvbuffer
 pvcallbackref
 pvcomparand
@@ -1628,11 +1658,15 @@ pxblocktoinsert
 pxcallbackfunction
 pxcode
 pxcontainer
+pxcoroutinecode
+pxcoroutinewoken
 pxcrcb
 pxcreatedtask
+pxcurrentcoroutine
 pxcurrenttcb
 pxcurrenttcbconst
 pxcurrenttimerlist
+pxdelayedcoroutinelist
 pxdelayedtasklist
 pxend
 pxendofstack
@@ -1667,6 +1701,7 @@ pxnextfreeblock
 pxnexttcb
 pxoriginalsp
 pxoriginaltos
+pxoverflowdelayedcoroutinelist
 pxoverflowdelayedtasklist
 pxowner
 pxportinitialisestack
@@ -1676,6 +1711,7 @@ pxqueue
 pxqueuebuffer
 pxqueuesetcontainer
 pxramstack
+pxreadycoroutinelists
 pxreadytaskslists
 pxreceivecompletedcallback
 pxregions
@@ -1747,6 +1783,7 @@ rdc
 rdr
 rdrf
 rdy
+reacquisition
 readbit
 readme
 readvalue
@@ -2391,6 +2428,7 @@ uxbitstoset
 uxbitstowait
 uxbitstowaitfor
 uxcontrolbits
+uxcoreaffinitymask
 uxcriticalnesting
 uxcurrenteventbits
 uxcurrentnumberoftasks
@@ -2414,12 +2452,17 @@ uxlength
 uxlistremove
 uxmaxcount
 uxmessageswaiting
+uxnetworkingcoreaffinitymask
 uxnewpriority
 uxoriginalpriority
+uxpendedcounts
 uxportcomparesetextram
+uxprevschedulersuspended
 uxpriority
 uxprioritytouse
 uxqueue
+uxqueuegetqueueitemsize
+uxqueuegetqueuelength
 uxqueuelength
 uxqueuemessageswaiting
 uxqueuespacesavailable
@@ -2434,6 +2477,7 @@ uxsemaphoregetcount
 uxsemaphoregetcountfromisr
 uxstate
 uxstreambuffernumber
+uxtaskattributes
 uxtaskgetnumberoftasks
 uxtaskgetstackhighwatermark
 uxtaskgetsystemstate
@@ -2449,6 +2493,7 @@ uxtopreadypriority
 uxtopusedpriority
 uxvariabletoincrement
 uxwantedbytes
+vacoroutine
 vadifferenttask
 vafunction
 val
@@ -2458,6 +2503,7 @@ vaninterruptserviceroutine
 vanisr
 vanothertask
 vapplicationcleartimerinterrupt
+vapplicationdaemontaskstartuphook
 vapplicationexceptionregisterdump
 vapplicationfpusafeirqhandler
 vapplicationgetidletaskmemory
@@ -2465,6 +2511,7 @@ vapplicationgettimertaskmemory
 vapplicationidlehook
 vapplicationirqhandler
 vapplicationmallocfailedhook
+vapplicationminimalidlehook
 vapplicationsetuptickinterrupt
 vapplicationsetupticktimerinterrupt
 vapplicationsetuptimerinterrupt
@@ -2477,6 +2524,7 @@ vbr
 vbufferisr
 vcallbackfunction
 vclearinterruptmask
+vcoroutineschedule
 vddcore
 vec
 vectactive
@@ -2486,6 +2534,7 @@ ver
 veventgroupclearbitscallback
 veventgroupdelete
 veventgroupsetbitscallback
+vflashcoroutine
 vfp
 vfunction
 vic
@@ -2548,12 +2597,14 @@ vqueuedelete
 vqueueunregisterqueue
 vr
 vraiseprivilege
+vreceivingcoroutine
 vreg
 vresetprivilege
 vrestorecontextoffirsttask
 vrpm
 vsemaphorecreatebinary
 vsemaphoredelete
+vsendingcoroutine
 vsetbacklightstate
 vsoftwareinterruptentry
 vstartfirsttask
@@ -2563,12 +2614,15 @@ vstreambufferdelete
 vtask
 vtaskallocatempuregions
 vtaskcode
+vtaskcoreaffinityget
+vtaskcoreaffinityset
 vtaskdelay
 vtaskdelayuntil
 vtaskdelete
 vtaskendscheduler
 vtaskentercritical
 vtaskexitcritical
+vtaskexitcriticalfromisr
 vtaskfunction
 vtaskgetinfo
 vtaskgetruntimestats
@@ -2577,6 +2631,8 @@ vtasknotify
 vtasknotifygivefromisr
 vtasknotifygiveindexedfromisr
 vtaskplaceoneventlist
+vtaskpreemptiondisable
+vtaskpreemptionenable
 vtaskpriorityset
 vtaskremovefromunorderedeventlist
 vtaskresume
@@ -2590,6 +2646,7 @@ vtasksteptick
 vtasksuspend
 vtasksuspendall
 vtaskswitchcontext
+vtaskswitchcontextforcore
 vtaskusesdpfpu
 vtickisr
 vtimercallback
@@ -2687,6 +2744,11 @@ xcommandtime
 xcommsrxqueue
 xconsttickcount
 xcopyposition
+xcore
+xcoreid
+xcoroutinecreate
+xcoroutinepreviouslywoken
+xcoroutinequeue
 xcount
 xcreatedeventgroup
 xcrwokenbypost
@@ -2696,6 +2758,7 @@ xdd
 xdddd
 xdeadbeef
 xdelay
+xdelayedcoroutinelist
 xdelayedtasklist
 xdelaytime
 xe
@@ -2720,6 +2783,7 @@ xeventgroupcreatestatic
 xeventgroupdelete
 xeventgroupgetbits
 xeventgroupgetbitsfromisr
+xeventgroupgetstaticbuffer
 xeventgroupsetbits
 xeventgroupsetbitsfromisr
 xeventgroupsync
@@ -2764,6 +2828,8 @@ xhigherpriorittaskwoken
 xhigherprioritytaskwoken
 xhigherprioritytaskwokenbypost
 xidletaskhandle
+xidletaskhandles
+xidletcbbuffers
 xilinx
 xindex
 xinheritanceoccurred
@@ -2783,6 +2849,9 @@ xlastwaketime
 xlength
 xlist
 xlistend
+xlowestpriority
+xlowestprioritycore
+xlowestprioritytopreempt
 xmair
 xmaxcount
 xmaxexpirycountbeforestopping
@@ -2793,6 +2862,7 @@ xmessage
 xmessagebuffer
 xmessagebuffercreate
 xmessagebuffercreatestatic
+xmessagebuffergetstaticbuffers
 xmessagebufferisempty
 xmessagebufferisfull
 xmessagebuffernextlengthbytes
@@ -2820,6 +2890,7 @@ xmutexbuffer
 xmutexholder
 xn
 xnearstartscheduler
+xnetworkingtaskhandle
 xnewperiod
 xnewqueue
 xnextexpiretime
@@ -2842,6 +2913,7 @@ xpar
 xparameters
 xpendedcounts
 xpendedticks
+xpendingreadycoroutinelist
 xpendingreadylist
 xperiod
 xportgetcoreid
@@ -2851,6 +2923,7 @@ xportregistercinterrupthandler
 xportregisterdump
 xportstartfirsttask
 xportstartscheduler
+xpreemptiondisable
 xpsr
 xqueue
 xqueueaddtoset
@@ -2862,6 +2935,7 @@ xqueuecreatestatic
 xqueuegenericsend
 xqueuegenericsendfromisr
 xqueuegetmutexholder
+xqueuegetstaticbuffers
 xqueuegivefromisr
 xqueuegivemutexrecursive
 xqueueorsemaphore
@@ -2916,6 +2990,7 @@ xsemaphorecreaterecursivemutex
 xsemaphorecreaterecursivemutexstatic
 xsemaphoregetmutexholder
 xsemaphoregetmutexholderfromisr
+xsemaphoregetstaticbuffer
 xsemaphoregive
 xsemaphoregivefromisr
 xsemaphoregivemutexrecursive
@@ -2940,6 +3015,7 @@ xstreambuffer
 xstreambufferbytesavailable
 xstreambuffercreate
 xstreambuffercreatestatic
+xstreambuffergetstaticbuffers
 xstreambufferisempty
 xstreambufferisfull
 xstreambuffernextmessagelengthbytes
@@ -2961,6 +3037,7 @@ xtail
 xtal
 xtask
 xtaskabortdelay
+xtaskattribute
 xtaskbuffer
 xtaskcallapplicationtaskhook
 xtaskcatchupticks
@@ -2978,6 +3055,7 @@ xtaskgetcurrenttaskhandle
 xtaskgethandle
 xtaskgetidletaskhandle
 xtaskgetschedulerstate
+xtaskgetstaticbuffers
 xtaskgettickcount
 xtaskgettickcountfromisr
 xtaskhandle
@@ -3006,11 +3084,13 @@ xtasknumber
 xtaskremovefromeventlist
 xtaskresumeall
 xtaskresumefromisr
+xtaskrunstate
 xtaskswaitingforbits
 xtaskswaitingtermination
 xtaskswaitingtoreceive
 xtaskswaitingtosend
 xtasktodelete
+xtasktomodify
 xtasktonotify
 xtasktoquery
 xtasktoresume
@@ -3042,9 +3122,11 @@ xtimercreate
 xtimercreated
 xtimercreatestatic
 xtimerdelete
+xtimergenericcommand
 xtimergetexpirytime
 xtimergetperiod
 xtimergetreloadmode
+xtimergetstaticbuffer
 xtimergettimerdaemontaskhandle
 xtimeristimeractive
 xtimerlistitem
@@ -3076,5 +3158,8 @@ xwantedsize
 xwasdelayed
 xwritevalue
 xxr
+xyieldfortask
 xyieldpending
+xyieldpendings
 xzr
+yeilding

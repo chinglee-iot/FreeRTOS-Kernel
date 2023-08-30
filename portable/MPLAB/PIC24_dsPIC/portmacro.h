@@ -29,9 +29,11 @@
 #ifndef PORTMACRO_H
 #define PORTMACRO_H
 
+/* *INDENT-OFF* */
 #ifdef __cplusplus
-extern "C" {
+    extern "C" {
 #endif
+/* *INDENT-ON* */
 
 /*-----------------------------------------------------------
  * Port specific definitions.
@@ -51,6 +53,8 @@ extern "C" {
 #define portSHORT       short
 #define portSTACK_TYPE  uint16_t
 #define portBASE_TYPE   short
+#define portPOINTER_SIZE_TYPE size_t
+#define SIZE_MAX    ( ( size_t ) -1 )
 
 typedef portSTACK_TYPE StackType_t;
 typedef short BaseType_t;
@@ -106,8 +110,10 @@ extern void vPortYield( void );
 
 #define portNOP()               asm volatile ( "NOP" )
 
+/* *INDENT-OFF* */
 #ifdef __cplusplus
-}
+    }
 #endif
+/* *INDENT-ON* */
 
 #endif /* PORTMACRO_H */
