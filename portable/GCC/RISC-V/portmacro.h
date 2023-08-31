@@ -189,6 +189,8 @@ extern size_t xCriticalNesting;
 #endif
 /*-----------------------------------------------------------*/
 
+    #define portRAISE_PRIVILEGE()      __internal_syscall_0( portECALL_RAISE_PRIORITY )
+
 /* MPU specific constants. */
     #define portUSING_MPU_WRAPPERS                                   1
     #define portPRIVILEGE_BIT                                        ( 0x80000000UL )

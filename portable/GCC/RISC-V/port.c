@@ -226,7 +226,6 @@ void vPortEndScheduler( void )
 
 #define SETUP_PMP_CONFIG( xPmpConfigs, xPmpEnteryIndex, xPmpConfigValue )           \
 do{                                                                                 \
-    char temp[64];                                                                  \
     uint32_t xPmpConfigIndex = ( xPmpEnteryIndex ) / PMP_ENTRY_PER_CONFIG;          \
     uint32_t xPmpConfigOffsetIndex = ( xPmpEnteryIndex ) % PMP_ENTRY_PER_CONFIG;    \
     uint32_t xTempPmpConfig;                                                        \
@@ -235,8 +234,6 @@ do{                                                                             
     xTempPmpConfig = xTempPmpConfig & ( ( 0xffffffff ) ^ ( ( ( uint32_t ) 0xff ) << ( xPmpConfigOffsetIndex * 8 ) ) ); \
     xTempPmpConfig = xTempPmpConfig | ( ( xPmpConfigValue ) << ( xPmpConfigOffsetIndex * 8 ) ); \
     ( xPmpConfigs )[ xPmpConfigIndex ] = xTempPmpConfig;                            \
-    snprintf( temp, 64, "0x%08x, 0x%08x, 0x%08x, 0x%08x", xPmpConfigIndex, xPmpConfigOffsetIndex, xPmpConfigValue, ( xPmpConfigs )[ xPmpConfigIndex ] ); \
-    vSendString( temp );\
 }while( 0 )
 
 /*
