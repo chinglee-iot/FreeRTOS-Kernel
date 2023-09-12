@@ -146,7 +146,7 @@ typedef struct QueueDefinition /* The old naming convention is used to prevent b
 
     /* Using granular locking drops the determinism requirements. Thus, the queue
      * locking mechanism is only needed when not using granular locks. */
-    #if ( ( FREERTOS_CRIT_IMPL >= 0 ) && ( FREERTOS_CRIT_IMPL < 4 ) )
+    #if ( ( FREERTOS_CRIT_IMPL >= 0 ) && ( FREERTOS_CRIT_IMPL <= 4 ) )
         volatile int8_t cRxLock;            /*< Stores the number of items received from the queue (removed from the queue) while the queue was locked.  Set to queueUNLOCKED when the queue is not locked. */
         volatile int8_t cTxLock;            /*< Stores the number of items transmitted to the queue (added to the queue) while the queue was locked.  Set to queueUNLOCKED when the queue is not locked. */
     #endif
@@ -204,7 +204,7 @@ typedef xQUEUE Queue_t;
 
 /* Using granular locking drops the determinism requirements. Thus, the queue
  * locking mechanism is only needed when not using granular locks. */
-#if ( ( FREERTOS_CRIT_IMPL >= 0 ) && ( FREERTOS_CRIT_IMPL < 4 ) )
+#if ( ( FREERTOS_CRIT_IMPL >= 0 ) && ( FREERTOS_CRIT_IMPL <= 4 ) )
 
     /*
      * Unlocks a queue locked by a call to prvLockQueue.  Locking a queue does not
@@ -230,7 +230,7 @@ typedef xQUEUE Queue_t;
      */
     static BaseType_t prvIsQueueFull( const Queue_t * pxQueue ) PRIVILEGED_FUNCTION;
 
-#endif /* #if ( ( FREERTOS_CRIT_IMPL >= 0 ) && ( FREERTOS_CRIT_IMPL < 4 ) ) */
+#endif /* #if ( ( FREERTOS_CRIT_IMPL >= 0 ) && ( FREERTOS_CRIT_IMPL <= 4 ) ) */
 
 /*
  * Copies an item into the queue, either at the front of the queue or the
@@ -289,7 +289,7 @@ static void prvInitialiseNewQueue( const UBaseType_t uxQueueLength,
 
 /* Using granular locking drops the determinism requirements. Thus, the queue
  * locking mechanism is only needed when not using granular locks. */
-#if ( ( FREERTOS_CRIT_IMPL >= 0 ) && ( FREERTOS_CRIT_IMPL < 4 ) )
+#if ( ( FREERTOS_CRIT_IMPL >= 0 ) && ( FREERTOS_CRIT_IMPL <= 4 ) )
 
     /*
      * Macro to mark a queue as locked.  Locking a queue prevents an ISR from
@@ -339,7 +339,7 @@ static void prvInitialiseNewQueue( const UBaseType_t uxQueueLength,
             }                                                                     \
         }
 
-#endif /* #if ( ( FREERTOS_CRIT_IMPL >= 0 ) && ( FREERTOS_CRIT_IMPL < 4 ) ) */
+#endif /* #if ( ( FREERTOS_CRIT_IMPL >= 0 ) && ( FREERTOS_CRIT_IMPL <= 4 ) ) */
 
 /*-----------------------------------------------------------*/
 
@@ -363,10 +363,10 @@ BaseType_t xQueueGenericReset( QueueHandle_t xQueue,
             pxQueue->pcWriteTo = pxQueue->pcHead;
             pxQueue->u.xQueue.pcReadFrom = pxQueue->pcHead + ( ( pxQueue->uxLength - 1U ) * pxQueue->uxItemSize ); /*lint !e9016 Pointer arithmetic allowed on char types, especially when it assists conveying intent. */
             /* Queue locks only required when not using granular locking */
-            #if ( ( FREERTOS_CRIT_IMPL >= 0 ) && ( FREERTOS_CRIT_IMPL < 4 ) )
+            #if ( ( FREERTOS_CRIT_IMPL >= 0 ) && ( FREERTOS_CRIT_IMPL <= 4 ) )
                 pxQueue->cRxLock = queueUNLOCKED;
                 pxQueue->cTxLock = queueUNLOCKED;
-            #endif /* #if ( ( FREERTOS_CRIT_IMPL >= 0 ) && ( FREERTOS_CRIT_IMPL < 4 ) ) */
+            #endif /* #if ( ( FREERTOS_CRIT_IMPL >= 0 ) && ( FREERTOS_CRIT_IMPL <= 4 ) ) */
 
             if( xNewQueue == pdFALSE )
             {
@@ -1052,7 +1052,7 @@ BaseType_t xQueueGenericSend( QueueHandle_t xQueue,
              * - At this point, the queue is full and entry time has been set
              * - We simply check for a time out, block if not timed out, or
              *   return an error if we have timed out. */
-            #if ( ( FREERTOS_CRIT_IMPL == 4 ) || ( FREERTOS_CRIT_IMPL == 5 ) )
+            #if ( ( FREERTOS_CRIT_IMPL == 5 ) || ( FREERTOS_CRIT_IMPL == 5 ) )
                 if( xTaskCheckForTimeOut( &xTimeOut, &xTicksToWait ) == pdFALSE )
                 {
                     /* Not timed out yet. Block the current task. */
@@ -1074,7 +1074,7 @@ BaseType_t xQueueGenericSend( QueueHandle_t xQueue,
          * - At this point, the queue is full and entry time has been set
          * - We follow the original procedure of locking the queue before
          *   attempting to block. */
-        #if ( ( FREERTOS_CRIT_IMPL >= 0 ) && ( FREERTOS_CRIT_IMPL < 4 ) )
+        #if ( ( FREERTOS_CRIT_IMPL >= 0 ) && ( FREERTOS_CRIT_IMPL <= 4 ) )
             /* Interrupts and other tasks can send to and receive from the queue
              * now the critical section has been exited. */
 
@@ -1130,7 +1130,7 @@ BaseType_t xQueueGenericSend( QueueHandle_t xQueue,
                 traceQUEUE_SEND_FAILED( pxQueue );
                 return errQUEUE_FULL;
         }
-        #endif /* #if ( ( FREERTOS_CRIT_IMPL >= 0 ) && ( FREERTOS_CRIT_IMPL < 4 ) ) */
+        #endif /* #if ( ( FREERTOS_CRIT_IMPL >= 0 ) && ( FREERTOS_CRIT_IMPL <= 4 ) ) */
     } /*lint -restore */
 }
 /*-----------------------------------------------------------*/
@@ -1173,7 +1173,7 @@ BaseType_t xQueueGenericSendFromISR( QueueHandle_t xQueue,
     {
         if( ( pxQueue->uxMessagesWaiting < pxQueue->uxLength ) || ( xCopyPosition == queueOVERWRITE ) )
         {
-            #if ( ( FREERTOS_CRIT_IMPL >= 0 ) && ( FREERTOS_CRIT_IMPL < 4 ) )
+            #if ( ( FREERTOS_CRIT_IMPL >= 0 ) && ( FREERTOS_CRIT_IMPL <= 4 ) )
             const int8_t cTxLock = pxQueue->cTxLock;
             #else
             const int8_t cTxLock = queueUNLOCKED;
@@ -1286,7 +1286,7 @@ BaseType_t xQueueGenericSendFromISR( QueueHandle_t xQueue,
             }
             else
             {
-                #if ( ( FREERTOS_CRIT_IMPL >= 0 ) && ( FREERTOS_CRIT_IMPL < 4 ) )
+                #if ( ( FREERTOS_CRIT_IMPL >= 0 ) && ( FREERTOS_CRIT_IMPL <= 4 ) )
                     /* Increment the lock count so the task that unlocks the queue
                      * knows that data was posted while it was locked. */
                     prvIncrementQueueTxLock( pxQueue, cTxLock );
@@ -1356,7 +1356,7 @@ BaseType_t xQueueGiveFromISR( QueueHandle_t xQueue,
          * space'. */
         if( uxMessagesWaiting < pxQueue->uxLength )
         {
-            #if ( ( FREERTOS_CRIT_IMPL >= 0 ) && ( FREERTOS_CRIT_IMPL < 4 ) )
+            #if ( ( FREERTOS_CRIT_IMPL >= 0 ) && ( FREERTOS_CRIT_IMPL <= 4 ) )
                 const int8_t cTxLock = pxQueue->cTxLock;
             #else
                 const int8_t cTxLock = queueUNLOCKED;
@@ -1458,7 +1458,7 @@ BaseType_t xQueueGiveFromISR( QueueHandle_t xQueue,
             }
             else
             {
-                #if ( ( FREERTOS_CRIT_IMPL >= 0 ) && ( FREERTOS_CRIT_IMPL < 4 ) )
+                #if ( ( FREERTOS_CRIT_IMPL >= 0 ) && ( FREERTOS_CRIT_IMPL <= 4 ) )
                     /* Increment the lock count so the task that unlocks the queue
                     * knows that data was posted while it was locked. */
                     prvIncrementQueueTxLock( pxQueue, cTxLock );
@@ -1568,7 +1568,7 @@ BaseType_t xQueueReceive( QueueHandle_t xQueue,
              * - At this point, the queue is empty and entry time has been set
              * - We simply check for a time out, block if not timed out, or
              *   return an error if we have timed out. */
-            #if ( ( FREERTOS_CRIT_IMPL == 4 ) || ( FREERTOS_CRIT_IMPL == 5 ) )
+            #if ( ( FREERTOS_CRIT_IMPL == 5 ) || ( FREERTOS_CRIT_IMPL == 5 ) )
                 /* Update the timeout state to see if it has expired yet. */
                 if( xTaskCheckForTimeOut( &xTimeOut, &xTicksToWait ) == pdFALSE )
                 {
@@ -1591,7 +1591,7 @@ BaseType_t xQueueReceive( QueueHandle_t xQueue,
          * - At this point, the queue is empty and entry time has been set
          * - We follow the original procedure for locking the queue before
          *   attempting to block. */
-        #if ( ( FREERTOS_CRIT_IMPL >= 0 ) && ( FREERTOS_CRIT_IMPL < 4 ) )
+        #if ( ( FREERTOS_CRIT_IMPL >= 0 ) && ( FREERTOS_CRIT_IMPL <= 4 ) )
             /* Interrupts and other tasks can send to and receive from the queue
              * now the critical section has been exited. */
 
@@ -1651,7 +1651,7 @@ BaseType_t xQueueReceive( QueueHandle_t xQueue,
                     mtCOVERAGE_TEST_MARKER();
                 }
             }
-        #endif /* #if ( ( FREERTOS_CRIT_IMPL >= 0 ) && ( FREERTOS_CRIT_IMPL < 4 ) ) */
+        #endif /* #if ( ( FREERTOS_CRIT_IMPL >= 0 ) && ( FREERTOS_CRIT_IMPL <= 4 ) ) */
     } /*lint -restore */
 }
 /*-----------------------------------------------------------*/
@@ -1766,7 +1766,7 @@ BaseType_t xQueueSemaphoreTake( QueueHandle_t xQueue,
              *   has been set.
              * - We simply check for a time out, inherit priority and block if
              *   not timed out, or return an error if we have timed out. */
-            #if ( ( FREERTOS_CRIT_IMPL == 4 ) || ( FREERTOS_CRIT_IMPL == 5 ) )
+            #if ( ( FREERTOS_CRIT_IMPL == 5 ) || ( FREERTOS_CRIT_IMPL == 5 ) )
                 /* Update the timeout state to see if it has expired yet. */
                 if( xTaskCheckForTimeOut( &xTimeOut, &xTicksToWait ) == pdFALSE )
                 {
@@ -1814,7 +1814,7 @@ BaseType_t xQueueSemaphoreTake( QueueHandle_t xQueue,
          * - At this point, the queue is empty and entry time has been set
          * - We follow the original procedure for locking the queue before
          *   attempting to block. */
-        #if ( ( FREERTOS_CRIT_IMPL >= 0 ) && ( FREERTOS_CRIT_IMPL < 4 ) )
+        #if ( ( FREERTOS_CRIT_IMPL >= 0 ) && ( FREERTOS_CRIT_IMPL <= 4 ) )
             /* Interrupts and other tasks can give to and take from the semaphore
              * now the critical section has been exited. */
 
@@ -1921,7 +1921,7 @@ BaseType_t xQueueSemaphoreTake( QueueHandle_t xQueue,
                     mtCOVERAGE_TEST_MARKER();
                 }
             }
-        #endif /* #if ( ( FREERTOS_CRIT_IMPL >= 0 ) && ( FREERTOS_CRIT_IMPL < 4 ) ) */
+        #endif /* #if ( ( FREERTOS_CRIT_IMPL >= 0 ) && ( FREERTOS_CRIT_IMPL <= 4 ) ) */
     } /*lint -restore */
 }
 /*-----------------------------------------------------------*/
@@ -2024,7 +2024,7 @@ BaseType_t xQueuePeek( QueueHandle_t xQueue,
              * - At this point, the queue is empty and entry time has been set
              * - We simply check for a time out, block if not timed out, or
              *   return an error if we have timed out. */
-            #if ( ( FREERTOS_CRIT_IMPL == 4 ) || ( FREERTOS_CRIT_IMPL == 5 ) )
+            #if ( ( FREERTOS_CRIT_IMPL == 5 ) || ( FREERTOS_CRIT_IMPL == 5 ) )
                 /* Update the timeout state to see if it has expired yet. */
                 if( xTaskCheckForTimeOut( &xTimeOut, &xTicksToWait ) == pdFALSE )
                 {
@@ -2048,7 +2048,7 @@ BaseType_t xQueuePeek( QueueHandle_t xQueue,
          * - At this point, the queue is empty and entry time has been set
          * - We follow the original procedure for locking the queue before
          *   attempting to block. */
-        #if ( ( FREERTOS_CRIT_IMPL >= 0 ) && ( FREERTOS_CRIT_IMPL < 4 ) )
+        #if ( ( FREERTOS_CRIT_IMPL >= 0 ) && ( FREERTOS_CRIT_IMPL <= 4 ) )
             /* Interrupts and other tasks can send to and receive from the queue
              * now that the critical section has been exited. */
 
@@ -2108,7 +2108,7 @@ BaseType_t xQueuePeek( QueueHandle_t xQueue,
                     mtCOVERAGE_TEST_MARKER();
                 }
             }
-        #endif /* #if ( ( FREERTOS_CRIT_IMPL >= 0 ) && ( FREERTOS_CRIT_IMPL < 4 ) ) */
+        #endif /* #if ( ( FREERTOS_CRIT_IMPL >= 0 ) && ( FREERTOS_CRIT_IMPL <= 4 ) ) */
     } /*lint -restore */
 }
 /*-----------------------------------------------------------*/
@@ -2147,7 +2147,7 @@ BaseType_t xQueueReceiveFromISR( QueueHandle_t xQueue,
         /* Cannot block in an ISR, so check there is data available. */
         if( uxMessagesWaiting > ( UBaseType_t ) 0 )
         {
-            #if ( ( FREERTOS_CRIT_IMPL >= 0 ) && ( FREERTOS_CRIT_IMPL < 4 ) )
+            #if ( ( FREERTOS_CRIT_IMPL >= 0 ) && ( FREERTOS_CRIT_IMPL <= 4 ) )
                 const int8_t cRxLock = pxQueue->cRxLock;
             #else
                 const int8_t cRxLock = queueUNLOCKED;
@@ -2191,7 +2191,7 @@ BaseType_t xQueueReceiveFromISR( QueueHandle_t xQueue,
             }
             else
             {
-                #if ( ( FREERTOS_CRIT_IMPL >= 0 ) && ( FREERTOS_CRIT_IMPL < 4 ) )
+                #if ( ( FREERTOS_CRIT_IMPL >= 0 ) && ( FREERTOS_CRIT_IMPL <= 4 ) )
                     /* Increment the lock count so the task that unlocks the queue
                      * knows that data was removed while it was locked. */
                     prvIncrementQueueRxLock( pxQueue, cRxLock );
@@ -2518,7 +2518,7 @@ static void prvCopyDataFromQueue( Queue_t * const pxQueue,
 
 /* Using granular locking drops the determinism requirements. Thus, the queue
  * locking mechanism is only needed when not using granular locks. */
-#if ( ( FREERTOS_CRIT_IMPL >= 0 ) && ( FREERTOS_CRIT_IMPL < 4 ) )
+#if ( ( FREERTOS_CRIT_IMPL >= 0 ) && ( FREERTOS_CRIT_IMPL <= 4 ) )
     static void prvUnlockQueue( Queue_t * const pxQueue )
     {
         /* THIS FUNCTION MUST BE CALLED WITH THE SCHEDULER SUSPENDED. */
@@ -2637,12 +2637,12 @@ static void prvCopyDataFromQueue( Queue_t * const pxQueue,
         }
         queueEXIT_CRITICAL( pxQueue );
     }
-#endif /* #if ( ( FREERTOS_CRIT_IMPL >= 0 ) && ( FREERTOS_CRIT_IMPL < 4 ) ) */
+#endif /* #if ( ( FREERTOS_CRIT_IMPL >= 0 ) && ( FREERTOS_CRIT_IMPL <= 4 ) ) */
 /*-----------------------------------------------------------*/
 
 /* Using granular locking drops the determinism requirements. Thus, the queue
  * locking mechanism is only needed when not using granular locks. */
-#if ( ( FREERTOS_CRIT_IMPL >= 0 ) && ( FREERTOS_CRIT_IMPL < 4 ) )
+#if ( ( FREERTOS_CRIT_IMPL >= 0 ) && ( FREERTOS_CRIT_IMPL <= 4 ) )
     static BaseType_t prvIsQueueEmpty( const Queue_t * pxQueue )
     {
         BaseType_t xReturn;
@@ -2662,7 +2662,7 @@ static void prvCopyDataFromQueue( Queue_t * const pxQueue,
 
         return xReturn;
     }
-#endif /* #if ( ( FREERTOS_CRIT_IMPL >= 0 ) && ( FREERTOS_CRIT_IMPL < 4 ) ) */
+#endif /* #if ( ( FREERTOS_CRIT_IMPL >= 0 ) && ( FREERTOS_CRIT_IMPL <= 4 ) ) */
 /*-----------------------------------------------------------*/
 
 BaseType_t xQueueIsQueueEmptyFromISR( const QueueHandle_t xQueue )
@@ -2687,7 +2687,7 @@ BaseType_t xQueueIsQueueEmptyFromISR( const QueueHandle_t xQueue )
 
 /* Using granular locking drops the determinism requirements. Thus, the queue
  * locking mechanism is only needed when not using granular locks. */
-#if ( ( FREERTOS_CRIT_IMPL >= 0 ) && ( FREERTOS_CRIT_IMPL < 4 ) )
+#if ( ( FREERTOS_CRIT_IMPL >= 0 ) && ( FREERTOS_CRIT_IMPL <= 4 ) )
     static BaseType_t prvIsQueueFull( const Queue_t * pxQueue )
     {
         BaseType_t xReturn;
@@ -2707,7 +2707,7 @@ BaseType_t xQueueIsQueueEmptyFromISR( const QueueHandle_t xQueue )
 
         return xReturn;
     }
-#endif /* #if ( ( FREERTOS_CRIT_IMPL >= 0 ) && ( FREERTOS_CRIT_IMPL < 4 ) ) */
+#endif /* #if ( ( FREERTOS_CRIT_IMPL >= 0 ) && ( FREERTOS_CRIT_IMPL <= 4 ) ) */
 /*-----------------------------------------------------------*/
 
 BaseType_t xQueueIsQueueFullFromISR( const QueueHandle_t xQueue )
@@ -2857,7 +2857,7 @@ BaseType_t xQueueIsQueueFullFromISR( const QueueHandle_t xQueue )
          * so it should be called with the scheduler locked and not from a critical
          * section. */
 
-        #if ( ( FREERTOS_CRIT_IMPL >= 0 ) && ( FREERTOS_CRIT_IMPL < 4 ) )
+        #if ( ( FREERTOS_CRIT_IMPL >= 0 ) && ( FREERTOS_CRIT_IMPL <= 4 ) )
             /* Only do anything if there are no messages in the queue.  This function
              *  will not actually cause the task to block, just place it on a blocked
              *  list.  It will not block until the scheduler is unlocked - at which
@@ -2879,7 +2879,7 @@ BaseType_t xQueueIsQueueFullFromISR( const QueueHandle_t xQueue )
             mtCOVERAGE_TEST_MARKER();
         }
 
-        #if ( ( FREERTOS_CRIT_IMPL >= 0 ) && ( FREERTOS_CRIT_IMPL < 4 ) )
+        #if ( ( FREERTOS_CRIT_IMPL >= 0 ) && ( FREERTOS_CRIT_IMPL <= 4 ) )
             prvUnlockQueue( pxQueue );
         #else
             queueEXIT_CRITICAL( pxQueue );
@@ -3018,7 +3018,7 @@ BaseType_t xQueueIsQueueFullFromISR( const QueueHandle_t xQueue )
 
         if( pxQueueSetContainer->uxMessagesWaiting < pxQueueSetContainer->uxLength )
         {
-            #if ( ( FREERTOS_CRIT_IMPL >= 0 ) && ( FREERTOS_CRIT_IMPL < 4 ) )
+            #if ( ( FREERTOS_CRIT_IMPL >= 0 ) && ( FREERTOS_CRIT_IMPL <= 4 ) )
                 const int8_t cTxLock = pxQueueSetContainer->cTxLock;
             #else
                 const int8_t cTxLock = queueUNLOCKED;
@@ -3050,7 +3050,7 @@ BaseType_t xQueueIsQueueFullFromISR( const QueueHandle_t xQueue )
             }
             else
             {
-                #if ( ( FREERTOS_CRIT_IMPL >= 0 ) && ( FREERTOS_CRIT_IMPL < 4 ) )
+                #if ( ( FREERTOS_CRIT_IMPL >= 0 ) && ( FREERTOS_CRIT_IMPL <= 4 ) )
                     prvIncrementQueueTxLock( pxQueueSetContainer, cTxLock );
                 #endif
             }
