@@ -633,7 +633,8 @@ void vPortGenerateSimulatedInterruptFromNative( uint32_t ulInterruptNumber )
         be available. */
         WaitForSingleObject( pvInterruptEventMutex, INFINITE );
 
-        /* The timer has expired, generate the simulated tick event. */
+        /* Pending a user defined interrupt to be handelde in simulated interrupt
+         * handler thread. */
         ulPendingInterrupts |= ( 1 << ulInterruptNumber );
 
         /* The interrupt is now pending - notify the simulated interrupt
