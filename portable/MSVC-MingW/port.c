@@ -625,6 +625,31 @@ void vPortGenerateSimulatedInterrupt( uint32_t ulInterruptNumber )
 }
 /*-----------------------------------------------------------*/
 
+void vPortGenerateSimulatedInterruptFromNative( uint32_t ulInterruptNumber )
+{
+    if( xPortRunning == pdTRUE )
+    {
+        /* Can't proceed if in a critical section as pvInterruptEventMutex won't
+        be available. */
+        WaitForSingleObject( pvInterruptEventMutex, INFINITE );
+
+        /* The timer has expired, generate the simulated tick event. */
+        ulPendingInterrupts |= ( 1 << ulInterruptNumber );
+
+        /* The interrupt is now pending - notify the simulated interrupt
+        handler thread.  Must be outside of a critical section to get here so
+        the handler thread can execute immediately pvInterruptEventMutex is
+        released. */
+        configASSERT( ulCriticalNesting == 0UL );
+        SetEvent( pvInterruptEvent );
+
+        /* Give back the mutex so the simulated interrupt handler unblocks
+        and can access the interrupt handler variables. */
+        ReleaseMutex( pvInterruptEventMutex );
+    }
+}
+/*-----------------------------------------------------------*/
+
 void vPortSetInterruptHandler( uint32_t ulInterruptNumber,
                                uint32_t ( * pvHandler )( void ) )
 {
