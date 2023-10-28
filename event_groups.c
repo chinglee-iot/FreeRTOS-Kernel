@@ -513,7 +513,10 @@ EventBits_t xEventGroupClearBits( EventGroupHandle_t xEventGroup,
         traceENTER_xEventGroupClearBitsFromISR( xEventGroup, uxBitsToClear );
 
         traceEVENT_GROUP_CLEAR_BITS_FROM_ISR( xEventGroup, uxBitsToClear );
-        xReturn = xTimerPendFunctionCallFromISR( vEventGroupClearBitsCallback, ( void * ) xEventGroup, ( uint32_t ) uxBitsToClear, NULL ); /*lint !e9087 Can't avoid cast to void* as a generic callback function not specific to this use case. Callback casts back to original type so safe. */
+        /* MISRA Ref 11.1.1 [Object type casting] */
+        /* More details at: https://github.com/FreeRTOS/FreeRTOS-Kernel/blob/main/MISRA.md#rule-111 */
+        /* coverity[misra_c_2012_rule_11_1_violation] */
+        xReturn = xTimerPendFunctionCallFromISR( vEventGroupClearBitsCallback, ( void * ) xEventGroup, ( uint32_t ) uxBitsToClear, NULL );
 
         traceRETURN_xEventGroupClearBitsFromISR( xReturn );
 
@@ -736,7 +739,7 @@ void vEventGroupDelete( EventGroupHandle_t xEventGroup )
 /* For internal use only - execute a 'set bits' command that was pended from
  * an interrupt. */
 void vEventGroupSetBitsCallback( void * pvEventGroup,
-                                 uint32_t ulBitsToSet )
+                                 const uint32_t ulBitsToSet )
 {
     traceENTER_vEventGroupSetBitsCallback( pvEventGroup, ulBitsToSet );
 
@@ -749,7 +752,7 @@ void vEventGroupSetBitsCallback( void * pvEventGroup,
 /* For internal use only - execute a 'clear bits' command that was pended from
  * an interrupt. */
 void vEventGroupClearBitsCallback( void * pvEventGroup,
-                                   uint32_t ulBitsToClear )
+                                   const uint32_t ulBitsToClear )
 {
     traceENTER_vEventGroupClearBitsCallback( pvEventGroup, ulBitsToClear );
 
@@ -807,7 +810,10 @@ static BaseType_t prvTestWaitCondition( const EventBits_t uxCurrentEventBits,
         traceENTER_xEventGroupSetBitsFromISR( xEventGroup, uxBitsToSet, pxHigherPriorityTaskWoken );
 
         traceEVENT_GROUP_SET_BITS_FROM_ISR( xEventGroup, uxBitsToSet );
-        xReturn = xTimerPendFunctionCallFromISR( vEventGroupSetBitsCallback, ( void * ) xEventGroup, ( uint32_t ) uxBitsToSet, pxHigherPriorityTaskWoken ); /*lint !e9087 Can't avoid cast to void* as a generic callback function not specific to this use case. Callback casts back to original type so safe. */
+        /* MISRA Ref 11.1.1 [Object type casting] */
+        /* More details at: https://github.com/FreeRTOS/FreeRTOS-Kernel/blob/main/MISRA.md#rule-111 */
+        /* coverity[misra_c_2012_rule_11_1_violation] */
+        xReturn = xTimerPendFunctionCallFromISR( vEventGroupSetBitsCallback, ( void * ) xEventGroup, ( uint32_t ) uxBitsToSet, pxHigherPriorityTaskWoken );
 
         traceRETURN_xEventGroupSetBitsFromISR( xReturn );
 
