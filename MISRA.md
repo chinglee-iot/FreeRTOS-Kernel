@@ -60,6 +60,17 @@ _Ref 11.3.1_
         type and a pointer to a different object type.
         The rule requires not to cast a pointer to object into a pointer to a different object to prevent undefined behavior due to incorrectly aligned. To support static memory allocation, FreeRTOS creates static type kernel objects which are aliases for kernel object type with prefix "Static" for data hiding purpose. A static kernel object type is guaranteed to have the same size and alignment with kernel object, which is checked by configASSERT. Static kernel object types include StaticEventGroup_t, StaticQueue_t, StaticStreamBuffer_t, StaticTimer_t and StaticTask_t.
 
+#### Rule 21.6
+
+_Ref 21.6.1_
+
+- MISRA C-2012 Rule 21.6: The Standard Library input/output functions shall not
+        be used.
+        This rule warns about the use of standard library input/output functions
+        as they might have implementation defined or undefined behavior. The
+        function `snprintf` is used for convenience only when `configUSE_TRACE_FACILITY`
+        is set to 1 and `configUSE_STATS_FORMATTING_FUNCTIONS` is set to greater
+        than 0. Do not consider it to be part of the scheduler.
 
 ### MISRA configuration
 
