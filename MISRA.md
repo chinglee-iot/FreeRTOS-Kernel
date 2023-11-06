@@ -82,6 +82,42 @@ _Ref 11.3.1_
         type and a pointer to a different object type.
         The rule requires not to cast a pointer to object into a pointer to a different object to prevent undefined behavior due to incorrectly aligned. To support static memory allocation, FreeRTOS creates static type kernel objects which are aliases for kernel object type with prefix "Static" for data hiding purpose. A static kernel object type is guaranteed to have the same size and alignment with kernel object, which is checked by configASSERT. Static kernel object types include StaticEventGroup_t, StaticQueue_t, StaticStreamBuffer_t, StaticTimer_t and StaticTask_t.
 
+#### Rule 11.5
+
+_Ref 11.5.1_
+
+- MISRA C:2012 Rule 11.5: A conversion should not be performed from pointer to
+        void into pointer to object.
+        The rule requires a pointer to void should not be converted into a pointer
+        to object cause this may result in a pointer that is not correctly aligned,
+        resulting in undefined behavior. The memory blocks allocated by pvPortMalloc()
+        must be guaranteed to meet the alignment requirements specified by portBYTE_ALIGMENT_MASK.
+        Therefore, casting the void pointer which points to the returned memory to
+        a pointer to object is ensured to be aligned.
+
+_Ref 11.5.2_
+
+- MISRA C:2012 Rule 11.5: EventGroupHandle_t is a pointer to an EventGroup_t, but
+        EventGroupHandle_t is kept opaque outside of this file for data hiding
+        purposes.
+
+_Ref 11.5.3_
+
+- MISRA C:2012 Rule 11.5: void * is used in list macros for list item owner as these
+        macros are used with tasks, timers and co-routines. Alighment is known to be
+        fine as the type of the pointer stored and retrieved is the same.
+
+_Ref 11.5.4_
+
+- MISRA C:2012 Rule 11.5: void * is used in a generic callback function prototype since
+        this callback is for general use case. Casting this pointer back to original
+        type is safe.
+
+_Ref 11.5.5_
+
+- MISRA C:2012 Rule 11.5: void *  is converted into a pointer to uint8_t for ease of
+        sizing, alignment and access.
+
 #### Rule 21.6
 
 _Ref 21.6.1_
