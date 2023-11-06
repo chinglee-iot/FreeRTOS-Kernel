@@ -98,7 +98,7 @@ _Ref 11.5.1_
         The rule requires a pointer to void should not be converted into a pointer
         to object cause this may result in a pointer that is not correctly aligned,
         resulting in undefined behavior. The memory blocks allocated by pvPortMalloc()
-        must be guaranteed to meet the alignment requirements specified by portBYTE_ALIGMENT_MASK.
+        must be guaranteed to meet the alignment requirements specified by portBYTE_ALIGNMENT_MASK.
         Therefore, casting the void pointer which points to the returned memory to
         a pointer to object is ensured to be aligned.
 
@@ -110,19 +110,19 @@ _Ref 11.5.2_
 
 _Ref 11.5.3_
 
-- MISRA C:2012 Rule 11.5: void * is used in list macros for list item owner as these
-        macros are used with tasks, timers and co-routines. Alighment is known to be
+- MISRA C:2012 Rule 11.5: ` void * ` is used in list macros for list item owner as these
+        macros are used with tasks, timers and co-routines. Alignment is known to be
         fine as the type of the pointer stored and retrieved is the same.
 
 _Ref 11.5.4_
 
-- MISRA C:2012 Rule 11.5: void * is used in a generic callback function prototype since
+- MISRA C:2012 Rule 11.5: ` void * ` is used in a generic callback function prototype since
         this callback is for general use case. Casting this pointer back to original
         type is safe.
 
 _Ref 11.5.5_
 
-- MISRA C:2012 Rule 11.5: void *  is converted into a pointer to uint8_t for ease of
+- MISRA C:2012 Rule 11.5: ` void * `  is converted into a pointer to uint8_t for ease of
         sizing, alignment and access.
 
 #### Rule 21.6
