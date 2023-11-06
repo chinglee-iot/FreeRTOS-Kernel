@@ -40,6 +40,18 @@ _Ref 8.4.2_
         xQueueRegistry is being accessed by the Kernel Unit Test files and
         hence cannot be declared as a static variable.
 
+#### Rule 8.6
+
+_Ref 8.6.1_
+
+- MISRA C:2012 Rule 8.6: An identifier with external linkage shall have exactly
+        one external definition.
+        This rule requires an identifier should not have multiple definitions or
+        no definition. Otherwise, the behavior is undefined. FreeRTOS hook functions
+        are defined in user application if corresponding config is enabled in
+        FreeRTOSConfig.h, so it is a false positive.
+
+
 #### Rule 11.1
 
 _Ref 11.1.1_
@@ -81,7 +93,6 @@ _Ref 21.6.1_
         'snprintf' is used for debugging only ( when configUSE_TRACE_FACILITY is
         set to 1 and configUSE_STATS_FORMATTING_FUNCTIONS is set to greater than 0 )
         and is not part of the 'core' kernel code.
-
 
 ### MISRA configuration
 
