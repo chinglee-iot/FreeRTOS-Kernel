@@ -1253,9 +1253,6 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
     {
         TCB_t * pxNewTCB;
 
-        configASSERT( puxStackBuffer != NULL );
-        configASSERT( pxTaskBuffer != NULL );
-
         #if ( configASSERT_DEFINED == 1 )
         {
             /* Sanity check that the size of the structure used to declare a
@@ -1291,6 +1288,9 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
         else
         {
             pxNewTCB = NULL;
+
+            configASSERT( puxStackBuffer != NULL );
+            configASSERT( pxTaskBuffer != NULL );
         }
 
         return pxNewTCB;
@@ -1864,15 +1864,14 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
         mtCOVERAGE_TEST_MARKER();
     }
 
-    /* This is used as an array index so must ensure it's not too large. */
-    configASSERT( uxPriority < configMAX_PRIORITIES );
-
     if( uxPriority >= ( UBaseType_t ) configMAX_PRIORITIES )
     {
         uxPriority = ( UBaseType_t ) configMAX_PRIORITIES - ( UBaseType_t ) 1U;
     }
     else
     {
+        /* This is used as an array index so must ensure it's not too large. */
+        configASSERT( uxPriority < configMAX_PRIORITIES );
         mtCOVERAGE_TEST_MARKER();
     }
 
@@ -2758,8 +2757,6 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
 
         traceENTER_vTaskPrioritySet( xTask, uxNewPriority );
 
-        configASSERT( uxNewPriority < configMAX_PRIORITIES );
-
         /* Ensure the new priority is valid. */
         if( uxNewPriority >= ( UBaseType_t ) configMAX_PRIORITIES )
         {
@@ -2767,6 +2764,7 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
         }
         else
         {
+            configASSERT( uxNewPriority < configMAX_PRIORITIES );
             mtCOVERAGE_TEST_MARKER();
         }
 

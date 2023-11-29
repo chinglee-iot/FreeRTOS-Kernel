@@ -415,8 +415,6 @@ static void prvInitialiseNewStreamBuffer( StreamBuffer_t * const pxStreamBuffer,
 
         traceENTER_xStreamBufferGenericCreateStatic( xBufferSizeBytes, xTriggerLevelBytes, xIsMessageBuffer, pucStreamBufferStorageArea, pxStaticStreamBuffer, pxSendCompletedCallback, pxReceiveCompletedCallback );
 
-        configASSERT( pucStreamBufferStorageArea );
-        configASSERT( pxStaticStreamBuffer );
         configASSERT( xTriggerLevelBytes <= xBufferSizeBytes );
 
         /* A trigger level of 0 would cause a waiting task to unblock even when
@@ -478,6 +476,9 @@ static void prvInitialiseNewStreamBuffer( StreamBuffer_t * const pxStreamBuffer,
         {
             xReturn = NULL;
             traceSTREAM_BUFFER_CREATE_STATIC_FAILED( xReturn, xIsMessageBuffer );
+
+            configASSERT( pucStreamBufferStorageArea );
+            configASSERT( pxStaticStreamBuffer );
         }
 
         traceRETURN_xStreamBufferGenericCreateStatic( xReturn );
