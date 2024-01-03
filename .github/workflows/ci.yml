@@ -21,7 +21,7 @@ jobs:
         - name: Clone This Repo
           uses: actions/checkout@v3
         - name: Run spellings check
-          uses: FreeRTOS/CI-CD-Github-Actions/spellings@main
+          uses: chinglee-iot/CI-CD-Github-Actions/spellings@fix-cspell-version
           with:
             path: ./
             exclude-files: History.txt
