@@ -109,8 +109,6 @@ static sigset_t xSchedulerOriginalSignalMask;
 static pthread_t hMainThread = ( pthread_t ) NULL;
 static volatile BaseType_t uxCriticalNesting;
 static BaseType_t xSchedulerEnd = pdFALSE;
-static pthread_t hTimerTickThread;
-static bool xTimerTickThreadShouldRun;
 static uint64_t prvStartTimeNs;
 static List_t xThreadList;
 /*-----------------------------------------------------------*/
@@ -294,9 +292,22 @@ BaseType_t xPortStartScheduler( void )
 
 void vPortEndScheduler( void )
 {
-    /* Stop the timer tick thread. */
-    xTimerTickThreadShouldRun = false;
-    pthread_join( hTimerTickThread, NULL );
+    struct itimerval itimer;
+    struct sigaction sigtick;
+
+    /* Stop the timer and ignore any pending SIGALRMs that would end
+     * up running on the main thread when it is resumed. */
+    itimer.it_value.tv_sec = 0;
+    itimer.it_value.tv_usec = 0;
+
+    itimer.it_interval.tv_sec = 0;
+    itimer.it_interval.tv_usec = 0;
+    ( void ) setitimer( ITIMER_REAL, &itimer, NULL );
+
+    sigtick.sa_flags = 0;
+    sigtick.sa_handler = SIG_IGN;
+    sigemptyset( &sigtick.sa_mask );
+    sigaction( SIGALRM, &sigtick, NULL );
 
     /* Signal the scheduler to exit its loop. */
     xSchedulerEnd = pdTRUE;
@@ -394,35 +405,38 @@ static uint64_t prvGetTimeNs( void )
  * to adjust timing according to full demo requirements */
 /* static uint64_t prvTickCount; */
 
-static void * prvTimerTickHandler( void * arg )
-{
-    ( void ) arg;
-    
-    prvPortSetCurrentThreadName("Scheduler timer");
-
-    while( xTimerTickThreadShouldRun )
-    {
-        /*
-         * signal to the active task to cause tick handling or
-         * preemption (if enabled)
-         */
-        Thread_t * thread = prvGetThreadFromTask( xTaskGetCurrentTaskHandle() );
-        pthread_kill( thread->pthread, SIGALRM );
-        usleep( portTICK_RATE_MICROSECONDS );
-    }
-
-    return NULL;
-}
-/*-----------------------------------------------------------*/
-
 /*
  * Setup the systick timer to generate the tick interrupts at the required
  * frequency.
  */
 void prvSetupTimerInterrupt( void )
 {
-    xTimerTickThreadShouldRun = true;
-    pthread_create( &hTimerTickThread, NULL, prvTimerTickHandler, NULL );
+    struct itimerval itimer;
+    int iRet;
+
+    /* Initialise the structure with the current timer information. */
+    iRet = getitimer( ITIMER_REAL, &itimer );
+
+    if( iRet == -1 )
+    {
+        prvFatalError( "getitimer", errno );
+    }
+
+    /* Set the interval between timer events. */
+    itimer.it_interval.tv_sec = 0;
+    itimer.it_interval.tv_usec = portTICK_RATE_MICROSECONDS;
+
+    /* Set the current count-down. */
+    itimer.it_value.tv_sec = 0;
+    itimer.it_value.tv_usec = portTICK_RATE_MICROSECONDS;
+
+    /* Set-up the timer interrupt. */
+    iRet = setitimer( ITIMER_REAL, &itimer, NULL );
+
+    if( iRet == -1 )
+    {
+        prvFatalError( "setitimer", errno );
+    }
 
     prvStartTimeNs = prvGetTimeNs();
 }
