@@ -190,6 +190,12 @@ size_t xPortGetMinimumEverFreeHeapSize( void ) PRIVILEGED_FUNCTION;
     #define vPortFreeStack       vPortFree
 #endif
 
+/*
+ * This function resets the internal state of the heap module. It must be called
+ * by the application before restarting the scheduler.
+ */
+void vPortHeapResetState( void ) PRIVILEGED_FUNCTION;
+
 #if ( configUSE_MALLOC_FAILED_HOOK == 1 )
 
 /**

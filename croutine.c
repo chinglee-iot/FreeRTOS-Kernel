@@ -378,5 +378,26 @@
 
         return xReturn;
     }
+/*-----------------------------------------------------------*/
+
+/*
+ * Reset state in this file. This state is normally initialized at start up.
+ * This function must be called by the application before restarting the
+ * scheduler.
+ */
+    void vCoRoutineResetState( void )
+    {
+        /* Lists for ready and blocked co-routines. */
+        pxDelayedCoRoutineList = NULL;
+        pxOverflowDelayedCoRoutineList = NULL;
+
+        /* Other file private variables. */
+        pxCurrentCoRoutine = NULL;
+        uxTopCoRoutineReadyPriority = 0;
+        xCoRoutineTickCount = 0;
+        xLastTickCount = 0;
+        xPassedTicks = 0;
+    }
+/*-----------------------------------------------------------*/
 
 #endif /* configUSE_CO_ROUTINES == 0 */

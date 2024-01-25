@@ -707,3 +707,24 @@ void vPortGetHeapStats( HeapStats_t * pxHeapStats )
     taskEXIT_CRITICAL();
 }
 /*-----------------------------------------------------------*/
+
+/*
+ * Reset the state in this file. This state is normally initialized at start up.
+ * This function must be called by the application before restarting the
+ * scheduler.
+ */
+void vPortHeapResetState( void )
+{
+    pxEnd = NULL;
+
+    xFreeBytesRemaining = 0U;
+    xMinimumEverFreeBytesRemaining = 0U;
+    xNumberOfSuccessfulAllocations = 0;
+    xNumberOfSuccessfulFrees = 0;
+
+    #if ( configENABLE_HEAP_PROTECTOR == 1 )
+        pucHeapHighAddress = NULL;
+        pucHeapLowAddress = NULL;
+    #endif /* #if ( configENABLE_HEAP_PROTECTOR == 1 ) */
+}
+/*-----------------------------------------------------------*/
