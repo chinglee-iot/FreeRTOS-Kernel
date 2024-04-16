@@ -2405,6 +2405,7 @@
         StreamBufferHandle_t MPU_xStreamBufferGenericCreate( size_t xBufferSizeBytes,
                                                              size_t xTriggerLevelBytes,
                                                              BaseType_t xIsMessageBuffer,
+                                                             BaseType_t xIsBatchBuffer,
                                                              StreamBufferCallbackFunction_t pxSendCompletedCallback,
                                                              StreamBufferCallbackFunction_t pxReceiveCompletedCallback ) /* FREERTOS_SYSTEM_CALL */
         {
@@ -2428,6 +2429,7 @@
                     xReturn = xStreamBufferGenericCreate( xBufferSizeBytes,
                                                           xTriggerLevelBytes,
                                                           xIsMessageBuffer,
+                                                          xIsBatchBuffer,
                                                           NULL,
                                                           NULL );
                     portMEMORY_BARRIER();
@@ -2440,6 +2442,7 @@
                     xReturn = xStreamBufferGenericCreate( xBufferSizeBytes,
                                                           xTriggerLevelBytes,
                                                           xIsMessageBuffer,
+                                                          xIsBatchBuffer,
                                                           NULL,
                                                           NULL );
                 }
@@ -2459,6 +2462,7 @@
         StreamBufferHandle_t MPU_xStreamBufferGenericCreateStatic( size_t xBufferSizeBytes,
                                                                    size_t xTriggerLevelBytes,
                                                                    BaseType_t xIsMessageBuffer,
+                                                                   BaseType_t xIsBatchBuffer,
                                                                    uint8_t * const pucStreamBufferStorageArea,
                                                                    StaticStreamBuffer_t * const pxStaticStreamBuffer,
                                                                    StreamBufferCallbackFunction_t pxSendCompletedCallback,
@@ -2484,6 +2488,7 @@
                     xReturn = xStreamBufferGenericCreateStatic( xBufferSizeBytes,
                                                                 xTriggerLevelBytes,
                                                                 xIsMessageBuffer,
+                                                                xIsBatchBuffer,
                                                                 pucStreamBufferStorageArea,
                                                                 pxStaticStreamBuffer,
                                                                 NULL,
@@ -2498,6 +2503,7 @@
                     xReturn = xStreamBufferGenericCreateStatic( xBufferSizeBytes,
                                                                 xTriggerLevelBytes,
                                                                 xIsMessageBuffer,
+                                                                xIsBatchBuffer,
                                                                 pucStreamBufferStorageArea,
                                                                 pxStaticStreamBuffer,
                                                                 NULL,
