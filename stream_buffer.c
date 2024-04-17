@@ -349,7 +349,7 @@ static void prvInitialiseNewStreamBuffer( StreamBuffer_t * const pxStreamBuffer,
             ucFlags = sbFLAGS_IS_MESSAGE_BUFFER;
             configASSERT( xBufferSizeBytes > sbBYTES_TO_STORE_MESSAGE_LENGTH );
         }
-        else if( xStreamBufferType == sbTYPE_IS_BATCH_STREAM_BUFFER )
+        else if( xStreamBufferType == sbTYPE_IS_BATCH_BUFFER )
         {
             /* Is a batch stream buffer but not statically allocated. */
             ucFlags = sbFLAGS_IS_BATCH_BUFFER;
@@ -463,7 +463,7 @@ static void prvInitialiseNewStreamBuffer( StreamBuffer_t * const pxStreamBuffer,
             ucFlags = sbFLAGS_IS_MESSAGE_BUFFER | sbFLAGS_IS_STATICALLY_ALLOCATED;
             configASSERT( xBufferSizeBytes > sbBYTES_TO_STORE_MESSAGE_LENGTH );
         }
-        else if( xStreamBufferType == sbTYPE_IS_BATCH_STREAM_BUFFER )
+        else if( xStreamBufferType == sbTYPE_IS_BATCH_BUFFER )
         {
             /* Statically allocated batch stream buffer. */
             ucFlags = sbFLAGS_IS_BATCH_BUFFER;

@@ -168,18 +168,18 @@ typedef void (* StreamBufferCallbackFunction_t)( StreamBufferHandle_t xStreamBuf
  * stream_buffer.h
  *
  * @code{c}
- * StreamBufferHandle_t xStreamBufferBatchCreate( size_t xBufferSizeBytes, size_t xTriggerLevelBytes );
+ * StreamBufferHandle_t xBatchBufferCreate( size_t xBufferSizeBytes, size_t xTriggerLevelBytes );
  * @endcode
  *
- * Creates a new batch stream buffer using dynamically allocated memory.  See
- * xStreamBufferBatchCreateStatic() for a version that uses statically allocated
+ * Creates a new batch buffer using dynamically allocated memory.  See
+ * xBatchBufferCreateStatic() for a version that uses statically allocated
  * memory (memory that is allocated at compile time).
  *
- * The difference between a regular stream buffer and a batch stream buffer lies
+ * The difference between a regular stream buffer and a batch buffer lies
  * in their behavior when receiving data that does not constitute a complete batch.
  * With a non-empty stream buffer, if the available data is less than the trigger
  * level, the task can still receive from stream buffer without being blocked.
- * Conversely, with a non-empty batch stream buffer, if the available data is less
+ * Conversely, with a non-empty batch buffer, if the available data is less
  * than the trigger level, the task is blocked until either the buffer accumulates
  * enough data to meet or exceed the trigger level or the task's specified block
  * timeout expires.
@@ -227,12 +227,12 @@ typedef void (* StreamBufferCallbackFunction_t)( StreamBufferHandle_t xStreamBuf
  * \ingroup StreamBufferManagement
  */
 
-#define xStreamBufferBatchCreate( xBufferSizeBytes, xTriggerLevelBytes ) \
-    xStreamBufferGenericCreate( ( xBufferSizeBytes ), ( xTriggerLevelBytes ), sbTYPE_IS_BATCH_STREAM_BUFFER, NULL, NULL )
+#define xBatchBufferCreate( xBufferSizeBytes, xTriggerLevelBytes ) \
+    xStreamBufferGenericCreate( ( xBufferSizeBytes ), ( xTriggerLevelBytes ), sbTYPE_IS_BATCH_BUFFER, NULL, NULL )
 
 #if ( configUSE_SB_COMPLETED_CALLBACK == 1 )
-    #define xStreamBufferBatchCreateWithCallback( xBufferSizeBytes, xTriggerLevelBytes, pxSendCompletedCallback, pxReceiveCompletedCallback ) \
-    xStreamBufferGenericCreate( ( xBufferSizeBytes ), ( xTriggerLevelBytes ), sbTYPE_IS_BATCH_STREAM_BUFFER, ( pxSendCompletedCallback ), ( pxReceiveCompletedCallback ) )
+    #define xBatchBufferCreateWithCallback( xBufferSizeBytes, xTriggerLevelBytes, pxSendCompletedCallback, pxReceiveCompletedCallback ) \
+    xStreamBufferGenericCreate( ( xBufferSizeBytes ), ( xTriggerLevelBytes ), sbTYPE_IS_BATCH_BUFFER, ( pxSendCompletedCallback ), ( pxReceiveCompletedCallback ) )
 #endif
 
 /**
@@ -339,19 +339,19 @@ typedef void (* StreamBufferCallbackFunction_t)( StreamBufferHandle_t xStreamBuf
  * stream_buffer.h
  *
  * @code{c}
- * StreamBufferHandle_t xStreamBufferBatchCreateStatic( size_t xBufferSizeBytes,
- *                                                      size_t xTriggerLevelBytes,
- *                                                      uint8_t *pucStreamBufferStorageArea,
- *                                                      StaticStreamBuffer_t *pxStaticStreamBuffer );
+ * StreamBufferHandle_t xBatchBufferCreateStatic( size_t xBufferSizeBytes,
+ *                                                size_t xTriggerLevelBytes,
+ *                                                uint8_t *pucStreamBufferStorageArea,
+ *                                                StaticStreamBuffer_t *pxStaticStreamBuffer );
  * @endcode
  * Creates a new stream buffer using statically allocated memory.  See
  * xStreamBufferCreate() for a version that uses dynamically allocated memory.
  *
- * The difference between a regular stream buffer and a batch stream buffer lies
+ * The difference between a regular stream buffer and a batch buffer lies
  * in their behavior when receiving data that does not constitute a complete batch.
  * With a non-empty stream buffer, if the available data is less than the trigger
  * level, the task can still receive from stream buffer without being blocked.
- * Conversely, with a non-empty batch stream buffer, if the available data is less
+ * Conversely, with a non-empty batch buffer, if the available data is less
  * than the trigger level, the task is blocked until either the buffer accumulates
  * enough data to meet or exceed the trigger level or the task's specified block
  * timeout expires.
@@ -436,12 +436,12 @@ typedef void (* StreamBufferCallbackFunction_t)( StreamBufferHandle_t xStreamBuf
  * \ingroup StreamBufferManagement
  */
 
-#define xStreamBufferBatchCreateStatic( xBufferSizeBytes, xTriggerLevelBytes, pucStreamBufferStorageArea, pxStaticStreamBuffer ) \
-    xStreamBufferGenericCreateStatic( ( xBufferSizeBytes ), ( xTriggerLevelBytes ), sbTYPE_IS_BATCH_STREAM_BUFFER, ( pucStreamBufferStorageArea ), ( pxStaticStreamBuffer ), NULL, NULL )
+#define xBatchBufferCreateStatic( xBufferSizeBytes, xTriggerLevelBytes, pucStreamBufferStorageArea, pxStaticStreamBuffer ) \
+    xStreamBufferGenericCreateStatic( ( xBufferSizeBytes ), ( xTriggerLevelBytes ), sbTYPE_IS_BATCH_BUFFER, ( pucStreamBufferStorageArea ), ( pxStaticStreamBuffer ), NULL, NULL )
 
 #if ( configUSE_SB_COMPLETED_CALLBACK == 1 )
-    #define xStreamBufferBatchCreateStaticWithCallback( xBufferSizeBytes, xTriggerLevelBytes, pucStreamBufferStorageArea, pxStaticStreamBuffer, pxSendCompletedCallback, pxReceiveCompletedCallback ) \
-    xStreamBufferGenericCreateStatic( ( xBufferSizeBytes ), ( xTriggerLevelBytes ), sbTYPE_IS_BATCH_STREAM_BUFFER, ( pucStreamBufferStorageArea ), ( pxStaticStreamBuffer ), ( pxSendCompletedCallback ), ( pxReceiveCompletedCallback ) )
+    #define xBatchBufferCreateStaticWithCallback( xBufferSizeBytes, xTriggerLevelBytes, pucStreamBufferStorageArea, pxStaticStreamBuffer, pxSendCompletedCallback, pxReceiveCompletedCallback ) \
+    xStreamBufferGenericCreateStatic( ( xBufferSizeBytes ), ( xTriggerLevelBytes ), sbTYPE_IS_BATCH_BUFFER, ( pucStreamBufferStorageArea ), ( pxStaticStreamBuffer ), ( pxSendCompletedCallback ), ( pxReceiveCompletedCallback ) )
 #endif
 
 /**
@@ -1200,7 +1200,7 @@ void vStreamBufferSetStreamBufferNotificationIndex( StreamBufferHandle_t xStream
 
 #define sbTYPE_IS_STREAM_BUFFER                ( ( BaseType_t ) 0 )
 #define sbTYPE_IS_MESSAGE_BUFFER               ( ( BaseType_t ) 1 )
-#define sbTYPE_IS_BATCH_STREAM_BUFFER          ( ( BaseType_t ) 2 )
+#define sbTYPE_IS_BATCH_BUFFER                 ( ( BaseType_t ) 2 )
 
 StreamBufferHandle_t xStreamBufferGenericCreate( size_t xBufferSizeBytes,
                                                  size_t xTriggerLevelBytes,
