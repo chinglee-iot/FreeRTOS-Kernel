@@ -2404,8 +2404,7 @@
     #if ( ( configSUPPORT_DYNAMIC_ALLOCATION == 1 ) && ( configUSE_STREAM_BUFFERS == 1 ) )
         StreamBufferHandle_t MPU_xStreamBufferGenericCreate( size_t xBufferSizeBytes,
                                                              size_t xTriggerLevelBytes,
-                                                             BaseType_t xIsMessageBuffer,
-                                                             BaseType_t xIsBatchBuffer,
+                                                             BaseType_t xStreamBufferType,
                                                              StreamBufferCallbackFunction_t pxSendCompletedCallback,
                                                              StreamBufferCallbackFunction_t pxReceiveCompletedCallback ) /* FREERTOS_SYSTEM_CALL */
         {
@@ -2428,8 +2427,7 @@
 
                     xReturn = xStreamBufferGenericCreate( xBufferSizeBytes,
                                                           xTriggerLevelBytes,
-                                                          xIsMessageBuffer,
-                                                          xIsBatchBuffer,
+                                                          xStreamBufferType,
                                                           NULL,
                                                           NULL );
                     portMEMORY_BARRIER();
@@ -2441,8 +2439,7 @@
                 {
                     xReturn = xStreamBufferGenericCreate( xBufferSizeBytes,
                                                           xTriggerLevelBytes,
-                                                          xIsMessageBuffer,
-                                                          xIsBatchBuffer,
+                                                          xStreamBufferType,
                                                           NULL,
                                                           NULL );
                 }
@@ -2461,8 +2458,7 @@
     #if ( ( configSUPPORT_STATIC_ALLOCATION == 1 ) && ( configUSE_STREAM_BUFFERS == 1 ) )
         StreamBufferHandle_t MPU_xStreamBufferGenericCreateStatic( size_t xBufferSizeBytes,
                                                                    size_t xTriggerLevelBytes,
-                                                                   BaseType_t xIsMessageBuffer,
-                                                                   BaseType_t xIsBatchBuffer,
+                                                                   BaseType_t xStreamBufferType,
                                                                    uint8_t * const pucStreamBufferStorageArea,
                                                                    StaticStreamBuffer_t * const pxStaticStreamBuffer,
                                                                    StreamBufferCallbackFunction_t pxSendCompletedCallback,
@@ -2487,8 +2483,7 @@
 
                     xReturn = xStreamBufferGenericCreateStatic( xBufferSizeBytes,
                                                                 xTriggerLevelBytes,
-                                                                xIsMessageBuffer,
-                                                                xIsBatchBuffer,
+                                                                xStreamBufferType,
                                                                 pucStreamBufferStorageArea,
                                                                 pxStaticStreamBuffer,
                                                                 NULL,
@@ -2502,8 +2497,7 @@
                 {
                     xReturn = xStreamBufferGenericCreateStatic( xBufferSizeBytes,
                                                                 xTriggerLevelBytes,
-                                                                xIsMessageBuffer,
-                                                                xIsBatchBuffer,
+                                                                xStreamBufferType,
                                                                 pucStreamBufferStorageArea,
                                                                 pxStaticStreamBuffer,
                                                                 NULL,

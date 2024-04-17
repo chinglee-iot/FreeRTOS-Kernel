@@ -330,8 +330,7 @@ static void prvInitialiseNewStreamBuffer( StreamBuffer_t * const pxStreamBuffer,
     #if ( configSUPPORT_DYNAMIC_ALLOCATION == 1 )
     StreamBufferHandle_t xStreamBufferGenericCreate( size_t xBufferSizeBytes,
                                                      size_t xTriggerLevelBytes,
-                                                     BaseType_t xIsMessageBuffer,
-                                                     BaseType_t xIsBatchBuffer,
+                                                     BaseType_t xStreamBufferType,
                                                      StreamBufferCallbackFunction_t pxSendCompletedCallback,
                                                      StreamBufferCallbackFunction_t pxReceiveCompletedCallback )
     {
@@ -344,13 +343,13 @@ static void prvInitialiseNewStreamBuffer( StreamBuffer_t * const pxStreamBuffer,
          * (that is, it will hold discrete messages with a little meta data that
          * says how big the next message is) check the buffer will be large enough
          * to hold at least one message. */
-        if( xIsMessageBuffer == pdTRUE )
+        if( xStreamBufferType == sbTYPE_IS_MESSAGE_BUFFER )
         {
             /* Is a message buffer but not statically allocated. */
             ucFlags = sbFLAGS_IS_MESSAGE_BUFFER;
             configASSERT( xBufferSizeBytes > sbBYTES_TO_STORE_MESSAGE_LENGTH );
         }
-        else if( xIsBatchBuffer == pdTRUE )
+        else if( xStreamBufferType == sbTYPE_IS_BATCH_STREAM_BUFFER )
         {
             /* Is a batch stream buffer but not statically allocated. */
             ucFlags = sbFLAGS_IS_BATCH_BUFFER;
@@ -427,8 +426,7 @@ static void prvInitialiseNewStreamBuffer( StreamBuffer_t * const pxStreamBuffer,
 
     StreamBufferHandle_t xStreamBufferGenericCreateStatic( size_t xBufferSizeBytes,
                                                            size_t xTriggerLevelBytes,
-                                                           BaseType_t xIsMessageBuffer,
-                                                           BaseType_t xIsBatchBuffer,
+                                                           BaseType_t xStreamBufferType,
                                                            uint8_t * const pucStreamBufferStorageArea,
                                                            StaticStreamBuffer_t * const pxStaticStreamBuffer,
                                                            StreamBufferCallbackFunction_t pxSendCompletedCallback,
@@ -459,13 +457,13 @@ static void prvInitialiseNewStreamBuffer( StreamBuffer_t * const pxStreamBuffer,
          * says how big the next message is) check the buffer will be large enough
          * to hold at least one message. */
 
-        if( xIsMessageBuffer != pdFALSE )
+        if( xStreamBufferType == sbTYPE_IS_MESSAGE_BUFFER )
         {
             /* Statically allocated message buffer. */
             ucFlags = sbFLAGS_IS_MESSAGE_BUFFER | sbFLAGS_IS_STATICALLY_ALLOCATED;
             configASSERT( xBufferSizeBytes > sbBYTES_TO_STORE_MESSAGE_LENGTH );
         }
-        else if( xIsBatchBuffer != pdFALSE )
+        else if( xStreamBufferType == sbTYPE_IS_BATCH_STREAM_BUFFER )
         {
             /* Statically allocated batch stream buffer. */
             ucFlags = sbFLAGS_IS_BATCH_BUFFER;

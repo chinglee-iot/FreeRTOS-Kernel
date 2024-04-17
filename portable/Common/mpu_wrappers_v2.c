@@ -4662,8 +4662,7 @@
 
         StreamBufferHandle_t MPU_xStreamBufferGenericCreate( size_t xBufferSizeBytes,
                                                              size_t xTriggerLevelBytes,
-                                                             BaseType_t xIsMessageBuffer,
-                                                             BaseType_t xIsBatchBuffer,
+                                                             BaseType_t xStreamBufferType,
                                                              StreamBufferCallbackFunction_t pxSendCompletedCallback,
                                                              StreamBufferCallbackFunction_t pxReceiveCompletedCallback ) /* PRIVILEGED_FUNCTION */
         {
@@ -4687,8 +4686,7 @@
                 {
                     xInternalStreamBufferHandle = xStreamBufferGenericCreate( xBufferSizeBytes,
                                                                               xTriggerLevelBytes,
-                                                                              xIsMessageBuffer,
-                                                                              xIsBatchBuffer,
+                                                                              xStreamBufferType,
                                                                               NULL,
                                                                               NULL );
 
@@ -4719,8 +4717,7 @@
 
         StreamBufferHandle_t MPU_xStreamBufferGenericCreateStatic( size_t xBufferSizeBytes,
                                                                    size_t xTriggerLevelBytes,
-                                                                   BaseType_t xIsMessageBuffer,
-                                                                   BaseType_t xIsBatchBuffer,
+                                                                   BaseType_t xStreamBufferType,
                                                                    uint8_t * const pucStreamBufferStorageArea,
                                                                    StaticStreamBuffer_t * const pxStaticStreamBuffer,
                                                                    StreamBufferCallbackFunction_t pxSendCompletedCallback,
@@ -4746,8 +4743,7 @@
                 {
                     xInternalStreamBufferHandle = xStreamBufferGenericCreateStatic( xBufferSizeBytes,
                                                                                     xTriggerLevelBytes,
-                                                                                    xIsMessageBuffer,
-                                                                                    xIsBatchBuffer,
+                                                                                    xStreamBufferType,
                                                                                     pucStreamBufferStorageArea,
                                                                                     pxStaticStreamBuffer,
                                                                                     NULL,
