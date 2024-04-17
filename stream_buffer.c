@@ -466,7 +466,7 @@ static void prvInitialiseNewStreamBuffer( StreamBuffer_t * const pxStreamBuffer,
         else if( xStreamBufferType == sbTYPE_IS_BATCH_BUFFER )
         {
             /* Statically allocated batch stream buffer. */
-            ucFlags = sbFLAGS_IS_BATCH_BUFFER;
+            ucFlags = sbFLAGS_IS_BATCH_BUFFER | sbFLAGS_IS_STATICALLY_ALLOCATED;
             configASSERT( xBufferSizeBytes > 0 );
         }
         else
