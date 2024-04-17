@@ -1198,9 +1198,9 @@ void vStreamBufferSetStreamBufferNotificationIndex( StreamBufferHandle_t xStream
 /* Functions below here are not part of the public API. */
 /*-----------------------------------------------------------*/
 
-#define sbTYPE_IS_STREAM_BUFFER                ( ( BaseType_t ) 0 )
-#define sbTYPE_IS_MESSAGE_BUFFER               ( ( BaseType_t ) 1 )
-#define sbTYPE_IS_BATCH_BUFFER                 ( ( BaseType_t ) 2 )
+#define sbTYPE_IS_STREAM_BUFFER     ( ( BaseType_t ) 0 )
+#define sbTYPE_IS_MESSAGE_BUFFER    ( ( BaseType_t ) 1 )
+#define sbTYPE_IS_BATCH_BUFFER      ( ( BaseType_t ) 2 )
 
 StreamBufferHandle_t xStreamBufferGenericCreate( size_t xBufferSizeBytes,
                                                  size_t xTriggerLevelBytes,
