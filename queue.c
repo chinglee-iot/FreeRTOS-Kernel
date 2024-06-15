@@ -237,18 +237,6 @@ static void prvInitialiseNewQueue( const UBaseType_t uxQueueLength,
 #if ( configUSE_MUTEXES == 1 )
     static void prvInitialiseMutex( Queue_t * pxNewQueue ) PRIVILEGED_FUNCTION;
 #endif
-
-#if ( configUSE_MUTEXES == 1 )
-
-/*
- * If a task waiting for a mutex causes the mutex holder to inherit a
- * priority, but the waiting task times out, then the holder should
- * disinherit the priority - but only down to the highest priority of any
- * other tasks that are waiting for the same mutex.  This function returns
- * that priority.
- */
-    static UBaseType_t prvGetDisinheritPriorityAfterTimeout( const Queue_t * const pxQueue ) PRIVILEGED_FUNCTION;
-#endif
 /*-----------------------------------------------------------*/
 
 /*
@@ -1831,27 +1819,11 @@ BaseType_t xQueueSemaphoreTake( QueueHandle_t xQueue,
                      * test the mutex type again to check it is actually a mutex. */
                     if( xInheritanceOccurred != pdFALSE )
                     {
-                        taskENTER_CRITICAL();
-                        {
-                            UBaseType_t uxHighestWaitingPriority;
-
-                            /* This task blocking on the mutex caused another
-                             * task to inherit this task's priority.  Now this task
-                             * has timed out the priority should be disinherited
-                             * again, but only as low as the next highest priority
-                             * task that is waiting for the same mutex. */
-                            uxHighestWaitingPriority = prvGetDisinheritPriorityAfterTimeout( pxQueue );
-
-                            /* vTaskPriorityDisinheritAfterTimeout uses the uxHighestWaitingPriority
-                             * parameter to index pxReadyTasksLists when adding the task holding
-                             * mutex to the ready list for its new priority. Coverity thinks that
-                             * it can result in out-of-bounds access which is not true because
-                             * uxHighestWaitingPriority, as returned by prvGetDisinheritPriorityAfterTimeout,
-                             * is capped at ( configMAX_PRIORITIES - 1 ). */
-                            /* coverity[overrun] */
-                            vTaskPriorityDisinheritAfterTimeout( pxQueue->u.xSemaphore.xMutexHolder, uxHighestWaitingPriority );
-                        }
-                        taskEXIT_CRITICAL();
+                        /* This task blocking on the mutex caused another
+                         * task to inherit this task's priority.  Now this task
+                         * has timed out the priority should be disinherited
+                         * again. */
+                        vTaskPriorityDisinheritAfterTimeout( pxQueue->u.xSemaphore.xMutexHolder, &( pxQueue->xTasksWaitingToReceive ) );
                     }
                 }
                 #endif /* configUSE_MUTEXES */
@@ -2354,33 +2326,6 @@ UBaseType_t uxQueueGetQueueLength( QueueHandle_t xQueue ) /* PRIVILEGED_FUNCTION
 
     return ( ( Queue_t * ) xQueue )->uxLength;
 }
-/*-----------------------------------------------------------*/
-
-#if ( configUSE_MUTEXES == 1 )
-
-    static UBaseType_t prvGetDisinheritPriorityAfterTimeout( const Queue_t * const pxQueue )
-    {
-        UBaseType_t uxHighestPriorityOfWaitingTasks;
-
-        /* If a task waiting for a mutex causes the mutex holder to inherit a
-         * priority, but the waiting task times out, then the holder should
-         * disinherit the priority - but only down to the highest priority of any
-         * other tasks that are waiting for the same mutex.  For this purpose,
-         * return the priority of the highest priority task that is waiting for the
-         * mutex. */
-        if( listCURRENT_LIST_LENGTH( &( pxQueue->xTasksWaitingToReceive ) ) > 0U )
-        {
-            uxHighestPriorityOfWaitingTasks = ( UBaseType_t ) ( ( UBaseType_t ) configMAX_PRIORITIES - ( UBaseType_t ) listGET_ITEM_VALUE_OF_HEAD_ENTRY( &( pxQueue->xTasksWaitingToReceive ) ) );
-        }
-        else
-        {
-            uxHighestPriorityOfWaitingTasks = tskIDLE_PRIORITY;
-        }
-
-        return uxHighestPriorityOfWaitingTasks;
-    }
-
-#endif /* configUSE_MUTEXES */
 /*-----------------------------------------------------------*/
 
 static BaseType_t prvCopyDataToQueue( Queue_t * const pxQueue,
