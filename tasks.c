@@ -7653,7 +7653,6 @@ TickType_t uxTaskResetEventItemValue( void )
     {
         uint32_t ulReturn;
         BaseType_t xAlreadyYielded, xShouldBlock = pdFALSE;
-        TCB_t * const pxConstCurrentTCB = prvGetCurrentTaskTCB();
 
         traceENTER_ulTaskGenericNotifyTake( uxIndexToWaitOn, xClearCountOnExit, xTicksToWait );
 
@@ -7670,10 +7669,10 @@ TickType_t uxTaskResetEventItemValue( void )
             taskENTER_CRITICAL();
             {
                 /* Only block if the notification count is not already non-zero. */
-                if( pxConstCurrentTCB->ulNotifiedValue[ uxIndexToWaitOn ] == 0U )
+                if( prvGetCurrentTaskTCBUnsafe()->ulNotifiedValue[ uxIndexToWaitOn ] == 0U )
                 {
                     /* Mark this task as waiting for a notification. */
-                    pxConstCurrentTCB->ucNotifyState[ uxIndexToWaitOn ] = taskWAITING_NOTIFICATION;
+                    prvGetCurrentTaskTCBUnsafe()->ucNotifyState[ uxIndexToWaitOn ] = taskWAITING_NOTIFICATION;
 
                     if( xTicksToWait > ( TickType_t ) 0 )
                     {
@@ -7719,17 +7718,17 @@ TickType_t uxTaskResetEventItemValue( void )
         taskENTER_CRITICAL();
         {
             traceTASK_NOTIFY_TAKE( uxIndexToWaitOn );
-            ulReturn = pxConstCurrentTCB->ulNotifiedValue[ uxIndexToWaitOn ];
+            ulReturn = prvGetCurrentTaskTCBUnsafe()->ulNotifiedValue[ uxIndexToWaitOn ];
 
             if( ulReturn != 0U )
             {
                 if( xClearCountOnExit != pdFALSE )
                 {
-                    pxConstCurrentTCB->ulNotifiedValue[ uxIndexToWaitOn ] = ( uint32_t ) 0U;
+                    prvGetCurrentTaskTCBUnsafe()->ulNotifiedValue[ uxIndexToWaitOn ] = ( uint32_t ) 0U;
                 }
                 else
                 {
-                    pxConstCurrentTCB->ulNotifiedValue[ uxIndexToWaitOn ] = ulReturn - ( uint32_t ) 1;
+                    prvGetCurrentTaskTCBUnsafe()->ulNotifiedValue[ uxIndexToWaitOn ] = ulReturn - ( uint32_t ) 1;
                 }
             }
             else
@@ -7737,7 +7736,7 @@ TickType_t uxTaskResetEventItemValue( void )
                 mtCOVERAGE_TEST_MARKER();
             }
 
-            pxConstCurrentTCB->ucNotifyState[ uxIndexToWaitOn ] = taskNOT_WAITING_NOTIFICATION;
+            prvGetCurrentTaskTCBUnsafe()->ucNotifyState[ uxIndexToWaitOn ] = taskNOT_WAITING_NOTIFICATION;
         }
         taskEXIT_CRITICAL();
 
