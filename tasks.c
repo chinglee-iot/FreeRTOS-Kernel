@@ -4115,7 +4115,7 @@ BaseType_t xTaskResumeAll( void )
                         }
                     }
 
-                    if( ( xYieldPendings[ xCoreID ] != pdFALSE ) && ( pxCurrentTCBs[ portGET_CORE_ID() ]->xPreemptionDisable > 0U ) )
+                    if( ( xYieldPendings[ xCoreID ] != pdFALSE ) && ( pxCurrentTCBs[ xCoreID ]->xPreemptionDisable == 0U ) )
                     {
                         #if ( configUSE_PREEMPTION != 0 )
                         {
@@ -7387,7 +7387,7 @@ static void prvResetNextTaskUnblockTime( void )
         BaseType_t xReturn;
         BaseType_t xCoreID = portGET_CORE_ID();
 
-        if( ( xYieldPendings[ xCoreID ] == pdTRUE ) && ( uxSchedulerSuspended == pdFALSE ) && ( pxCurrentTCBs[ xCoreID ]->xPreemptionDisable == pdFALSE ) )
+        if( ( xYieldPendings[ xCoreID ] == pdTRUE ) && ( uxSchedulerSuspended == pdFALSE ) && ( pxCurrentTCBs[ xCoreID ]->xPreemptionDisable == 0U ) )
         {
             xReturn = pdTRUE;
         }
