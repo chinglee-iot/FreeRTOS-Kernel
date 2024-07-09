@@ -397,7 +397,7 @@ static void prvInitialiseNewStreamBuffer( StreamBuffer_t * const pxStreamBuffer,
         taskUNLOCK_DATA_GROUP( &( pxStreamBuffer->xTaskSpinlock ), &( pxStreamBuffer->xISRSpinlock ) );
 
         /* Re-enable preemption so that current task cannot be preempted by other tasks */
-        vTaskPreemptionDisable( NULL );
+        vTaskPreemptionEnable( NULL );
     }
     #endif /* #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) ) */
 /*-----------------------------------------------------------*/
