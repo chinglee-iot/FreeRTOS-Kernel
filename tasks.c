@@ -5231,32 +5231,21 @@ BaseType_t xTaskIncrementTick( void )
     {
         traceENTER_vTaskSwitchContext();
 
-        #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) )
-            /* Lock the kernel data group as we are about to access its members */
-            UBaseType_t uxSavedInterruptStatus;
+        /* Acquire both locks:
+        * - The ISR lock protects the ready list from simultaneous access by
+        *   both other ISRs and tasks.
+        * - We also take the task lock to pause here in case another core has
+        *   suspended the scheduler. We don't want to simply set xYieldPending
+        *   and move on if another core suspended the scheduler. We should only
+        *   do that if the current core has suspended the scheduler. */
 
-            if( portCHECK_IF_IN_ISR() == pdTRUE )
-            {
-                uxSavedInterruptStatus = taskLOCK_DATA_GROUP_FROM_ISR( &xISRSpinlock );
-            }
-            else
-            {
-                uxSavedInterruptStatus = 0;
-                taskLOCK_DATA_GROUP( &xTaskSpinlock, &xISRSpinlock );
-            }
-        #else /* #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) ) */
-
-            /* Acquire both locks:
-             * - The ISR lock protects the ready list from simultaneous access by
-             *   both other ISRs and tasks.
-             * - We also take the task lock to pause here in case another core has
-             *   suspended the scheduler. We don't want to simply set xYieldPending
-             *   and move on if another core suspended the scheduler. We should only
-             *   do that if the current core has suspended the scheduler. */
-
+        #if ( ( portUSING_GRANULAR_LOCKS == 1 ) )
+            portGET_SPINLOCK( &xTaskSpinlock );
+            portGET_SPINLOCK( &xISRSpinlock );
+        #else /* #if ( ( portUSING_GRANULAR_LOCKS == 1 ) ) */
             portGET_TASK_LOCK(); /* Must always acquire the task lock first. */
             portGET_ISR_LOCK();
-        #endif /* #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) ) */
+        #endif /* #if ( ( portUSING_GRANULAR_LOCKS == 1 ) ) */
         {
             #if ( !( portUSING_GRANULAR_LOCKS == 1 ) )
 
@@ -5340,20 +5329,13 @@ BaseType_t xTaskIncrementTick( void )
                 #endif
             }
         }
-        #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) )
-            /* We are done accessing the kernel data group. Unlock it. */
-            if( portCHECK_IF_IN_ISR() == pdTRUE )
-            {
-                taskUNLOCK_DATA_GROUP_FROM_ISR( uxSavedInterruptStatus, &xISRSpinlock );
-            }
-            else
-            {
-                taskUNLOCK_DATA_GROUP( &xTaskSpinlock, &xISRSpinlock );
-            }
-        #else /* #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) ) */
+        #if ( ( portUSING_GRANULAR_LOCKS == 1 ) )
+            portRELEASE_SPINLOCK( &xISRSpinlock );
+            portRELEASE_SPINLOCK( &xTaskSpinlock );
+        #else /* #if ( ( portUSING_GRANULAR_LOCKS == 1 ) ) */
             portRELEASE_ISR_LOCK();
             portRELEASE_TASK_LOCK();
-        #endif /* #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) ) */
+        #endif /* #if ( ( portUSING_GRANULAR_LOCKS == 1 ) ) */
 
         traceRETURN_vTaskSwitchContext();
     }
