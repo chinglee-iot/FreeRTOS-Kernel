@@ -201,23 +201,20 @@ extern void vPortEnableInterrupts();
     #define portEXIT_CRITICAL_FROM_ISR( x )    vTaskExitCriticalFromISR( x )
 #endif /* if ( configNUMBER_OF_CORES == 1 ) */
 
-#define portRTOS_SPINLOCK_COUNT    2
+	#define portRTOS_SPINLOCK_COUNT         ( 7 )
 
 /* Note this is a single method with uxAcquire parameter since we have
  * static vars, the method is always called with a compile time constant for
  * uxAcquire, and the compiler should dothe right thing! */
-static inline void vPortRecursiveLock( uint32_t ulLockNum,
-                                       spin_lock_t * pxSpinLock,
-                                       BaseType_t uxAcquire )
-{
-    static uint8_t ucOwnedByCore[ portMAX_CORE_COUNT ];
-    static uint8_t ucRecursionCountByLock[ portRTOS_SPINLOCK_COUNT ];
+    extern uint8_t ucOwnedByCore[ portMAX_CORE_COUNT ];
+    extern uint8_t ucRecursionCountByLock[ portRTOS_SPINLOCK_COUNT ];
 
-    configASSERT( ulLockNum < portRTOS_SPINLOCK_COUNT );
+    static inline void vPortRecursiveLock(uint32_t ulLockNum, spin_lock_t *pxSpinLock, BaseType_t uxAcquire) {
+
+        configASSERT(ulLockNum >= 0 && ulLockNum < portRTOS_SPINLOCK_COUNT );
     uint32_t ulCoreNum = get_core_num();
     uint32_t ulLockBit = 1u << ulLockNum;
     configASSERT( ulLockBit < 256u );
-
     if( uxAcquire )
     {
         if( __builtin_expect( !*pxSpinLock, 0 ) )
@@ -278,7 +275,7 @@ static inline void vPortRecursiveLock( uint32_t ulLockNum,
 #define portTASK_FUNCTION_PROTO( vFunction, pvParameters )    void vFunction( void * pvParameters )
 #define portTASK_FUNCTION( vFunction, pvParameters )          void vFunction( void * pvParameters )
 
-#define portNOP()               __asm volatile ( "nop" )
+    #define portNOP()
 
 #define portMEMORY_BARRIER()    __asm volatile ( "" ::: "memory" )
 
@@ -287,5 +284,118 @@ static inline void vPortRecursiveLock( uint32_t ulLockNum,
     }
 #endif
 /* *INDENT-ON* */
+
+/*-----------------------------------------------------------*/
+#define portUSING_GRANULAR_LOCKS        ( 1 )
+#define portCRITICAL_NESTING_IN_TCB     ( 0 )
+
+typedef struct{
+    uint32_t uxSpinlockNumber;
+    volatile uint32_t uxSpinlockValue;
+    BaseType_t xOwnerCore;
+} SoftwareSpinlock_t;
+
+#define RP2040_SPINLOCK_NUMBER_ISR              ( PICO_SPINLOCK_ID_OS1 + 0 )
+#define RP2040_SPINLOCK_NUMBER_TASK             ( PICO_SPINLOCK_ID_OS1 + 1 )
+#define RP2040_SPINLOCK_NUMBER_EVENT_GROUP      ( PICO_SPINLOCK_ID_OS1 + 2 )
+#define RP2040_SPINLOCK_NUMBER_QUEUE            ( PICO_SPINLOCK_ID_OS1 + 3 )
+#define RP2040_SPINLOCK_NUMBER_STREAM_BUFFER    ( PICO_SPINLOCK_ID_OS1 + 4 )
+#define RP2040_SPINLOCK_NUMBER_TIMER            ( PICO_SPINLOCK_ID_OS1 + 5 )
+#define RP2040_SPINLOCK_NUMBER_USER             ( PICO_SPINLOCK_ID_OS1 + 6 )
+
+#define portSPINLOCK_TYPE           SoftwareSpinlock_t
+
+#define portSPINLOCK_EVENT_GROUP_INIT( pxSpinlock ) \
+do {   \
+    ( pxSpinlock )->uxSpinlockNumber = RP2040_SPINLOCK_NUMBER_EVENT_GROUP;  \
+    ( pxSpinlock )->uxSpinlockValue = 0;   \
+    ( pxSpinlock )->xOwnerCore = -1;   \
+} while( 0 )
+
+#define portSPINLOCK_QUEUE_INIT( pxSpinlock ) \
+do {   \
+    ( pxSpinlock )->uxSpinlockNumber = RP2040_SPINLOCK_NUMBER_QUEUE;  \
+    ( pxSpinlock )->uxSpinlockValue = 0;   \
+    ( pxSpinlock )->xOwnerCore = -1;   \
+} while( 0 )
+
+#define  portSPINLOCK_STREAM_BUFFER_INIT( pxSpinlock ) \
+do {   \
+    ( pxSpinlock )->uxSpinlockNumber = RP2040_SPINLOCK_NUMBER_STREAM_BUFFER;  \
+    ( pxSpinlock )->uxSpinlockValue = 0;   \
+    ( pxSpinlock )->xOwnerCore = -1;   \
+} while( 0 )
+
+
+#define portSPINLOCK_KERNEL_TASK_INIT_STATIC \
+{   \
+    .uxSpinlockNumber = RP2040_SPINLOCK_NUMBER_TASK,    \
+    .uxSpinlockValue = 0U,                               \
+    .xOwnerCore = -1                               \
+}
+
+#define portSPINLOCK_KERNEL_ISR_INIT_STATIC \
+{   \
+    .uxSpinlockNumber = RP2040_SPINLOCK_NUMBER_ISR,    \
+    .uxSpinlockValue = 0U,                               \
+    .xOwnerCore = -1                               \
+}
+
+#define portSPINLOCK_TIMER_INIT_STATIC \
+{   \
+    .uxSpinlockNumber = RP2040_SPINLOCK_NUMBER_TIMER,    \
+    .uxSpinlockValue = 0U,                               \
+    .xOwnerCore = -1                               \
+}
+
+#define portSPINLOCK_USER_INIT_STATIC \
+{   \
+    .uxSpinlockNumber = RP2040_SPINLOCK_NUMBER_USER,    \
+    .uxSpinlockValue = 0U,                               \
+    .xOwnerCore = -1                               \
+}
+
+#define portSPINLOCK_NUMBER_TO_INDEX( x )       ( ( x ) - PICO_SPINLOCK_ID_OS1 )
+
+void vPortSpinlockTake( portSPINLOCK_TYPE *pxSpinlock );
+#define portTAKE_LOCK   vPortSpinlockTake
+
+void vPortSpinlockRelease( portSPINLOCK_TYPE *pxSpinlock );
+#define portRELEASE_LOCK vPortSpinlockRelease
+
+/* ===================================================================================== */
+/* spin lock V4 implementation */
+/* ===================================================================================== */
+
+#define portRELEASE_SPINLOCK        vPortSpinlockRelease
+#define portGET_SPINLOCK            vPortSpinlockTake
+
+void vPortLockDataGroup( portSPINLOCK_TYPE *pxTaskSpinlock, portSPINLOCK_TYPE *pxISRSpinlock );
+#define portLOCK_DATA_GROUP         vPortLockDataGroup
+
+void vPortUnlockDataGroup( portSPINLOCK_TYPE *pxTaskSpinlock, portSPINLOCK_TYPE *pxISRSpinlock );
+#define portUNLOCK_DATA_GROUP       vPortUnlockDataGroup
+
+
+UBaseType_t uxPortLockDataGroupFromISR( portSPINLOCK_TYPE *pxISRSpinlock );
+#define portLOCK_DATA_GROUP_FROM_ISR uxPortLockDataGroupFromISR
+
+void vPortUnlockDataGroupFromISR( UBaseType_t uxSavedInterruptStatus, portSPINLOCK_TYPE *pxISRSpinlock );
+#define portUNLOCK_DATA_GROUP_FROM_ISR vPortUnlockDataGroupFromISR
+
+#define portINIT_EVENT_GROUP_TASK_SPINLOCK  portSPINLOCK_EVENT_GROUP_INIT
+#define portINIT_EVENT_GROUP_ISR_SPINLOCK   portSPINLOCK_EVENT_GROUP_INIT
+
+#define portINIT_QUEUE_TASK_SPINLOCK        portSPINLOCK_QUEUE_INIT
+#define portINIT_QUEUE_ISR_SPINLOCK         portSPINLOCK_QUEUE_INIT
+
+#define portINIT_STREAM_BUFFER_TASK_SPINLOCK    portSPINLOCK_STREAM_BUFFER_INIT
+#define portINIT_STREAM_BUFFER_ISR_SPINLOCK     portSPINLOCK_STREAM_BUFFER_INIT
+
+#define portINIT_KERNEL_TASK_SPINLOCK_STATIC    portSPINLOCK_KERNEL_TASK_INIT_STATIC 
+#define portINIT_KERNEL_ISR_SPINLOCK_STATIC     portSPINLOCK_KERNEL_ISR_INIT_STATIC 
+
+#define portINIT_TIMERS_TASK_SPINLOCK_STATIC    portSPINLOCK_TIMER_INIT_STATIC
+#define portINIT_TIMERS_ISR_SPINLOCK_STATIC     portSPINLOCK_TIMER_INIT_STATIC
 
 #endif /* PORTMACRO_H */
