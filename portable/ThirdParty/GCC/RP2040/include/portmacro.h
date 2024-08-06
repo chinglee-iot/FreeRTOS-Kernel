@@ -155,15 +155,6 @@ void vYieldCore( int xCoreID );
 
 /*-----------------------------------------------------------*/
 
-/* Critical nesting count management. */
-extern UBaseType_t uxCriticalNestings[ configNUMBER_OF_CORES ];
-#define portGET_CRITICAL_NESTING_COUNT()          ( uxCriticalNestings[ portGET_CORE_ID() ] )
-#define portSET_CRITICAL_NESTING_COUNT( x )       ( uxCriticalNestings[ portGET_CORE_ID() ] = ( x ) )
-#define portINCREMENT_CRITICAL_NESTING_COUNT()    ( uxCriticalNestings[ portGET_CORE_ID() ]++ )
-#define portDECREMENT_CRITICAL_NESTING_COUNT()    ( uxCriticalNestings[ portGET_CORE_ID() ]-- )
-
-/*-----------------------------------------------------------*/
-
 /* Critical section management. */
 
 #define portSET_INTERRUPT_MASK()                                  \
@@ -286,8 +277,23 @@ extern void vPortEnableInterrupts();
 /* *INDENT-ON* */
 
 /*-----------------------------------------------------------*/
+
 #define portUSING_GRANULAR_LOCKS        ( 1 )
+
+/*-----------------------------------------------------------*/
+
 #define portCRITICAL_NESTING_IN_TCB     ( 0 )
+
+/* Critical nesting count management. */
+#if ( portCRITICAL_NESTING_IN_TCB == 0 )
+	extern UBaseType_t uxCriticalNestings[ configNUMBER_OF_CORES ];
+	#define portGET_CRITICAL_NESTING_COUNT()          ( uxCriticalNestings[ portGET_CORE_ID() ] )
+	#define portSET_CRITICAL_NESTING_COUNT( x )       ( uxCriticalNestings[ portGET_CORE_ID() ] = ( x ) )
+	#define portINCREMENT_CRITICAL_NESTING_COUNT()    ( uxCriticalNestings[ portGET_CORE_ID() ]++ )
+	#define portDECREMENT_CRITICAL_NESTING_COUNT()    ( uxCriticalNestings[ portGET_CORE_ID() ]-- )
+#endif
+
+/*-----------------------------------------------------------*/
 
 typedef struct{
     uint32_t uxSpinlockNumber;

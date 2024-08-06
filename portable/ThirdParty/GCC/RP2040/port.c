@@ -1203,7 +1203,6 @@ __attribute__( ( weak ) ) void vPortSetupTimerInterrupt( void )
     }
 #endif /* configSUPPORT_PICO_TIME_INTEROP */
 
-
 void vPortSpinlockTake( portSPINLOCK_TYPE *pxSpinlock )
 {
     uint32_t uxSpinlockIndex = portSPINLOCK_NUMBER_TO_INDEX( pxSpinlock->uxSpinlockNumber );
@@ -1216,21 +1215,24 @@ void vPortSpinlockTake( portSPINLOCK_TYPE *pxSpinlock )
     {
         for(;;)
         {
-            spin_lock_unsafe_blocking( spin_lock_instance(pxSpinlock->uxSpinlockNumber) );
             if( pxSpinlock->xOwnerCore == portGET_CORE_ID() )
             {
                 pxSpinlock->uxSpinlockValue = pxSpinlock->uxSpinlockValue + 1;
-                spin_unlock_unsafe( spin_lock_instance(pxSpinlock->uxSpinlockNumber) );
                 break;
             }
-            else if( pxSpinlock->uxSpinlockValue == 0U )
+            else
             {
-                pxSpinlock->uxSpinlockValue = 1;
-                pxSpinlock->xOwnerCore = portGET_CORE_ID();
+                spin_lock_unsafe_blocking( spin_lock_instance(pxSpinlock->uxSpinlockNumber) );
+
+                if( pxSpinlock->uxSpinlockValue == 0U )
+                {
+                    pxSpinlock->uxSpinlockValue = 1;
+                    pxSpinlock->xOwnerCore = portGET_CORE_ID();
+                    spin_unlock_unsafe( spin_lock_instance(pxSpinlock->uxSpinlockNumber) );
+                    break;
+                }
                 spin_unlock_unsafe( spin_lock_instance(pxSpinlock->uxSpinlockNumber) );
-                break;
             }
-            spin_unlock_unsafe( spin_lock_instance(pxSpinlock->uxSpinlockNumber) );
         }
     }
 }
@@ -1244,35 +1246,50 @@ void vPortSpinlockRelease( portSPINLOCK_TYPE *pxSpinlock )
     }
     else
     {
-        spin_lock_unsafe_blocking( spin_lock_instance(pxSpinlock->uxSpinlockNumber) );
         if( pxSpinlock->xOwnerCore == portGET_CORE_ID() )
         {
+            spin_lock_unsafe_blocking( spin_lock_instance(pxSpinlock->uxSpinlockNumber) );
+
             pxSpinlock->uxSpinlockValue = pxSpinlock->uxSpinlockValue - 1U;
             if( pxSpinlock->uxSpinlockValue == 0 )
             {
                 pxSpinlock->xOwnerCore = -1;
             }
+
+            spin_unlock_unsafe( spin_lock_instance(pxSpinlock->uxSpinlockNumber) );
         }
-        spin_unlock_unsafe( spin_lock_instance(pxSpinlock->uxSpinlockNumber) );
     }
 }
 
 void vPortLockDataGroup( portSPINLOCK_TYPE *pxTaskSpinlock, portSPINLOCK_TYPE *pxISRSpinlock )
 {
+    uint32_t uxTaskSpinlockIndex = portSPINLOCK_NUMBER_TO_INDEX( pxTaskSpinlock->uxSpinlockNumber );
+    uint32_t uxISRSpinlockIndex = portSPINLOCK_NUMBER_TO_INDEX( pxISRSpinlock->uxSpinlockNumber );
+
     portDISABLE_INTERRUPTS();
 
     BaseType_t xCoreID = portGET_CORE_ID();
 
-    /* Task spinlock is optional and is always taken first */
-    if( pxTaskSpinlock != NULL )
+    if( uxTaskSpinlockIndex < 2 )
     {
-        vPortSpinlockTake( pxTaskSpinlock );
+        vPortRecursiveLock(uxTaskSpinlockIndex, spin_lock_instance(pxTaskSpinlock->uxSpinlockNumber), pdTRUE);
+        vPortRecursiveLock(uxISRSpinlockIndex, spin_lock_instance(pxISRSpinlock->uxSpinlockNumber), pdTRUE);
+        uxCriticalNestings[ xCoreID ]++;
         uxCriticalNestings[ xCoreID ]++;
     }
+    else
+    {
+        /* Task spinlock is optional and is always taken first */
+        if( pxTaskSpinlock != NULL )
+        {
+            vPortSpinlockTake( pxTaskSpinlock );
+            uxCriticalNestings[ xCoreID ]++;
+        }
 
-    /* ISR spinlock must always be provided */
-    vPortSpinlockTake( pxISRSpinlock );
-    uxCriticalNestings[ xCoreID ]++;
+        /* ISR spinlock must always be provided */
+        vPortSpinlockTake( pxISRSpinlock );
+        uxCriticalNestings[ xCoreID ]++;
+    }
 }
 
 void vPortUnlockDataGroup( portSPINLOCK_TYPE *pxTaskSpinlock, portSPINLOCK_TYPE *pxISRSpinlock )
@@ -1280,20 +1297,33 @@ void vPortUnlockDataGroup( portSPINLOCK_TYPE *pxTaskSpinlock, portSPINLOCK_TYPE 
     BaseType_t xCoreID = portGET_CORE_ID();
     BaseType_t xYieldCurrentTask;
 
+    uint32_t uxTaskSpinlockIndex = portSPINLOCK_NUMBER_TO_INDEX( pxTaskSpinlock->uxSpinlockNumber );
+    uint32_t uxISRSpinlockIndex = portSPINLOCK_NUMBER_TO_INDEX( pxISRSpinlock->uxSpinlockNumber );
+
     configASSERT( uxCriticalNestings[ xCoreID ] > 0U );
 
     /* Get the xYieldPending stats inside the critical section. */
     xYieldCurrentTask = xTaskUnlockCanYield();
 
-    /* ISR spinlock must always be provided */
-    vPortSpinlockRelease( pxISRSpinlock );
-    uxCriticalNestings[ xCoreID ]--;
-
-    /* Task spinlock is optional and is always taken first */
-    if( pxTaskSpinlock != NULL )
+    if( uxTaskSpinlockIndex < 2 )
     {
-        vPortSpinlockRelease( pxTaskSpinlock);
+        vPortRecursiveLock(uxTaskSpinlockIndex, spin_lock_instance(pxTaskSpinlock->uxSpinlockNumber), pdFALSE);
+        vPortRecursiveLock(uxISRSpinlockIndex, spin_lock_instance(pxISRSpinlock->uxSpinlockNumber), pdFALSE);
         uxCriticalNestings[ xCoreID ]--;
+        uxCriticalNestings[ xCoreID ]--;
+    }
+    else
+    {
+        /* ISR spinlock must always be provided */
+        vPortSpinlockRelease( pxISRSpinlock );
+        uxCriticalNestings[ xCoreID ]--;
+
+        /* Task spinlock is optional and is always taken first */
+        if( pxTaskSpinlock != NULL )
+        {
+            vPortSpinlockRelease( pxTaskSpinlock);
+            uxCriticalNestings[ xCoreID ]--;
+        }
     }
 
     assert(uxCriticalNestings[ xCoreID ] >= 0);
@@ -1305,6 +1335,7 @@ void vPortUnlockDataGroup( portSPINLOCK_TYPE *pxTaskSpinlock, portSPINLOCK_TYPE 
         /* When a task yields in a critical section it just sets xYieldPending to
          * true. So now that we have exited the critical section check if xYieldPending
          * is true, and if so yield. */
+
         if( xYieldCurrentTask != pdFALSE )
         {
             portYIELD();
