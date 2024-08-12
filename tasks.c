@@ -824,7 +824,7 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
             #if ( portUSING_GRANULAR_LOCKS == 1 )
             {
                 /* We are only here if we just suspended the scheduler,
-                * and another task has requested that we yield. */
+                 * and another task has requested that we yield. */
                 portRELEASE_SPINLOCK( &xTaskSpinlock );
                 portMEMORY_BARRIER();
                 configASSERT( pxThisTCB->xTaskRunState == taskTASK_SCHEDULED_TO_YIELD );
@@ -5232,12 +5232,12 @@ BaseType_t xTaskIncrementTick( void )
         traceENTER_vTaskSwitchContext();
 
         /* Acquire both locks:
-        * - The ISR lock protects the ready list from simultaneous access by
-        *   both other ISRs and tasks.
-        * - We also take the task lock to pause here in case another core has
-        *   suspended the scheduler. We don't want to simply set xYieldPending
-        *   and move on if another core suspended the scheduler. We should only
-        *   do that if the current core has suspended the scheduler. */
+         * - The ISR lock protects the ready list from simultaneous access by
+         *   both other ISRs and tasks.
+         * - We also take the task lock to pause here in case another core has
+         *   suspended the scheduler. We don't want to simply set xYieldPending
+         *   and move on if another core suspended the scheduler. We should only
+         *   do that if the current core has suspended the scheduler. */
 
         #if ( ( portUSING_GRANULAR_LOCKS == 1 ) )
             portGET_SPINLOCK( &xTaskSpinlock );
@@ -5255,10 +5255,15 @@ BaseType_t xTaskIncrementTick( void )
                 configASSERT( portGET_CRITICAL_NESTING_COUNT() == 0 );
             #endif /* #if ( !( portUSING_GRANULAR_LOCKS == 1 ) ) */
 
-            if( uxSchedulerSuspended != ( UBaseType_t ) 0U )
+            if( uxSchedulerSuspended != ( UBaseType_t ) 0U
+                #if ( configUSE_TASK_PREEMPTION_DISABLE == 1 )
+                    || ( ( taskTASK_IS_RUNNING( pxCurrentTCBs[ xCoreID ] ) ) && ( pxCurrentTCBs[ xCoreID ]->xPreemptionDisable > 0U ) )
+                #endif
+                )
             {
-                /* The scheduler is currently suspended - do not allow a context
-                 * switch. */
+                /* The scheduler is currently suspended or the task
+                 * has requested to not be preempted - do not allow
+                 * a context switch. */
                 xYieldPendings[ xCoreID ] = pdTRUE;
             }
             else
@@ -5482,11 +5487,10 @@ BaseType_t xTaskRemoveFromEventList( const List_t * const pxEventList )
 
     traceENTER_xTaskRemoveFromEventList( pxEventList );
 
-    #if ( ! ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) ) )
+    #if ( !( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) ) )
 
         /* THIS FUNCTION MUST BE CALLED FROM A CRITICAL SECTION.  It can also be
          * called from a critical section within an ISR. */
-
     #else /* #if ( ! ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) ) ) */
         /* Lock the kernel data group as we are about to access its members */
         UBaseType_t uxSavedInterruptStatus;
@@ -5504,8 +5508,8 @@ BaseType_t xTaskRemoveFromEventList( const List_t * const pxEventList )
         /* Before taking the kernel lock, another task/ISR could have already
          * emptied the pxEventList. So we insert a check here to see if
          * pxEventList is empty before attempting to remove an item from it. */
-         if( listLIST_IS_EMPTY( pxEventList ) == pdFALSE )
-         {
+        if( listLIST_IS_EMPTY( pxEventList ) == pdFALSE )
+        {
     #endif /* #if ( ! ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) ) ) */
 
     /* The event list is sorted in priority order, so the first in the list can
@@ -5587,23 +5591,23 @@ BaseType_t xTaskRemoveFromEventList( const List_t * const pxEventList )
     #endif /* #if ( configNUMBER_OF_CORES == 1 ) */
 
     #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) )
-        }
-        else
-        {
-            /* The pxEventList was emptied before we entered the critical
-             * section, Nothing to do except return pdFALSE. */
-            xReturn = pdFALSE;
-        }
+}
+else
+{
+    /* The pxEventList was emptied before we entered the critical
+     * section, Nothing to do except return pdFALSE. */
+    xReturn = pdFALSE;
+}
 
-        /* We are done accessing the kernel data group. Unlock it. */
-        if( portCHECK_IF_IN_ISR() == pdTRUE )
-        {
-            taskUNLOCK_DATA_GROUP_FROM_ISR( uxSavedInterruptStatus, &xISRSpinlock );
-        }
-        else
-        {
-            taskUNLOCK_DATA_GROUP( &xTaskSpinlock, &xISRSpinlock );
-        }
+/* We are done accessing the kernel data group. Unlock it. */
+if( portCHECK_IF_IN_ISR() == pdTRUE )
+{
+    taskUNLOCK_DATA_GROUP_FROM_ISR( uxSavedInterruptStatus, &xISRSpinlock );
+}
+else
+{
+    taskUNLOCK_DATA_GROUP( &xTaskSpinlock, &xISRSpinlock );
+}
     #endif /* #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) ) */
 
     traceRETURN_xTaskRemoveFromEventList( xReturn );
