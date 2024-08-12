@@ -527,6 +527,32 @@ PRIVILEGED_DATA static volatile configRUN_TIME_COUNTER_TYPE ulTotalRunTime[ conf
     PRIVILEGED_DATA static portSPINLOCK_TYPE xISRSpinlock = portINIT_KERNEL_ISR_SPINLOCK_STATIC;
 #endif /* #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) ) */
 
+/* Helper macros to get and release the kernel locks. */
+#if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) )
+    #define taskGET_KERNEL_TASK_LOCK()  \
+    portDISABLE_INTERRUPTS();           \
+    portGET_SPINLOCK( &xTaskSpinlock ); \
+    prvCheckForRunStateChange();        \
+    portENABLE_INTERRUPTS();
+
+    #define taskRELEASE_KERNEL_TASK_LOCK()    portRELEASE_SPINLOCK( &xTaskSpinlock );
+
+    #define taskGET_KERNEL_ISR_LOCK()  \
+    portDISABLE_INTERRUPTS();          \
+    portGET_SPINLOCK( &xISRSpinlock ); \
+    portENABLE_INTERRUPTS();
+
+    #define taskRELEASE_KERNEL_ISR_LOCK()    portRELEASE_SPINLOCK( &xISRSpinlock );
+
+    #define taskGET_KERNEL_LOCKS() \
+    taskGET_KERNEL_TASK_LOCK();    \
+    taskGET_KERNEL_ISR_LOCK();
+
+    #define taskRELEASE_KERNEL_LOCKS() \
+    taskRELEASE_KERNEL_ISR_LOCK();     \
+    taskRELEASE_KERNEL_TASK_LOCK();
+#endif /* #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) ) */
+
 /*-----------------------------------------------------------*/
 
 /* File private functions. --------------------------------*/
@@ -5355,8 +5381,8 @@ void vTaskPlaceOnEventList( List_t * const pxEventList,
     configASSERT( pxEventList );
 
     #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) )
-        /* Suspend the kernel data group as we are about to access its members */
-        vTaskSuspendAll();
+        /* Take kernel data group locks as we are about to access its members */
+        taskGET_KERNEL_LOCKS();
     #else /* #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) ) */
 
         /* THIS FUNCTION MUST BE CALLED WITH THE
@@ -5380,8 +5406,8 @@ void vTaskPlaceOnEventList( List_t * const pxEventList,
     prvAddCurrentTaskToDelayedList( xTicksToWait, pdTRUE );
 
     #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) )
-        /* We are done accessing the kernel data group. Resume it. */
-        ( void ) xTaskResumeAll();
+        /* We are done accessing the kernel data group. Release the locks. */
+        taskRELEASE_KERNEL_LOCKS();
     #endif /* #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) ) */
 
     traceRETURN_vTaskPlaceOnEventList();
@@ -5398,8 +5424,8 @@ void vTaskPlaceOnUnorderedEventList( List_t * pxEventList,
 
 
     #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) )
-        /* Suspend the kernel data group as we are about to access its members */
-        vTaskSuspendAll();
+        /* Take kernel data group locks as we are about to access its members */
+        taskGET_KERNEL_LOCKS();
     #else /* #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) ) */
 
         /* THIS FUNCTION MUST BE CALLED WITH THE SCHEDULER SUSPENDED.  It is used by
@@ -5422,8 +5448,8 @@ void vTaskPlaceOnUnorderedEventList( List_t * pxEventList,
     prvAddCurrentTaskToDelayedList( xTicksToWait, pdTRUE );
 
     #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) )
-        /* We are done accessing the kernel data group. Resume it. */
-        ( void ) xTaskResumeAll();
+        /* We are done accessing the kernel data group. Release the locks. */
+        taskRELEASE_KERNEL_LOCKS();
     #endif /* #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) ) */
 
     traceRETURN_vTaskPlaceOnUnorderedEventList();
@@ -5441,8 +5467,8 @@ void vTaskPlaceOnUnorderedEventList( List_t * pxEventList,
         configASSERT( pxEventList );
 
         #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) )
-            /* Suspend the kernel data group as we are about to access its members */
-            vTaskSuspendAll();
+            /* Take kernel data group locks as we are about to access its members */
+            taskGET_KERNEL_LOCKS();
         #else /* #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) ) */
 
             /* This function should not be called by application code hence the
@@ -5470,8 +5496,8 @@ void vTaskPlaceOnUnorderedEventList( List_t * pxEventList,
         prvAddCurrentTaskToDelayedList( xTicksToWait, xWaitIndefinitely );
 
         #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) )
-            /* We are done accessing the kernel data group. Resume it. */
-            ( void ) xTaskResumeAll();
+            /* We are done accessing the kernel data group. Release the locks. */
+            taskRELEASE_KERNEL_LOCKS();
         #endif /* #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) ) */
 
         traceRETURN_vTaskPlaceOnEventListRestricted();
