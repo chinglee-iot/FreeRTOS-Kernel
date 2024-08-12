@@ -879,7 +879,7 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
          * so this is safe. */
         pxThisTCB = pxCurrentTCBs[ portGET_CORE_ID() ];
 
-        while( pxThisTCB->xTaskRunState == taskTASK_SCHEDULED_TO_YIELD )
+        while( pxThisTCB && ( pxThisTCB->xTaskRunState == taskTASK_SCHEDULED_TO_YIELD ) )
         {
             #if ( portUSING_GRANULAR_LOCKS == 1 )
             {
