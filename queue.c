@@ -185,9 +185,9 @@ typedef xQUEUE Queue_t;
  * to indicate that a task may require unblocking.  When the queue in unlocked
  * these lock counts are inspected, and the appropriate action taken.
  */
-#if ( ( portUSING_GRANULAR_LOCKS == 0 ) && ( configNUMBER_OF_CORES > 1 ) )
+#if ( portUSING_GRANULAR_LOCKS == 0 )
     static void prvUnlockQueue( Queue_t * const pxQueue ) PRIVILEGED_FUNCTION;
-#endif /* #if ( ( portUSING_GRANULAR_LOCKS == 0 ) && ( configNUMBER_OF_CORES > 1 ) ) */
+#endif /* #if ( portUSING_GRANULAR_LOCKS == 0 ) */
 
 /*
  * Suspends a queue. Prevents other tasks from accessing the queue but allows
@@ -268,7 +268,7 @@ static void prvInitialiseNewQueue( const UBaseType_t uxQueueLength,
  * Macro to mark a queue as locked.  Locking a queue prevents an ISR from
  * accessing the queue event lists.
  */
-#if ( ( portUSING_GRANULAR_LOCKS == 0 ) && ( configNUMBER_OF_CORES > 1 ) )
+#if ( portUSING_GRANULAR_LOCKS == 0 )
     #define prvLockQueue( pxQueue )                                                 \
     taskLOCK_DATA_GROUP( &( pxQueue->xTaskSpinlock ), &( pxQueue->xISRSpinlock ) ); \
     {                                                                               \
@@ -282,7 +282,7 @@ static void prvInitialiseNewQueue( const UBaseType_t uxQueueLength,
         }                                                                           \
     }                                                                               \
     taskUNLOCK_DATA_GROUP( &( pxQueue->xTaskSpinlock ), &( pxQueue->xISRSpinlock ) )
-#endif /* #if ( ( portUSING_GRANULAR_LOCKS == 0 ) && ( configNUMBER_OF_CORES > 1 ) ) */
+#endif /* #if ( portUSING_GRANULAR_LOCKS == 0 ) */
 
 /*
  * Macro to increment cTxLock member of the queue data structure. It is
@@ -2184,7 +2184,7 @@ UBaseType_t uxQueueMessagesWaiting( const QueueHandle_t xQueue )
 
     traceENTER_uxQueueMessagesWaiting( xQueue );
 
-    configASSERT( xQueue );
+    configASSERT( pxQueue );
 
     taskLOCK_DATA_GROUP( &( pxQueue->xTaskSpinlock ), &( pxQueue->xISRSpinlock ) );
     {
@@ -2448,7 +2448,7 @@ static void prvCopyDataFromQueue( Queue_t * const pxQueue,
 }
 /*-----------------------------------------------------------*/
 
-#if ( ( portUSING_GRANULAR_LOCKS == 0 ) && ( configNUMBER_OF_CORES > 1 ) )
+#if ( portUSING_GRANULAR_LOCKS == 0 )
     static void prvUnlockQueue( Queue_t * const pxQueue )
     {
         /* THIS FUNCTION MUST BE CALLED WITH THE SCHEDULER SUSPENDED. */
@@ -2567,7 +2567,7 @@ static void prvCopyDataFromQueue( Queue_t * const pxQueue,
         }
         taskUNLOCK_DATA_GROUP( &( pxQueue->xTaskSpinlock ), &( pxQueue->xISRSpinlock ) );
     }
-#endif /* #if ( ( portUSING_GRANULAR_LOCKS == 0 ) && ( configNUMBER_OF_CORES > 1 ) ) */
+#endif /* #if ( portUSING_GRANULAR_LOCKS == 0 ) */
 /*-----------------------------------------------------------*/
 
 #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) )
