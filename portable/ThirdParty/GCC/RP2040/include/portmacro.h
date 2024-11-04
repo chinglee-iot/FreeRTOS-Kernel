@@ -278,7 +278,7 @@ extern void vPortEnableInterrupts();
 
 /*-----------------------------------------------------------*/
 
-#define portUSING_GRANULAR_LOCKS        ( 1 )
+#define portUSING_GRANULAR_LOCKS        ( 0 )
 
 /*-----------------------------------------------------------*/
 

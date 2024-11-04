@@ -1261,115 +1261,117 @@ void vPortSpinlockRelease( portSPINLOCK_TYPE *pxSpinlock )
     }
 }
 
-void vPortLockDataGroup( portSPINLOCK_TYPE *pxTaskSpinlock, portSPINLOCK_TYPE *pxISRSpinlock )
-{
-    uint32_t uxTaskSpinlockIndex = portSPINLOCK_NUMBER_TO_INDEX( pxTaskSpinlock->uxSpinlockNumber );
-    uint32_t uxISRSpinlockIndex = portSPINLOCK_NUMBER_TO_INDEX( pxISRSpinlock->uxSpinlockNumber );
-
-    portDISABLE_INTERRUPTS();
-
-    BaseType_t xCoreID = portGET_CORE_ID();
-
-    if( uxTaskSpinlockIndex < 2 )
+#if portUSING_GRANULAR_LOCKS == 1 
+    void vPortLockDataGroup( portSPINLOCK_TYPE *pxTaskSpinlock, portSPINLOCK_TYPE *pxISRSpinlock )
     {
-        vPortRecursiveLock(uxTaskSpinlockIndex, spin_lock_instance(pxTaskSpinlock->uxSpinlockNumber), pdTRUE);
-        vPortRecursiveLock(uxISRSpinlockIndex, spin_lock_instance(pxISRSpinlock->uxSpinlockNumber), pdTRUE);
-        uxCriticalNestings[ xCoreID ]++;
-        uxCriticalNestings[ xCoreID ]++;
-    }
-    else
-    {
-        /* Task spinlock is optional and is always taken first */
-        if( pxTaskSpinlock != NULL )
+        uint32_t uxTaskSpinlockIndex = portSPINLOCK_NUMBER_TO_INDEX( pxTaskSpinlock->uxSpinlockNumber );
+        uint32_t uxISRSpinlockIndex = portSPINLOCK_NUMBER_TO_INDEX( pxISRSpinlock->uxSpinlockNumber );
+
+        portDISABLE_INTERRUPTS();
+
+        BaseType_t xCoreID = portGET_CORE_ID();
+
+        if( uxTaskSpinlockIndex < 2 )
         {
-            vPortSpinlockTake( pxTaskSpinlock );
+            vPortRecursiveLock(uxTaskSpinlockIndex, spin_lock_instance(pxTaskSpinlock->uxSpinlockNumber), pdTRUE);
+            vPortRecursiveLock(uxISRSpinlockIndex, spin_lock_instance(pxISRSpinlock->uxSpinlockNumber), pdTRUE);
             uxCriticalNestings[ xCoreID ]++;
-        }
-
-        /* ISR spinlock must always be provided */
-        vPortSpinlockTake( pxISRSpinlock );
-        uxCriticalNestings[ xCoreID ]++;
-    }
-}
-
-void vPortUnlockDataGroup( portSPINLOCK_TYPE *pxTaskSpinlock, portSPINLOCK_TYPE *pxISRSpinlock )
-{
-    BaseType_t xCoreID = portGET_CORE_ID();
-    BaseType_t xYieldCurrentTask;
-
-    uint32_t uxTaskSpinlockIndex = portSPINLOCK_NUMBER_TO_INDEX( pxTaskSpinlock->uxSpinlockNumber );
-    uint32_t uxISRSpinlockIndex = portSPINLOCK_NUMBER_TO_INDEX( pxISRSpinlock->uxSpinlockNumber );
-
-    configASSERT( uxCriticalNestings[ xCoreID ] > 0U );
-
-    /* Get the xYieldPending stats inside the critical section. */
-    xYieldCurrentTask = xTaskUnlockCanYield();
-
-    if( uxTaskSpinlockIndex < 2 )
-    {
-        vPortRecursiveLock(uxTaskSpinlockIndex, spin_lock_instance(pxTaskSpinlock->uxSpinlockNumber), pdFALSE);
-        vPortRecursiveLock(uxISRSpinlockIndex, spin_lock_instance(pxISRSpinlock->uxSpinlockNumber), pdFALSE);
-        uxCriticalNestings[ xCoreID ]--;
-        uxCriticalNestings[ xCoreID ]--;
-    }
-    else
-    {
-        /* ISR spinlock must always be provided */
-        vPortSpinlockRelease( pxISRSpinlock );
-        uxCriticalNestings[ xCoreID ]--;
-
-        /* Task spinlock is optional and is always taken first */
-        if( pxTaskSpinlock != NULL )
-        {
-            vPortSpinlockRelease( pxTaskSpinlock);
-            uxCriticalNestings[ xCoreID ]--;
-        }
-    }
-
-    assert(uxCriticalNestings[ xCoreID ] >= 0);
-
-    if( uxCriticalNestings[ xCoreID ] == 0 )
-    {
-        portENABLE_INTERRUPTS();
-
-        /* When a task yields in a critical section it just sets xYieldPending to
-         * true. So now that we have exited the critical section check if xYieldPending
-         * is true, and if so yield. */
-
-        if( xYieldCurrentTask != pdFALSE )
-        {
-            portYIELD();
+            uxCriticalNestings[ xCoreID ]++;
         }
         else
         {
-            mtCOVERAGE_TEST_MARKER();
+            /* Task spinlock is optional and is always taken first */
+            if( pxTaskSpinlock != NULL )
+            {
+                vPortSpinlockTake( pxTaskSpinlock );
+                uxCriticalNestings[ xCoreID ]++;
+            }
+
+            /* ISR spinlock must always be provided */
+            vPortSpinlockTake( pxISRSpinlock );
+            uxCriticalNestings[ xCoreID ]++;
         }
     }
-}
 
-UBaseType_t uxPortLockDataGroupFromISR( portSPINLOCK_TYPE *pxISRSpinlock )
-{
-    UBaseType_t uxSavedInterruptStatus = 0;
-
-    uxSavedInterruptStatus = portSET_INTERRUPT_MASK_FROM_ISR();
-
-    vPortSpinlockTake( pxISRSpinlock );
-    uxCriticalNestings[ portGET_CORE_ID() ]++;
-
-    return uxSavedInterruptStatus;
-}
-
-void vPortUnlockDataGroupFromISR( UBaseType_t uxSavedInterruptStatus, portSPINLOCK_TYPE *pxISRSpinlock )
-{
-    BaseType_t xCoreID = portGET_CORE_ID();
-
-    vPortSpinlockRelease( pxISRSpinlock );
-    uxCriticalNestings[ xCoreID ]--;
-
-    assert(uxCriticalNestings[ xCoreID ] >= 0);
-
-    if( uxCriticalNestings[ xCoreID ] == 0 )
+    void vPortUnlockDataGroup( portSPINLOCK_TYPE *pxTaskSpinlock, portSPINLOCK_TYPE *pxISRSpinlock )
     {
-        portCLEAR_INTERRUPT_MASK_FROM_ISR( uxSavedInterruptStatus );
+        BaseType_t xCoreID = portGET_CORE_ID();
+        BaseType_t xYieldCurrentTask;
+
+        uint32_t uxTaskSpinlockIndex = portSPINLOCK_NUMBER_TO_INDEX( pxTaskSpinlock->uxSpinlockNumber );
+        uint32_t uxISRSpinlockIndex = portSPINLOCK_NUMBER_TO_INDEX( pxISRSpinlock->uxSpinlockNumber );
+
+        configASSERT( uxCriticalNestings[ xCoreID ] > 0U );
+
+        /* Get the xYieldPending stats inside the critical section. */
+        xYieldCurrentTask = xTaskUnlockCanYield();
+
+        if( uxTaskSpinlockIndex < 2 )
+        {
+            vPortRecursiveLock(uxTaskSpinlockIndex, spin_lock_instance(pxTaskSpinlock->uxSpinlockNumber), pdFALSE);
+            vPortRecursiveLock(uxISRSpinlockIndex, spin_lock_instance(pxISRSpinlock->uxSpinlockNumber), pdFALSE);
+            uxCriticalNestings[ xCoreID ]--;
+            uxCriticalNestings[ xCoreID ]--;
+        }
+        else
+        {
+            /* ISR spinlock must always be provided */
+            vPortSpinlockRelease( pxISRSpinlock );
+            uxCriticalNestings[ xCoreID ]--;
+
+            /* Task spinlock is optional and is always taken first */
+            if( pxTaskSpinlock != NULL )
+            {
+                vPortSpinlockRelease( pxTaskSpinlock);
+                uxCriticalNestings[ xCoreID ]--;
+            }
+        }
+
+        assert(uxCriticalNestings[ xCoreID ] >= 0);
+
+        if( uxCriticalNestings[ xCoreID ] == 0 )
+        {
+            portENABLE_INTERRUPTS();
+
+            /* When a task yields in a critical section it just sets xYieldPending to
+             * true. So now that we have exited the critical section check if xYieldPending
+             * is true, and if so yield. */
+
+            if( xYieldCurrentTask != pdFALSE )
+            {
+                portYIELD();
+            }
+            else
+            {
+                mtCOVERAGE_TEST_MARKER();
+            }
+        }
     }
-}
+
+    UBaseType_t uxPortLockDataGroupFromISR( portSPINLOCK_TYPE *pxISRSpinlock )
+    {
+        UBaseType_t uxSavedInterruptStatus = 0;
+
+        uxSavedInterruptStatus = portSET_INTERRUPT_MASK_FROM_ISR();
+
+        vPortSpinlockTake( pxISRSpinlock );
+        uxCriticalNestings[ portGET_CORE_ID() ]++;
+
+        return uxSavedInterruptStatus;
+    }
+
+    void vPortUnlockDataGroupFromISR( UBaseType_t uxSavedInterruptStatus, portSPINLOCK_TYPE *pxISRSpinlock )
+    {
+        BaseType_t xCoreID = portGET_CORE_ID();
+
+        vPortSpinlockRelease( pxISRSpinlock );
+        uxCriticalNestings[ xCoreID ]--;
+
+        assert(uxCriticalNestings[ xCoreID ] >= 0);
+
+        if( uxCriticalNestings[ xCoreID ] == 0 )
+        {
+            portCLEAR_INTERRUPT_MASK_FROM_ISR( uxSavedInterruptStatus );
+        }
+    }
+#endif
