@@ -285,10 +285,10 @@ static void prvInitialiseNewQueue( const UBaseType_t uxQueueLength,
     #define queueEXIT_CRITICAL( pxQueue )                                     vQueueExitCritical( pxQueue )
     #define queueEXIT_CRITICAL_FROM_ISR( uxSavedInterruptStatus, pxQueue )    vQueueExitCriticalFromISR( uxSavedInterruptStatus, pxQueue )
 #else /* #if ( portUSING_GRANULAR_LOCKS == 1 ) */
-    #define queueENTER_CRITICAL( pxQueue )                                    do { ( void ) pxQueue; taskENTER_CRITICAL(); } while( 0 )
-    #define queueENTER_CRITICAL_FROM_ISR( pxQueue )                           do { ( void ) pxQueue; taskENTER_CRITICAL_FROM_ISR(); } while( 0 )
-    #define queueEXIT_CRITICAL( pxQueue )                                     do { ( void ) pxQueue; taskEXIT_CRITICAL(); } while( 0 )
-    #define queueEXIT_CRITICAL_FROM_ISR( uxSavedInterruptStatus, pxQueue )    do { ( void ) pxQueue; taskEXIT_CRITICAL_FROM_ISR( uxSavedInterruptStatus ); } while( 0 )
+    #define queueENTER_CRITICAL( pxQueue )                                    taskENTER_CRITICAL()
+    #define queueENTER_CRITICAL_FROM_ISR( pxQueue )                           taskENTER_CRITICAL_FROM_ISR()
+    #define queueEXIT_CRITICAL( pxQueue )                                     taskEXIT_CRITICAL()
+    #define queueEXIT_CRITICAL_FROM_ISR( uxSavedInterruptStatus, pxQueue )    taskEXIT_CRITICAL_FROM_ISR( uxSavedInterruptStatus )
 #endif /* #if ( portUSING_GRANULAR_LOCKS == 1 ) */
 
 #if ( portUSING_GRANULAR_LOCKS == 1 )
@@ -1063,7 +1063,9 @@ BaseType_t xQueueGenericSend( QueueHandle_t xQueue,
     configASSERT( pxQueue );
     configASSERT( !( ( pvItemToQueue == NULL ) && ( pxQueue->uxItemSize != ( UBaseType_t ) 0U ) ) );
     configASSERT( !( ( xCopyPosition == queueOVERWRITE ) && ( pxQueue->uxLength != 1 ) ) );
-    #if ( ( INCLUDE_xTaskGetSchedulerState == 1 ) || ( configUSE_TIMERS == 1 ) )
+
+    /* Cannot block if the scheduler is suspended. */
+    #if ( configNUMBER_OF_CORES == 1 ) && ( ( INCLUDE_xTaskGetSchedulerState == 1 ) || ( configUSE_TIMERS == 1 ) )
     {
         configASSERT( !( ( xTaskGetSchedulerState() == taskSCHEDULER_SUSPENDED ) && ( xTicksToWait != 0 ) ) );
     }
@@ -1612,7 +1614,7 @@ BaseType_t xQueueReceive( QueueHandle_t xQueue,
     configASSERT( !( ( ( pvBuffer ) == NULL ) && ( ( pxQueue )->uxItemSize != ( UBaseType_t ) 0U ) ) );
 
     /* Cannot block if the scheduler is suspended. */
-    #if ( ( INCLUDE_xTaskGetSchedulerState == 1 ) || ( configUSE_TIMERS == 1 ) )
+    #if ( configNUMBER_OF_CORES == 1 ) && ( ( INCLUDE_xTaskGetSchedulerState == 1 ) || ( configUSE_TIMERS == 1 ) )
     {
         configASSERT( !( ( xTaskGetSchedulerState() == taskSCHEDULER_SUSPENDED ) && ( xTicksToWait != 0 ) ) );
     }
@@ -1753,7 +1755,7 @@ BaseType_t xQueueSemaphoreTake( QueueHandle_t xQueue,
     configASSERT( pxQueue->uxItemSize == 0 );
 
     /* Cannot block if the scheduler is suspended. */
-    #if ( ( INCLUDE_xTaskGetSchedulerState == 1 ) || ( configUSE_TIMERS == 1 ) )
+    #if ( configNUMBER_OF_CORES == 1 ) && ( ( INCLUDE_xTaskGetSchedulerState == 1 ) || ( configUSE_TIMERS == 1 ) )
     {
         configASSERT( !( ( xTaskGetSchedulerState() == taskSCHEDULER_SUSPENDED ) && ( xTicksToWait != 0 ) ) );
     }
@@ -1960,7 +1962,7 @@ BaseType_t xQueuePeek( QueueHandle_t xQueue,
     configASSERT( !( ( ( pvBuffer ) == NULL ) && ( ( pxQueue )->uxItemSize != ( UBaseType_t ) 0U ) ) );
 
     /* Cannot block if the scheduler is suspended. */
-    #if ( ( INCLUDE_xTaskGetSchedulerState == 1 ) || ( configUSE_TIMERS == 1 ) )
+    #if ( configNUMBER_OF_CORES == 1 ) && ( ( INCLUDE_xTaskGetSchedulerState == 1 ) || ( configUSE_TIMERS == 1 ) )
     {
         configASSERT( !( ( xTaskGetSchedulerState() == taskSCHEDULER_SUSPENDED ) && ( xTicksToWait != 0 ) ) );
     }
