@@ -1176,3 +1176,83 @@ __attribute__( ( weak ) ) void vPortSetupTimerInterrupt( void )
         }
     }
 #endif /* configSUPPORT_PICO_TIME_INTEROP */
+
+#if ( portUSING_GRANULAR_LOCKS == 1 )
+    void vPortSpinlockGet(BaseType_t xCoreID, portSPINLOCK_TYPE *pxSpinlock)
+    {
+        BaseType_t xAcquired = pdFALSE;
+        spin_lock_t *pxHardwareSpinLock = spin_lock_instance(configSMP_SPINLOCK_0);
+        UBaseType_t ulState;
+
+        while (xAcquired == pdFALSE)
+        {
+            // Disable interrupts first
+            ulState = portSET_INTERRUPT_MASK();
+
+            // Try to acquire the hardware spinlock without blocking
+            if (spin_try_lock_unsafe(pxHardwareSpinLock) != false)
+            {
+                // Check if the software spinlock is free or already owned by this core
+                if ( pxSpinlock->xLockCount == 0 )
+                {
+                    // Acquire or re-acquire the software spinlock
+                    pxSpinlock->xOwnerCore = xCoreID;
+                    pxSpinlock->xLockCount = 1;
+                    xAcquired = pdTRUE;
+                }
+                else if( pxSpinlock->xOwnerCore == xCoreID )
+                {
+                    pxSpinlock->xLockCount++;
+                    xAcquired = pdTRUE;
+                }
+                else
+                {
+                    /* Lock is owned by other core. */
+                }
+
+                // Release the hardware spinlock
+                spin_unlock_unsafe(pxHardwareSpinLock);
+            }
+
+            // Re-enable interrupts
+            portCLEAR_INTERRUPT_MASK(ulState);
+        }
+    }
+
+    void vPortSpinlockRelease(BaseType_t xCoreID, portSPINLOCK_TYPE *pxSpinlock)
+    {
+        BaseType_t xReleased = pdFALSE;
+        spin_lock_t *pxHardwareSpinLock = spin_lock_instance( configSMP_SPINLOCK_0 );
+        UBaseType_t ulState;
+
+        // Acquire the hardware spinlock
+        while( xReleased == pdFALSE )
+        {
+            // Disable interrupts first
+            ulState = portSET_INTERRUPT_MASK();
+
+            if (spin_try_lock_unsafe(pxHardwareSpinLock) != false )
+            {
+                // Ensure the calling core owns the spinlock
+                if (pxSpinlock->xOwnerCore == xCoreID)
+                {
+                    // Decrement the lock count
+                    pxSpinlock->xLockCount--;
+
+                    // If lock count reaches 0, fully release the spinlock
+                    if (pxSpinlock->xLockCount == 0)
+                    {
+                        pxSpinlock->xOwnerCore = -1;
+                    }
+                    xReleased = pdTRUE;
+                }
+
+                // Release the hardware spinlock
+                spin_unlock_unsafe(pxHardwareSpinLock);
+            }
+
+            // Re-enable interrupts
+            portCLEAR_INTERRUPT_MASK(ulState);
+        }
+    }
+#endif
