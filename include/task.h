@@ -3536,6 +3536,10 @@ void vTaskPlaceOnEventList( List_t * const pxEventList,
 void vTaskPlaceOnUnorderedEventList( List_t * pxEventList,
                                      const TickType_t xItemValue,
                                      const TickType_t xTicksToWait ) PRIVILEGED_FUNCTION;
+#if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) )
+BaseType_t xTaskPlaceOnEventListNested( List_t * const pxEventList,
+                                        const TickType_t xTicksToWait );
+#endif
 
 /*
  * THIS FUNCTION MUST NOT BE USED FROM APPLICATION CODE.  IT IS AN

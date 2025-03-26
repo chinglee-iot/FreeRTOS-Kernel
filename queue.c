@@ -1601,6 +1601,9 @@ BaseType_t xQueueReceive( QueueHandle_t xQueue,
     BaseType_t xEntryTimeSet = pdFALSE;
     TimeOut_t xTimeOut;
     Queue_t * const pxQueue = xQueue;
+    #if ( portUSING_GRANULAR_LOCKS == 1 )
+        BaseType_t xTaskQueueWaitStatus = pdTRUE;
+    #endif
 
     traceENTER_xQueueReceive( xQueue, pvBuffer, xTicksToWait );
 
@@ -1689,46 +1692,58 @@ BaseType_t xQueueReceive( QueueHandle_t xQueue,
 
         /* Interrupts and other tasks can send to and receive from the queue
          * now the critical section has been exited. */
-
-        queueLOCK( pxQueue );
-
-        /* Update the timeout state to see if it has expired yet. */
-        if( xTaskCheckForTimeOut( &xTimeOut, &xTicksToWait ) == pdFALSE )
+        #if ( portUSING_GRANULAR_LOCKS == 1 )
+        do
         {
-            /* The timeout has not expired.  If the queue is still empty place
-             * the task on the list of tasks waiting to receive from the queue. */
-            if( prvIsQueueEmpty( pxQueue ) != pdFALSE )
+        #endif
+
+            queueLOCK( pxQueue );
+
+            /* Update the timeout state to see if it has expired yet. */
+            if( xTaskCheckForTimeOut( &xTimeOut, &xTicksToWait ) == pdFALSE )
             {
-                traceBLOCKING_ON_QUEUE_RECEIVE( pxQueue );
-                vTaskPlaceOnEventList( &( pxQueue->xTasksWaitingToReceive ), xTicksToWait );
-                queueUNLOCK( pxQueue, pdTRUE );
+                /* The timeout has not expired.  If the queue is still empty place
+                 * the task on the list of tasks waiting to receive from the queue. */
+                if( prvIsQueueEmpty( pxQueue ) != pdFALSE )
+                {
+                    traceBLOCKING_ON_QUEUE_RECEIVE( pxQueue );
+                    #if ( portUSING_GRANULAR_LOCKS == 0 )
+                        vTaskPlaceOnEventList( &( pxQueue->xTasksWaitingToReceive ), xTicksToWait );
+                    #else
+                        xTaskQueueWaitStatus = xTaskPlaceOnEventListNested( &( pxQueue->xTasksWaitingToReceive ), xTicksToWait );
+                    #endif
+                    queueUNLOCK( pxQueue, pdTRUE );
+                    traceUNBLOCKING_ON_QUEUE_RECEIVE( pxQueue );
+                }
+                else
+                {
+                    /* The queue contains data again.  Loop back to try and read the
+                     * data. */
+                    queueUNLOCK( pxQueue, pdFALSE );
+                }
             }
             else
             {
-                /* The queue contains data again.  Loop back to try and read the
-                 * data. */
+                /* Timed out.  If there is no data in the queue exit, otherwise loop
+                 * back and attempt to read the data. */
                 queueUNLOCK( pxQueue, pdFALSE );
-            }
-            traceUNBLOCKING_ON_QUEUE_RECEIVE( pxQueue );
-        }
-        else
-        {
-            /* Timed out.  If there is no data in the queue exit, otherwise loop
-             * back and attempt to read the data. */
-            queueUNLOCK( pxQueue, pdFALSE );
 
-            if( prvIsQueueEmpty( pxQueue ) != pdFALSE )
-            {
-                traceQUEUE_RECEIVE_FAILED( pxQueue );
-                traceRETURN_xQueueReceive( errQUEUE_EMPTY );
+                if( prvIsQueueEmpty( pxQueue ) != pdFALSE )
+                {
+                    traceQUEUE_RECEIVE_FAILED( pxQueue );
+                    traceRETURN_xQueueReceive( errQUEUE_EMPTY );
 
-                return errQUEUE_EMPTY;
+                    return errQUEUE_EMPTY;
+                }
+                else
+                {
+                    mtCOVERAGE_TEST_MARKER();
+                }
             }
-            else
-            {
-                mtCOVERAGE_TEST_MARKER();
-            }
-        }
+
+        #if ( portUSING_GRANULAR_LOCKS == 1 )
+        } while( xTaskQueueWaitStatus == pdFALSE );
+        #endif
     }
 }
 /*-----------------------------------------------------------*/

@@ -5457,6 +5457,66 @@ void vTaskPlaceOnEventList( List_t * const pxEventList,
 }
 /*-----------------------------------------------------------*/
 
+#if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) )
+    BaseType_t xTaskPlaceOnEventListNested( List_t * const pxEventList,
+                                            const TickType_t xTicksToWait )
+    {
+        BaseType_t xAddedToEventList;
+        BaseType_t xTaskAlreadyYield;
+        List_t const * pxStateList;
+        traceENTER_vTaskPlaceOnEventList( pxEventList, xTicksToWait );
+
+        configASSERT( pxEventList );
+
+        /* Suspend the kernel data group as we are about to access its members */
+        vTaskSuspendAll();
+
+        /* Check if the current task is still in the ready list. Return false here to
+         * indicate that the current task is requested to yield already due to run
+         * state change. In that case, current task should serve the run state change
+         * first then call this function again. */
+        pxStateList = listLIST_ITEM_CONTAINER( &( pxCurrentTCB->xStateListItem ) );
+        if( pxStateList != &pxReadyTasksLists[ pxCurrentTCB->uxPriority ] )
+        {
+            configASSERT( pxCurrentTCB->xPreemptionDisable != 0U );
+            xAddedToEventList = pdFALSE;
+        }
+        else
+        {
+            /* Place the event list item of the TCB in the appropriate event list.
+             * This is placed in the list in priority order so the highest priority task
+             * is the first to be woken by the event.
+             *
+             * Note: Lists are sorted in ascending order by ListItem_t.xItemValue.
+             * Normally, the xItemValue of a TCB's ListItem_t members is:
+             *      xItemValue = ( configMAX_PRIORITIES - uxPriority )
+             * Therefore, the event list is sorted in descending priority order.
+             *
+             * The queue that contains the event list is locked, preventing
+             * simultaneous access from interrupts. */
+            vListInsert( pxEventList, &( pxCurrentTCB->xEventListItem ) );
+
+            prvAddCurrentTaskToDelayedList( xTicksToWait, pdTRUE );
+            xAddedToEventList = pdTRUE;
+        }
+
+        xTaskAlreadyYield = xTaskResumeAll();
+        
+        if( xTaskAlreadyYield == pdFALSE )
+        {
+            taskYIELD_WITHIN_API();
+        }
+        else
+        {
+            mtCOVERAGE_TEST_MARKER();
+        }
+
+        traceRETURN_vTaskPlaceOnEventList();
+        return xAddedToEventList;
+    }
+#endif
+/*-----------------------------------------------------------*/
+
 void vTaskPlaceOnUnorderedEventList( List_t * pxEventList,
                                      const TickType_t xItemValue,
                                      const TickType_t xTicksToWait )
