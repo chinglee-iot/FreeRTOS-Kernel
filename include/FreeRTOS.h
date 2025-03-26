@@ -526,38 +526,6 @@
 
 #endif
 
-#ifndef portENTER_CRITICAL_DATA_GROUP
-
-    #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) )
-        #error portENTER_CRITICAL_DATA_GROUP is required for SMP with granular locking feature enabled
-    #endif
-
-#endif
-
-#ifndef portEXIT_CRITICAL_DATA_GROUP
-
-    #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) )
-        #error portEXIT_CRITICAL_DATA_GROUP is required for SMP with granular locking feature enabled
-    #endif
-
-#endif
-
-#ifndef portENTER_CRITICAL_DATA_GROUP_FROM_ISR
-
-    #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) )
-        #error portENTER_CRITICAL_DATA_GROUP_FROM_ISR is required for SMP with granular locking feature enabled
-    #endif
-
-#endif
-
-#ifndef portEXIT_CRITICAL_DATA_GROUP_FROM_ISR
-
-    #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) )
-        #error portEXIT_CRITICAL_DATA_GROUP_FROM_ISR is required for SMP with granular locking feature enabled
-    #endif
-
-#endif
-
 #ifndef portSPINLOCK_TYPE
 
     #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) )
@@ -2754,6 +2722,10 @@
 
 #ifndef traceRETURN_xCoRoutineRemoveFromEventList
     #define traceRETURN_xCoRoutineRemoveFromEventList( xReturn )
+#endif
+
+#ifndef traceUNBLOCKING_ON_QUEUE_RECEIVE
+    #define traceUNBLOCKING_ON_QUEUE_RECEIVE( pxQueue )
 #endif
 
 #ifndef configGENERATE_RUN_TIME_STATS

@@ -81,10 +81,10 @@
         #define event_groupsEXIT_CRITICAL( pxEventBits )                                     vEventGroupsExitCritical( pxEventBits )
         #define event_groupsEXIT_CRITICAL_FROM_ISR( uxSavedInterruptStatus, pxEventBits )    vEventGroupsExitCriticalFromISR( uxSavedInterruptStatus, pxEventBits )
     #else /* #if ( portUSING_GRANULAR_LOCKS == 1 ) */
-        #define event_groupsENTER_CRITICAL( pxEventBits )                                    do { ( void ) pxEventBits; taskENTER_CRITICAL(); } while( 0 )
-        #define event_groupsENTER_CRITICAL_FROM_ISR( pxEventBits )                           do { ( void ) pxEventBits; taskENTER_CRITICAL_FROM_ISR(); } while( 0 )
-        #define event_groupsEXIT_CRITICAL( pxEventBits )                                     do { ( void ) pxEventBits; taskEXIT_CRITICAL(); } while( 0 )
-        #define event_groupsEXIT_CRITICAL_FROM_ISR( uxSavedInterruptStatus, pxEventBits )    do { ( void ) pxEventBits; taskEXIT_CRITICAL_FROM_ISR( uxSavedInterruptStatus ); } while( 0 )
+        #define event_groupsENTER_CRITICAL( pxEventBits )                                    taskENTER_CRITICAL()
+        #define event_groupsENTER_CRITICAL_FROM_ISR( pxEventBits )                           taskENTER_CRITICAL_FROM_ISR()
+        #define event_groupsEXIT_CRITICAL( pxEventBits )                                     taskEXIT_CRITICAL()
+        #define event_groupsEXIT_CRITICAL_FROM_ISR( uxSavedInterruptStatus, pxEventBits )    taskEXIT_CRITICAL_FROM_ISR( uxSavedInterruptStatus )
     #endif /* #if ( portUSING_GRANULAR_LOCKS == 1 ) */
 
 

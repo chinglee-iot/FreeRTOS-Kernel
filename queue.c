@@ -285,10 +285,10 @@ static void prvInitialiseNewQueue( const UBaseType_t uxQueueLength,
     #define queueEXIT_CRITICAL( pxQueue )                                     vQueueExitCritical( pxQueue )
     #define queueEXIT_CRITICAL_FROM_ISR( uxSavedInterruptStatus, pxQueue )    vQueueExitCriticalFromISR( uxSavedInterruptStatus, pxQueue )
 #else /* #if ( portUSING_GRANULAR_LOCKS == 1 ) */
-    #define queueENTER_CRITICAL( pxQueue )                                    do { ( void ) pxQueue; taskENTER_CRITICAL(); } while( 0 )
-    #define queueENTER_CRITICAL_FROM_ISR( pxQueue )                           do { ( void ) pxQueue; taskENTER_CRITICAL_FROM_ISR(); } while( 0 )
-    #define queueEXIT_CRITICAL( pxQueue )                                     do { ( void ) pxQueue; taskEXIT_CRITICAL(); } while( 0 )
-    #define queueEXIT_CRITICAL_FROM_ISR( uxSavedInterruptStatus, pxQueue )    do { ( void ) pxQueue; taskEXIT_CRITICAL_FROM_ISR( uxSavedInterruptStatus ); } while( 0 )
+    #define queueENTER_CRITICAL( pxQueue )                                    taskENTER_CRITICAL()
+    #define queueENTER_CRITICAL_FROM_ISR( pxQueue )                           taskENTER_CRITICAL_FROM_ISR()
+    #define queueEXIT_CRITICAL( pxQueue )                                     taskEXIT_CRITICAL()
+    #define queueEXIT_CRITICAL_FROM_ISR( uxSavedInterruptStatus, pxQueue )    taskEXIT_CRITICAL_FROM_ISR( uxSavedInterruptStatus )
 #endif /* #if ( portUSING_GRANULAR_LOCKS == 1 ) */
 
 #if ( portUSING_GRANULAR_LOCKS == 1 )
@@ -1709,6 +1709,7 @@ BaseType_t xQueueReceive( QueueHandle_t xQueue,
                  * data. */
                 queueUNLOCK( pxQueue, pdFALSE );
             }
+            traceUNBLOCKING_ON_QUEUE_RECEIVE( pxQueue );
         }
         else
         {

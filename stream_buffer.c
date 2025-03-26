@@ -68,10 +68,10 @@
         #define sbEXIT_CRITICAL( pxStreamBuffer )                                     vStreamBufferExitCritical( pxStreamBuffer )
         #define sbEXIT_CRITICAL_FROM_ISR( uxSavedInterruptStatus, pxStreamBuffer )    vStreamBufferExitCriticalFromISR( uxSavedInterruptStatus, pxStreamBuffer )
     #else /* #if ( portUSING_GRANULAR_LOCKS == 1 ) */
-        #define sbENTER_CRITICAL( pxEventBits )                                       do { ( void ) pxStreamBuffer; taskENTER_CRITICAL(); } while( 0 )
-        #define sbENTER_CRITICAL_FROM_ISR( pxEventBits )                              do { ( void ) pxStreamBuffer; taskENTER_CRITICAL_FROM_ISR(); } while( 0 )
-        #define sbEXIT_CRITICAL( pxEventBits )                                        do { ( void ) pxStreamBuffer; taskEXIT_CRITICAL(); } while( 0 )
-        #define sbEXIT_CRITICAL_FROM_ISR( uxSavedInterruptStatus, pxStreamBuffer )    do { ( void ) pxStreamBuffer; taskEXIT_CRITICAL_FROM_ISR( uxSavedInterruptStatus ); } while( 0 )
+        #define sbENTER_CRITICAL( pxEventBits )                                       taskENTER_CRITICAL()
+        #define sbENTER_CRITICAL_FROM_ISR( pxEventBits )                              taskENTER_CRITICAL_FROM_ISR()
+        #define sbEXIT_CRITICAL( pxEventBits )                                        taskEXIT_CRITICAL()
+        #define sbEXIT_CRITICAL_FROM_ISR( uxSavedInterruptStatus, pxStreamBuffer )    taskEXIT_CRITICAL_FROM_ISR( uxSavedInterruptStatus )
     #endif /* #if ( portUSING_GRANULAR_LOCKS == 1 ) */
 
 /*
