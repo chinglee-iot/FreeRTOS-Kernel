@@ -83,8 +83,8 @@
  * Macros to mark the start and end of a critical code region.
  */
     #if ( portUSING_GRANULAR_LOCKS == 1 )
-        #define tmrENTER_CRITICAL()    taskDATA_GROUP_ENTER_CRITICAL( &xTimerDataGroupLocks )
-        #define tmrEXIT_CRITICAL()     taskDATA_GROUP_EXIT_CRITICAL( &xTimerDataGroupLocks )
+        #define tmrENTER_CRITICAL()    taskDATA_GROUP_ENTER_CRITICAL( &xTimerTaskSpinlock, &xTimerISRSpinlock )
+        #define tmrEXIT_CRITICAL()     taskDATA_GROUP_EXIT_CRITICAL( &xTimerTaskSpinlock, &xTimerISRSpinlock )
     #else /* #if ( portUSING_GRANULAR_LOCKS == 1 ) */
         #define tmrENTER_CRITICAL()    taskENTER_CRITICAL()
         #define tmrEXIT_CRITICAL()     taskEXIT_CRITICAL()
@@ -160,17 +160,15 @@
     PRIVILEGED_DATA static QueueHandle_t xTimerQueue = NULL;
     PRIVILEGED_DATA static TaskHandle_t xTimerTaskHandle = NULL;
 
+    #if ( configTEST_STATIC_MEMBER == 1 )
+        #define SPINLOCK_STATIC
+    #else
+        #define SPINLOCK_STATIC static
+    #endif
+
     #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) )
-        PRIVILEGED_DATA static struct
-        {
-            portSPINLOCK_TYPE xTaskSpinlock;
-            portSPINLOCK_TYPE xISRSpinlock;
-        }
-        xTimerDataGroupLocks =
-        {
-            .xTaskSpinlock = portINIT_SPINLOCK_STATIC,
-            .xISRSpinlock  = portINIT_SPINLOCK_STATIC
-        };
+        SPINLOCK_STATIC portSPINLOCK_TYPE xTimerTaskSpinlock = portINIT_SPINLOCK_STATIC;
+        SPINLOCK_STATIC portSPINLOCK_TYPE xTimerISRSpinlock = portINIT_SPINLOCK_STATIC;
     #endif /* #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) ) */
 
 /*-----------------------------------------------------------*/

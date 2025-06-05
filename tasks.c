@@ -4896,10 +4896,14 @@ BaseType_t xTaskIncrementTick( void )
     TickType_t xItemValue;
     BaseType_t xSwitchRequired = pdFALSE;
 
+    #if ( portUSING_GRANULAR_LOCKS == 1 )
+        UBaseType_t uxSavedInterruptStatus;
+    #endif
+
     traceENTER_xTaskIncrementTick();
 
     #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) )
-        UBaseType_t uxSavedInterruptStatus = kernelENTER_CRITICAL_FROM_ISR();
+        uxSavedInterruptStatus = kernelENTER_CRITICAL_FROM_ISR();
     #endif /* #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) ) */
 
     /* Called by the portable layer each time a tick interrupt occurs.
@@ -5633,6 +5637,10 @@ BaseType_t xTaskRemoveFromEventList( const List_t * const pxEventList )
     TCB_t * pxUnblockedTCB;
     BaseType_t xReturn;
 
+    #if ( portUSING_GRANULAR_LOCKS == 1 )
+        UBaseType_t uxSavedInterruptStatus;
+    #endif
+
     traceENTER_xTaskRemoveFromEventList( pxEventList );
 
     #if ( !( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) ) )
@@ -5641,7 +5649,6 @@ BaseType_t xTaskRemoveFromEventList( const List_t * const pxEventList )
          * called from a critical section within an ISR. */
     #else /* #if ( ! ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) ) ) */
         /* Lock the kernel data group as we are about to access its members */
-        UBaseType_t uxSavedInterruptStatus;
 
         if( portCHECK_IF_IN_ISR() == pdTRUE )
         {

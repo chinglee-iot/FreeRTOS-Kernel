@@ -260,15 +260,15 @@ static void prvInitialiseNewQueue( const UBaseType_t uxQueueLength,
  * Macros to mark the start and end of a critical code region.
  */
 #if ( portUSING_GRANULAR_LOCKS == 1 )
-    #define queueENTER_CRITICAL( pxQueue )                                    taskDATA_GROUP_ENTER_CRITICAL( pxQueue )
-    #define queueENTER_CRITICAL_FROM_ISR( pxQueue )                           taskDATA_GROUP_ENTER_CRITICAL_FROM_ISR( pxQueue )
-    #define queueEXIT_CRITICAL( pxQueue )                                     taskDATA_GROUP_EXIT_CRITICAL( pxQueue )
-    #define queueEXIT_CRITICAL_FROM_ISR( uxSavedInterruptStatus, pxQueue )    taskDATA_GROUP_EXIT_CRITICAL_FROM_ISR( uxSavedInterruptStatus, pxQueue )
+    #define queueENTER_CRITICAL( pxQueue );                                                         taskDATA_GROUP_ENTER_CRITICAL( &( pxQueue->xTaskSpinlock ), &( pxQueue->xISRSpinlock ) )
+    #define queueENTER_CRITICAL_FROM_ISR( pxQueue, uxSavedInterruptStatus )                         taskDATA_GROUP_ENTER_CRITICAL_FROM_ISR( pxQueue, uxSavedInterruptStatus )
+    #define queueEXIT_CRITICAL( pxQueue )                                                           taskDATA_GROUP_EXIT_CRITICAL( &( pxQueue->xTaskSpinlock ), &( pxQueue->xISRSpinlock ) )
+    #define queueEXIT_CRITICAL_FROM_ISR( uxSavedInterruptStatus, pxQueue )                          taskDATA_GROUP_EXIT_CRITICAL_FROM_ISR( uxSavedInterruptStatus, &( pxQueue->xISRSpinlock ) )
 #else /* #if ( portUSING_GRANULAR_LOCKS == 1 ) */
-    #define queueENTER_CRITICAL( pxQueue )                                    taskENTER_CRITICAL();
-    #define queueENTER_CRITICAL_FROM_ISR( pxQueue )                           taskENTER_CRITICAL_FROM_ISR();
-    #define queueEXIT_CRITICAL( pxQueue )                                     taskEXIT_CRITICAL();
-    #define queueEXIT_CRITICAL_FROM_ISR( uxSavedInterruptStatus, pxQueue )    taskEXIT_CRITICAL_FROM_ISR( uxSavedInterruptStatus );
+    #define queueENTER_CRITICAL( pxQueue );                                                         taskENTER_CRITICAL();
+    #define queueENTER_CRITICAL_FROM_ISR( pxQueue, uxSavedInterruptStatus )                         { uxSavedInterruptStatus = taskENTER_CRITICAL_FROM_ISR(); }
+    #define queueEXIT_CRITICAL( pxQueue )                                                           taskEXIT_CRITICAL();
+    #define queueEXIT_CRITICAL_FROM_ISR( uxSavedInterruptStatus, pxQueue )                          taskEXIT_CRITICAL_FROM_ISR( uxSavedInterruptStatus );
 #endif /* #if ( portUSING_GRANULAR_LOCKS == 1 ) */
 
 /*
@@ -1266,7 +1266,8 @@ BaseType_t xQueueGenericSendFromISR( QueueHandle_t xQueue,
     /* MISRA Ref 4.7.1 [Return value shall be checked] */
     /* More details at: https://github.com/FreeRTOS/FreeRTOS-Kernel/blob/main/MISRA.md#dir-47 */
     /* coverity[misra_c_2012_directive_4_7_violation] */
-    uxSavedInterruptStatus = ( UBaseType_t ) queueENTER_CRITICAL_FROM_ISR( pxQueue );
+    //uxSavedInterruptStatus = ( UBaseType_t ) queueENTER_CRITICAL_FROM_ISR( pxQueue );
+    queueENTER_CRITICAL_FROM_ISR( pxQueue, uxSavedInterruptStatus );
     {
         if( ( pxQueue->uxMessagesWaiting < pxQueue->uxLength ) || ( xCopyPosition == queueOVERWRITE ) )
         {
@@ -1444,7 +1445,8 @@ BaseType_t xQueueGiveFromISR( QueueHandle_t xQueue,
     /* MISRA Ref 4.7.1 [Return value shall be checked] */
     /* More details at: https://github.com/FreeRTOS/FreeRTOS-Kernel/blob/main/MISRA.md#dir-47 */
     /* coverity[misra_c_2012_directive_4_7_violation] */
-    uxSavedInterruptStatus = ( UBaseType_t ) queueENTER_CRITICAL_FROM_ISR( pxQueue );
+    //uxSavedInterruptStatus = ( UBaseType_t ) queueENTER_CRITICAL_FROM_ISR( pxQueue );
+    queueENTER_CRITICAL_FROM_ISR( pxQueue, uxSavedInterruptStatus );
     {
         const UBaseType_t uxMessagesWaiting = pxQueue->uxMessagesWaiting;
 
@@ -1642,7 +1644,7 @@ BaseType_t xQueueReceive( QueueHandle_t xQueue,
                 {
                     /* The queue was empty and no block time is specified (or
                      * the block time has expired) so leave now. */
-                    queueEXIT_CRITICAL( pxQueue );
+                    queueEXIT_CRITICAL( pxQueue )
 
                     traceQUEUE_RECEIVE_FAILED( pxQueue );
                     traceRETURN_xQueueReceive( errQUEUE_EMPTY );
@@ -1996,7 +1998,7 @@ BaseType_t xQueuePeek( QueueHandle_t xQueue,
                 {
                     /* The queue was empty and no block time is specified (or
                      * the block time has expired) so leave now. */
-                    queueEXIT_CRITICAL( pxQueue );
+                    queueEXIT_CRITICAL( pxQueue )
 
                     traceQUEUE_PEEK_FAILED( pxQueue );
                     traceRETURN_xQueuePeek( errQUEUE_EMPTY );
@@ -2097,7 +2099,8 @@ BaseType_t xQueueReceiveFromISR( QueueHandle_t xQueue,
     /* MISRA Ref 4.7.1 [Return value shall be checked] */
     /* More details at: https://github.com/FreeRTOS/FreeRTOS-Kernel/blob/main/MISRA.md#dir-47 */
     /* coverity[misra_c_2012_directive_4_7_violation] */
-    uxSavedInterruptStatus = ( UBaseType_t ) queueENTER_CRITICAL_FROM_ISR( pxQueue );
+    //uxSavedInterruptStatus = ( UBaseType_t ) queueENTER_CRITICAL_FROM_ISR( pxQueue );
+    queueENTER_CRITICAL_FROM_ISR( pxQueue, uxSavedInterruptStatus );
     {
         const UBaseType_t uxMessagesWaiting = pxQueue->uxMessagesWaiting;
 
@@ -2198,7 +2201,8 @@ BaseType_t xQueuePeekFromISR( QueueHandle_t xQueue,
     /* MISRA Ref 4.7.1 [Return value shall be checked] */
     /* More details at: https://github.com/FreeRTOS/FreeRTOS-Kernel/blob/main/MISRA.md#dir-47 */
     /* coverity[misra_c_2012_directive_4_7_violation] */
-    uxSavedInterruptStatus = ( UBaseType_t ) queueENTER_CRITICAL_FROM_ISR( pxQueue );
+    //uxSavedInterruptStatus = ( UBaseType_t ) queueENTER_CRITICAL_FROM_ISR( pxQueue );
+    queueENTER_CRITICAL_FROM_ISR( pxQueue, uxSavedInterruptStatus );
     {
         /* Cannot block in an ISR, so check there is data available. */
         if( pxQueue->uxMessagesWaiting > ( UBaseType_t ) 0 )

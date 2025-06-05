@@ -292,24 +292,18 @@ typedef enum
  * \ingroup GranularLocks
  */
 #if ( portUSING_GRANULAR_LOCKS == 1 )
-    #define taskDATA_GROUP_ENTER_CRITICAL( pxDataGroup )                                                  \
+    #define taskDATA_GROUP_ENTER_CRITICAL( pxTaskSpinlock, pxISRSpinlock )                                \
     do {                                                                                                  \
         /* Disable preemption to avoid task state changes during the critical section. */                 \
         vTaskPreemptionDisable( NULL );                                                                   \
         {                                                                                                 \
             const BaseType_t xCoreID = ( BaseType_t ) portGET_CORE_ID();                                  \
-            if( portGET_CRITICAL_NESTING_COUNT( xCoreID ) == 0U ) {                                       \
-                /* Task spinlock is always taken first */                                                 \
-                portGET_SPINLOCK( xCoreID, ( portSPINLOCK_TYPE * ) &( ( pxDataGroup )->xTaskSpinlock ) ); \
-                /* Disable interrupts */                                                                  \
-                portDISABLE_INTERRUPTS();                                                                 \
-                /* Take the ISR spinlock next */                                                          \
-                portGET_SPINLOCK( xCoreID, ( portSPINLOCK_TYPE * ) &( ( pxDataGroup )->xISRSpinlock ) );  \
-            }                                                                                             \
-            else                                                                                          \
-            {                                                                                             \
-                mtCOVERAGE_TEST_MARKER();                                                                 \
-            }                                                                                             \
+            /* Task spinlock is always taken first */                                                     \
+            portGET_SPINLOCK( xCoreID, ( portSPINLOCK_TYPE * ) pxTaskSpinlock );                          \
+            /* Disable interrupts */                                                                      \
+            portDISABLE_INTERRUPTS();                                                                     \
+            /* Take the ISR spinlock next */                                                              \
+            portGET_SPINLOCK( xCoreID, ( portSPINLOCK_TYPE * ) pxISRSpinlock );                           \
             /* Increment the critical nesting count */                                                    \
             portINCREMENT_CRITICAL_NESTING_COUNT( xCoreID );                                              \
         }                                                                                                 \
@@ -325,17 +319,15 @@ typedef enum
  * \ingroup GranularLocks
  */
 #if ( portUSING_GRANULAR_LOCKS == 1 )
-    #define taskDATA_GROUP_ENTER_CRITICAL_FROM_ISR( pxDataGroup )                                \
-    ( {                                                                                          \
-        UBaseType_t uxSavedInterruptStatus = portSET_INTERRUPT_MASK_FROM_ISR();                  \
+    #define taskDATA_GROUP_ENTER_CRITICAL_FROM_ISR( pxISRSpinlock, uxSavedInterruptStatus )      \
+    do {                                                                                         \
+        uxSavedInterruptStatus = portSET_INTERRUPT_MASK_FROM_ISR();                              \
         const BaseType_t xCoreID = ( BaseType_t ) portGET_CORE_ID();                             \
         /* Take the ISR spinlock */                                                              \
-        portGET_SPINLOCK( xCoreID, ( portSPINLOCK_TYPE * ) &( ( pxDataGroup )->xISRSpinlock ) ); \
+        portGET_SPINLOCK( xCoreID, ( portSPINLOCK_TYPE * ) pxISRSpinlock );                      \
         /* Increment the critical nesting count */                                               \
         portINCREMENT_CRITICAL_NESTING_COUNT( xCoreID );                                         \
-        /* Return the previous interrupt status */                                               \
-        uxSavedInterruptStatus;                                                                  \
-    } )
+    } while(0)                                                                                   
 #endif /* #if ( portUSING_GRANULAR_LOCKS == 1 ) */
 
 /**
@@ -347,25 +339,25 @@ typedef enum
  * \ingroup GranularLocks
  */
 #if ( portUSING_GRANULAR_LOCKS == 1 )
-    #define taskDATA_GROUP_EXIT_CRITICAL( pxDataGroup )                                                   \
+    #define taskDATA_GROUP_EXIT_CRITICAL( pxTaskSpinlock, pxISRSpinlock )                                 \
     do {                                                                                                  \
         const BaseType_t xCoreID = ( BaseType_t ) portGET_CORE_ID();                                      \
         configASSERT( portGET_CRITICAL_NESTING_COUNT( xCoreID ) > 0U );                                   \
         /* Decrement the critical nesting count */                                                        \
         portDECREMENT_CRITICAL_NESTING_COUNT( xCoreID );                                                  \
+        /* Release the ISR spinlock */                                                                    \
+        portRELEASE_SPINLOCK( xCoreID, ( portSPINLOCK_TYPE * ) pxISRSpinlock );                           \
         if( portGET_CRITICAL_NESTING_COUNT( xCoreID ) == 0 )                                              \
         {                                                                                                 \
-            /* Release the ISR spinlock */                                                                \
-            portRELEASE_SPINLOCK( xCoreID, ( portSPINLOCK_TYPE * ) &( ( pxDataGroup )->xISRSpinlock ) );  \
             /* Enable interrupts */                                                                       \
             portENABLE_INTERRUPTS();                                                                      \
-            /* Release the task spinlock */                                                               \
-            portRELEASE_SPINLOCK( xCoreID, ( portSPINLOCK_TYPE * ) &( ( pxDataGroup )->xTaskSpinlock ) ); \
         }                                                                                                 \
         else                                                                                              \
         {                                                                                                 \
             mtCOVERAGE_TEST_MARKER();                                                                     \
         }                                                                                                 \
+        /* Release the task spinlock */                                                                   \
+        portRELEASE_SPINLOCK( xCoreID, ( portSPINLOCK_TYPE * ) pxTaskSpinlock );                          \
         /* Re-enable preemption */                                                                        \
         vTaskPreemptionEnable( NULL );                                                                    \
     } while( 0 )
@@ -380,17 +372,17 @@ typedef enum
  * \ingroup GranularLocks
  */
 #if ( portUSING_GRANULAR_LOCKS == 1 )
-    #define taskDATA_GROUP_EXIT_CRITICAL_FROM_ISR( xSavedInterruptStatus, pxDataGroup )          \
+    #define taskDATA_GROUP_EXIT_CRITICAL_FROM_ISR( uxSavedInterruptStatus, pxISRSpinlock )       \
     do {                                                                                         \
         const BaseType_t xCoreID = ( BaseType_t ) portGET_CORE_ID();                             \
         configASSERT( portGET_CRITICAL_NESTING_COUNT( xCoreID ) > 0U );                          \
         /* Decrement the critical nesting count */                                               \
         portDECREMENT_CRITICAL_NESTING_COUNT( xCoreID );                                         \
         /* Release the ISR spinlock */                                                           \
-        portRELEASE_SPINLOCK( xCoreID, ( portSPINLOCK_TYPE * ) &( pxDataGroup->xISRSpinlock ) ); \
+        portRELEASE_SPINLOCK( xCoreID, ( portSPINLOCK_TYPE * ) pxISRSpinlock );                  \
         if( portGET_CRITICAL_NESTING_COUNT( xCoreID ) == 0 )                                     \
         {                                                                                        \
-            portCLEAR_INTERRUPT_MASK_FROM_ISR( xSavedInterruptStatus );                          \
+            portCLEAR_INTERRUPT_MASK_FROM_ISR( uxSavedInterruptStatus );                         \
         }                                                                                        \
     } while( 0 )
 #endif /* #if ( portUSING_GRANULAR_LOCKS == 1 ) */
@@ -3701,7 +3693,7 @@ void vTaskRemoveFromUnorderedEventList( ListItem_t * pxEventListItem,
  * that is ready to run.
  */
 #if ( configNUMBER_OF_CORES == 1 )
-    portDONT_DISCARD void vTaskSwitchContext( void ) PRIVILEGED_FUNCTION;
+    //portDONT_DISCARD void vTaskSwitchContext( void ) PRIVILEGED_FUNCTION;
 #else
     portDONT_DISCARD void vTaskSwitchContext( BaseType_t xCoreID ) PRIVILEGED_FUNCTION;
 #endif
