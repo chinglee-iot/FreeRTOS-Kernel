@@ -160,15 +160,13 @@
     PRIVILEGED_DATA static QueueHandle_t xTimerQueue = NULL;
     PRIVILEGED_DATA static TaskHandle_t xTimerTaskHandle = NULL;
 
-    #if ( configTEST_STATIC_MEMBER == 1 )
-        #define SPINLOCK_STATIC
-    #else
-        #define SPINLOCK_STATIC static
+    #ifdef portREMOVE_STATIC_QUALIFIER
+        #define static
     #endif
 
     #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) )
-        SPINLOCK_STATIC portSPINLOCK_TYPE xTimerTaskSpinlock = portINIT_SPINLOCK_STATIC;
-        SPINLOCK_STATIC portSPINLOCK_TYPE xTimerISRSpinlock = portINIT_SPINLOCK_STATIC;
+        static portSPINLOCK_TYPE xTimerTaskSpinlock = portINIT_SPINLOCK_STATIC;
+        static portSPINLOCK_TYPE xTimerISRSpinlock = portINIT_SPINLOCK_STATIC;
     #endif /* #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) ) */
 
 /*-----------------------------------------------------------*/
