@@ -299,11 +299,11 @@ typedef enum
         {                                                                                                 \
             const BaseType_t xCoreID = ( BaseType_t ) portGET_CORE_ID();                                  \
             /* Task spinlock is always taken first */                                                     \
-            portGET_SPINLOCK( xCoreID, ( portSPINLOCK_TYPE * ) pxTaskSpinlock );                          \
+            portGET_SPINLOCK( xCoreID, ( portSPINLOCK_TYPE * ) ( pxTaskSpinlock ) );                      \
             /* Disable interrupts */                                                                      \
             portDISABLE_INTERRUPTS();                                                                     \
             /* Take the ISR spinlock next */                                                              \
-            portGET_SPINLOCK( xCoreID, ( portSPINLOCK_TYPE * ) pxISRSpinlock );                           \
+            portGET_SPINLOCK( xCoreID, ( portSPINLOCK_TYPE * ) ( pxISRSpinlock ) );                       \
             /* Increment the critical nesting count */                                                    \
             portINCREMENT_CRITICAL_NESTING_COUNT( xCoreID );                                              \
         }                                                                                                 \
@@ -321,10 +321,10 @@ typedef enum
 #if ( portUSING_GRANULAR_LOCKS == 1 )
     #define taskDATA_GROUP_ENTER_CRITICAL_FROM_ISR( pxISRSpinlock, uxSavedInterruptStatus )      \
     do {                                                                                         \
-        uxSavedInterruptStatus = portSET_INTERRUPT_MASK_FROM_ISR();                              \
+        ( uxSavedInterruptStatus ) = portSET_INTERRUPT_MASK_FROM_ISR();                          \
         const BaseType_t xCoreID = ( BaseType_t ) portGET_CORE_ID();                             \
         /* Take the ISR spinlock */                                                              \
-        portGET_SPINLOCK( xCoreID, ( portSPINLOCK_TYPE * ) pxISRSpinlock );                      \
+        portGET_SPINLOCK( xCoreID, ( portSPINLOCK_TYPE * ) ( pxISRSpinlock ) );                  \
         /* Increment the critical nesting count */                                               \
         portINCREMENT_CRITICAL_NESTING_COUNT( xCoreID );                                         \
     } while(0)                                                                                   
@@ -346,7 +346,7 @@ typedef enum
         /* Decrement the critical nesting count */                                                        \
         portDECREMENT_CRITICAL_NESTING_COUNT( xCoreID );                                                  \
         /* Release the ISR spinlock */                                                                    \
-        portRELEASE_SPINLOCK( xCoreID, ( portSPINLOCK_TYPE * ) pxISRSpinlock );                           \
+        portRELEASE_SPINLOCK( xCoreID, ( portSPINLOCK_TYPE * ) ( pxISRSpinlock ) );                       \
         if( portGET_CRITICAL_NESTING_COUNT( xCoreID ) == 0 )                                              \
         {                                                                                                 \
             /* Enable interrupts */                                                                       \
@@ -357,7 +357,7 @@ typedef enum
             mtCOVERAGE_TEST_MARKER();                                                                     \
         }                                                                                                 \
         /* Release the task spinlock */                                                                   \
-        portRELEASE_SPINLOCK( xCoreID, ( portSPINLOCK_TYPE * ) pxTaskSpinlock );                          \
+        portRELEASE_SPINLOCK( xCoreID, ( portSPINLOCK_TYPE * ) ( pxTaskSpinlock ) );                      \
         /* Re-enable preemption */                                                                        \
         vTaskPreemptionEnable( NULL );                                                                    \
     } while( 0 )
@@ -379,7 +379,7 @@ typedef enum
         /* Decrement the critical nesting count */                                               \
         portDECREMENT_CRITICAL_NESTING_COUNT( xCoreID );                                         \
         /* Release the ISR spinlock */                                                           \
-        portRELEASE_SPINLOCK( xCoreID, ( portSPINLOCK_TYPE * ) pxISRSpinlock );                  \
+        portRELEASE_SPINLOCK( xCoreID, ( portSPINLOCK_TYPE * ) ( pxISRSpinlock ) );                  \
         if( portGET_CRITICAL_NESTING_COUNT( xCoreID ) == 0 )                                     \
         {                                                                                        \
             portCLEAR_INTERRUPT_MASK_FROM_ISR( uxSavedInterruptStatus );                         \
