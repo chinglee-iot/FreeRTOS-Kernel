@@ -185,27 +185,7 @@ typedef xQUEUE Queue_t;
  * to indicate that a task may require unblocking.  When the queue in unlocked
  * these lock counts are inspected, and the appropriate action taken.
  */
-#if ( portUSING_GRANULAR_LOCKS == 0 )
-    static void prvUnlockQueue( Queue_t * const pxQueue ) PRIVILEGED_FUNCTION;
-#endif /* #if ( portUSING_GRANULAR_LOCKS == 0 ) */
-
-/*
- * Locks a queue for tasks. Prevents other tasks from accessing the queue but allows
- * ISRs to pend access to the queue. Caller cannot be preempted by other tasks
- * after locking the queue, thus allowing the caller to execute non-deterministic
- * operations.
- */
-#if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) )
-    static void prvLockQueueForTasks( Queue_t * const pxQueue ) PRIVILEGED_FUNCTION;
-#endif /* #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) ) */
-
-/*
- * Unlocks a queue for tasks. Handles all pended access from ISRs, then reenables preemption
- * for the caller.
- */
-#if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) )
-    static void prvUnlockQueueForTasks( Queue_t * const pxQueue ) PRIVILEGED_FUNCTION;
-#endif /* #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) ) */
+static void prvUnlockQueue( Queue_t * const pxQueue ) PRIVILEGED_FUNCTION;
 
 /*
  * Uses a critical section to determine if there is any data in a queue.
@@ -280,51 +260,22 @@ static void prvInitialiseNewQueue( const UBaseType_t uxQueueLength,
  * Macros to mark the start and end of a critical code region.
  */
 #if ( portUSING_GRANULAR_LOCKS == 1 )
-    #define queueENTER_CRITICAL( pxQueue )                                    vQueueEnterCritical( pxQueue )
-    #define queueENTER_CRITICAL_FROM_ISR( pxQueue )                           uxQueueEnterCriticalFromISR( pxQueue )
-    #define queueEXIT_CRITICAL( pxQueue )                                     vQueueExitCritical( pxQueue )
-    #define queueEXIT_CRITICAL_FROM_ISR( uxSavedInterruptStatus, pxQueue )    vQueueExitCriticalFromISR( uxSavedInterruptStatus, pxQueue )
+    #define queueENTER_CRITICAL( pxQueue )                                      taskDATA_GROUP_ENTER_CRITICAL( &pxQueue->xTaskSpinlock, &pxQueue->xISRSpinlock )
+    #define queueENTER_CRITICAL_FROM_ISR( pxQueue, puxSavedInterruptStatus )    taskDATA_GROUP_ENTER_CRITICAL_FROM_ISR( &pxQueue->xISRSpinlock, puxSavedInterruptStatus )
+    #define queueEXIT_CRITICAL( pxQueue )                                       taskDATA_GROUP_EXIT_CRITICAL( &pxQueue->xTaskSpinlock, &pxQueue->xISRSpinlock )
+    #define queueEXIT_CRITICAL_FROM_ISR( uxSavedInterruptStatus, pxQueue )      taskDATA_GROUP_EXIT_CRITICAL_FROM_ISR( uxSavedInterruptStatus, &pxQueue->xISRSpinlock )
 #else /* #if ( portUSING_GRANULAR_LOCKS == 1 ) */
-    #define queueENTER_CRITICAL( pxQueue )                                    taskENTER_CRITICAL()
-    #define queueENTER_CRITICAL_FROM_ISR( pxQueue )                           taskENTER_CRITICAL_FROM_ISR()
-    #define queueEXIT_CRITICAL( pxQueue )                                     taskEXIT_CRITICAL()
-    #define queueEXIT_CRITICAL_FROM_ISR( uxSavedInterruptStatus, pxQueue )    taskEXIT_CRITICAL_FROM_ISR( uxSavedInterruptStatus )
-#endif /* #if ( portUSING_GRANULAR_LOCKS == 1 ) */
-
-#if ( portUSING_GRANULAR_LOCKS == 1 )
-
-/*
- * Enters a critical section for a queue. Disables interrupts and takes
- * both task and ISR spinlocks to ensure thread safety.
- */
-    static void vQueueEnterCritical( const Queue_t * pxQueue ) PRIVILEGED_FUNCTION;
-
-/*
- * Enters a critical section for a queue from an ISR context. Takes the ISR
- * spinlock and returns the previous interrupt state.
- */
-    static UBaseType_t uxQueueEnterCriticalFromISR( const Queue_t * pxQueue ) PRIVILEGED_FUNCTION;
-
-/*
- * Exits a critical section for a queue. Releases spinlocks in reverse order
- * and conditionally re-enables interrupts and yields if required.
- */
-    static void vQueueExitCritical( const Queue_t * pxQueue ) PRIVILEGED_FUNCTION;
-
-/*
- * Exits a critical section for a queue from an ISR context. Releases the ISR
- * spinlock and conditionally restores the previous interrupt state.
- */
-    static void vQueueExitCriticalFromISR( UBaseType_t uxSavedInterruptStatus,
-                                           const Queue_t * pxQueue ) PRIVILEGED_FUNCTION;
+    #define queueENTER_CRITICAL( pxQueue )                                      taskENTER_CRITICAL();
+    #define queueENTER_CRITICAL_FROM_ISR( pxQueue, puxSavedInterruptStatus )    do { *( puxSavedInterruptStatus ) = taskENTER_CRITICAL_FROM_ISR(); } while( 0 )
+    #define queueEXIT_CRITICAL( pxQueue )                                       taskEXIT_CRITICAL();
+    #define queueEXIT_CRITICAL_FROM_ISR( uxSavedInterruptStatus, pxQueue )      taskEXIT_CRITICAL_FROM_ISR( uxSavedInterruptStatus );
 #endif /* #if ( portUSING_GRANULAR_LOCKS == 1 ) */
 
 /*
  * Macro to mark a queue as locked.  Locking a queue prevents an ISR from
  * accessing the queue event lists.
  */
-#if ( portUSING_GRANULAR_LOCKS == 0 )
-    #define prvLockQueue( pxQueue )                        \
+#define prvLockQueue( pxQueue )                            \
     queueENTER_CRITICAL( pxQueue );                        \
     {                                                      \
         if( ( pxQueue )->cRxLock == queueUNLOCKED )        \
@@ -337,7 +288,6 @@ static void prvInitialiseNewQueue( const UBaseType_t uxQueueLength,
         }                                                  \
     }                                                      \
     queueEXIT_CRITICAL( pxQueue )
-#endif /* #if ( portUSING_GRANULAR_LOCKS == 0 ) */
 
 /*
  * Macro to increment cTxLock member of the queue data structure. It is
@@ -378,8 +328,26 @@ static void prvInitialiseNewQueue( const UBaseType_t uxQueueLength,
  * When the tasks unlocks the queue, all pended access attempts are handled.
  */
 #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) )
-    #define queueLOCK( pxQueue )                 prvLockQueueForTasks( pxQueue )
-    #define queueUNLOCK( pxQueue, xYieldAPI )    prvUnlockQueueForTasks( pxQueue )
+    #define queueLOCK( pxQueue )                                            \
+    do {                                                                    \
+        vTaskPreemptionDisable( NULL );                                     \
+        prvLockQueue( ( pxQueue ) );                                        \
+        portGET_SPINLOCK( portGET_CORE_ID(), &( pxQueue->xTaskSpinlock ) ); \
+    } while( 0 )
+    #define queueUNLOCK( pxQueue, xYieldAPI )                                   \
+    do {                                                                        \
+        prvUnlockQueue( ( pxQueue ) );                                          \
+        portRELEASE_SPINLOCK( portGET_CORE_ID(), &( pxQueue->xTaskSpinlock ) ); \
+        vTaskPreemptionEnable( NULL );                                          \
+        if( ( xYieldAPI ) == pdTRUE )                                           \
+        {                                                                       \
+            taskYIELD_WITHIN_API();                                             \
+        }                                                                       \
+        else                                                                    \
+        {                                                                       \
+            mtCOVERAGE_TEST_MARKER();                                           \
+        }                                                                       \
+    } while( 0 )
 #else /* #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) ) */
     #define queueLOCK( pxQueue )     \
     do {                             \
@@ -626,7 +594,10 @@ BaseType_t xQueueGenericReset( QueueHandle_t xQueue,
             /* Check for multiplication overflow. */
             ( ( SIZE_MAX / uxQueueLength ) >= uxItemSize ) &&
             /* Check for addition overflow. */
-            ( ( UBaseType_t ) ( SIZE_MAX - sizeof( Queue_t ) ) >= ( uxQueueLength * uxItemSize ) ) )
+            /* MISRA Ref 14.3.1 [Configuration dependent invariant] */
+            /* More details at: https://github.com/FreeRTOS/FreeRTOS-Kernel/blob/main/MISRA.md#rule-143. */
+            /* coverity[misra_c_2012_rule_14_3_violation] */
+            ( ( SIZE_MAX - sizeof( Queue_t ) ) >= ( size_t ) ( ( size_t ) uxQueueLength * ( size_t ) uxItemSize ) ) )
         {
             /* Allocate enough space to hold the maximum number of items that
              * can be in the queue at any time.  It is valid for uxItemSize to be
@@ -943,6 +914,10 @@ static void prvInitialiseNewQueue( const UBaseType_t uxQueueLength,
         if( pxMutex->u.xSemaphore.xMutexHolder == xTaskGetCurrentTaskHandle() )
         {
             ( pxMutex->u.xSemaphore.uxRecursiveCallCount )++;
+
+            /* Check if an overflow occurred. */
+            configASSERT( pxMutex->u.xSemaphore.uxRecursiveCallCount );
+
             xReturn = pdPASS;
         }
         else
@@ -955,6 +930,9 @@ static void prvInitialiseNewQueue( const UBaseType_t uxQueueLength,
             if( xReturn != pdFAIL )
             {
                 ( pxMutex->u.xSemaphore.uxRecursiveCallCount )++;
+
+                /* Check if an overflow occurred. */
+                configASSERT( pxMutex->u.xSemaphore.uxRecursiveCallCount );
             }
             else
             {
@@ -1063,9 +1041,7 @@ BaseType_t xQueueGenericSend( QueueHandle_t xQueue,
     configASSERT( pxQueue );
     configASSERT( !( ( pvItemToQueue == NULL ) && ( pxQueue->uxItemSize != ( UBaseType_t ) 0U ) ) );
     configASSERT( !( ( xCopyPosition == queueOVERWRITE ) && ( pxQueue->uxLength != 1 ) ) );
-
-    /* Cannot block if the scheduler is suspended. */
-    #if ( configNUMBER_OF_CORES == 1 ) && ( ( INCLUDE_xTaskGetSchedulerState == 1 ) || ( configUSE_TIMERS == 1 ) )
+    #if ( ( INCLUDE_xTaskGetSchedulerState == 1 ) || ( configUSE_TIMERS == 1 ) )
     {
         configASSERT( !( ( xTaskGetSchedulerState() == taskSCHEDULER_SUSPENDED ) && ( xTicksToWait != 0 ) ) );
     }
@@ -1290,7 +1266,7 @@ BaseType_t xQueueGenericSendFromISR( QueueHandle_t xQueue,
     /* MISRA Ref 4.7.1 [Return value shall be checked] */
     /* More details at: https://github.com/FreeRTOS/FreeRTOS-Kernel/blob/main/MISRA.md#dir-47 */
     /* coverity[misra_c_2012_directive_4_7_violation] */
-    uxSavedInterruptStatus = ( UBaseType_t ) queueENTER_CRITICAL_FROM_ISR( pxQueue );
+    queueENTER_CRITICAL_FROM_ISR( pxQueue, &uxSavedInterruptStatus );
     {
         if( ( pxQueue->uxMessagesWaiting < pxQueue->uxLength ) || ( xCopyPosition == queueOVERWRITE ) )
         {
@@ -1468,7 +1444,7 @@ BaseType_t xQueueGiveFromISR( QueueHandle_t xQueue,
     /* MISRA Ref 4.7.1 [Return value shall be checked] */
     /* More details at: https://github.com/FreeRTOS/FreeRTOS-Kernel/blob/main/MISRA.md#dir-47 */
     /* coverity[misra_c_2012_directive_4_7_violation] */
-    uxSavedInterruptStatus = ( UBaseType_t ) queueENTER_CRITICAL_FROM_ISR( pxQueue );
+    queueENTER_CRITICAL_FROM_ISR( pxQueue, &uxSavedInterruptStatus );
     {
         const UBaseType_t uxMessagesWaiting = pxQueue->uxMessagesWaiting;
 
@@ -1614,7 +1590,7 @@ BaseType_t xQueueReceive( QueueHandle_t xQueue,
     configASSERT( !( ( ( pvBuffer ) == NULL ) && ( ( pxQueue )->uxItemSize != ( UBaseType_t ) 0U ) ) );
 
     /* Cannot block if the scheduler is suspended. */
-    #if ( configNUMBER_OF_CORES == 1 ) && ( ( INCLUDE_xTaskGetSchedulerState == 1 ) || ( configUSE_TIMERS == 1 ) )
+    #if ( ( INCLUDE_xTaskGetSchedulerState == 1 ) || ( configUSE_TIMERS == 1 ) )
     {
         configASSERT( !( ( xTaskGetSchedulerState() == taskSCHEDULER_SUSPENDED ) && ( xTicksToWait != 0 ) ) );
     }
@@ -1755,7 +1731,7 @@ BaseType_t xQueueSemaphoreTake( QueueHandle_t xQueue,
     configASSERT( pxQueue->uxItemSize == 0 );
 
     /* Cannot block if the scheduler is suspended. */
-    #if ( configNUMBER_OF_CORES == 1 ) && ( ( INCLUDE_xTaskGetSchedulerState == 1 ) || ( configUSE_TIMERS == 1 ) )
+    #if ( ( INCLUDE_xTaskGetSchedulerState == 1 ) || ( configUSE_TIMERS == 1 ) )
     {
         configASSERT( !( ( xTaskGetSchedulerState() == taskSCHEDULER_SUSPENDED ) && ( xTicksToWait != 0 ) ) );
     }
@@ -1962,7 +1938,7 @@ BaseType_t xQueuePeek( QueueHandle_t xQueue,
     configASSERT( !( ( ( pvBuffer ) == NULL ) && ( ( pxQueue )->uxItemSize != ( UBaseType_t ) 0U ) ) );
 
     /* Cannot block if the scheduler is suspended. */
-    #if ( configNUMBER_OF_CORES == 1 ) && ( ( INCLUDE_xTaskGetSchedulerState == 1 ) || ( configUSE_TIMERS == 1 ) )
+    #if ( ( INCLUDE_xTaskGetSchedulerState == 1 ) || ( configUSE_TIMERS == 1 ) )
     {
         configASSERT( !( ( xTaskGetSchedulerState() == taskSCHEDULER_SUSPENDED ) && ( xTicksToWait != 0 ) ) );
     }
@@ -2121,7 +2097,7 @@ BaseType_t xQueueReceiveFromISR( QueueHandle_t xQueue,
     /* MISRA Ref 4.7.1 [Return value shall be checked] */
     /* More details at: https://github.com/FreeRTOS/FreeRTOS-Kernel/blob/main/MISRA.md#dir-47 */
     /* coverity[misra_c_2012_directive_4_7_violation] */
-    uxSavedInterruptStatus = ( UBaseType_t ) queueENTER_CRITICAL_FROM_ISR( pxQueue );
+    queueENTER_CRITICAL_FROM_ISR( pxQueue, &uxSavedInterruptStatus );
     {
         const UBaseType_t uxMessagesWaiting = pxQueue->uxMessagesWaiting;
 
@@ -2222,7 +2198,7 @@ BaseType_t xQueuePeekFromISR( QueueHandle_t xQueue,
     /* MISRA Ref 4.7.1 [Return value shall be checked] */
     /* More details at: https://github.com/FreeRTOS/FreeRTOS-Kernel/blob/main/MISRA.md#dir-47 */
     /* coverity[misra_c_2012_directive_4_7_violation] */
-    uxSavedInterruptStatus = ( UBaseType_t ) queueENTER_CRITICAL_FROM_ISR( pxQueue );
+    queueENTER_CRITICAL_FROM_ISR( pxQueue, &uxSavedInterruptStatus );
     {
         /* Cannot block in an ISR, so check there is data available. */
         if( pxQueue->uxMessagesWaiting > ( UBaseType_t ) 0 )
@@ -2548,266 +2524,20 @@ static void prvCopyDataFromQueue( Queue_t * const pxQueue,
 }
 /*-----------------------------------------------------------*/
 
-#if ( portUSING_GRANULAR_LOCKS == 0 )
-    static void prvUnlockQueue( Queue_t * const pxQueue )
+static void prvUnlockQueue( Queue_t * const pxQueue )
+{
+    /* THIS FUNCTION MUST BE CALLED WITH THE SCHEDULER SUSPENDED WHEN portUSING_GRANULAR_LOCKS IS 0.
+     * IT MUST BE CALLED WITH TASK PREEMTION DISABLED WHEN portUSING_GRANULAR_LOCKS IS 1. */
+
+    /* The lock counts contains the number of extra data items placed or
+     * removed from the queue while the queue was locked.  When a queue is
+     * locked items can be added or removed, but the event lists cannot be
+     * updated. */
+    queueENTER_CRITICAL( pxQueue );
     {
-        /* THIS FUNCTION MUST BE CALLED WITH THE SCHEDULER SUSPENDED. */
-
-        /* The lock counts contains the number of extra data items placed or
-         * removed from the queue while the queue was locked.  When a queue is
-         * locked items can be added or removed, but the event lists cannot be
-         * updated. */
-        queueENTER_CRITICAL( pxQueue );
-        {
-            int8_t cTxLock = pxQueue->cTxLock;
-
-            /* See if data was added to the queue while it was locked. */
-            while( cTxLock > queueLOCKED_UNMODIFIED )
-            {
-                /* Data was posted while the queue was locked.  Are any tasks
-                 * blocked waiting for data to become available? */
-                #if ( configUSE_QUEUE_SETS == 1 )
-                {
-                    if( pxQueue->pxQueueSetContainer != NULL )
-                    {
-                        if( prvNotifyQueueSetContainer( pxQueue ) != pdFALSE )
-                        {
-                            /* The queue is a member of a queue set, and posting to
-                             * the queue set caused a higher priority task to unblock.
-                             * A context switch is required. */
-                            vTaskMissedYield();
-                        }
-                        else
-                        {
-                            mtCOVERAGE_TEST_MARKER();
-                        }
-                    }
-                    else
-                    {
-                        /* Tasks that are removed from the event list will get
-                         * added to the pending ready list as the scheduler is still
-                         * suspended. */
-                        if( listLIST_IS_EMPTY( &( pxQueue->xTasksWaitingToReceive ) ) == pdFALSE )
-                        {
-                            if( xTaskRemoveFromEventList( &( pxQueue->xTasksWaitingToReceive ) ) != pdFALSE )
-                            {
-                                /* The task waiting has a higher priority so record that a
-                                 * context switch is required. */
-                                vTaskMissedYield();
-                            }
-                            else
-                            {
-                                mtCOVERAGE_TEST_MARKER();
-                            }
-                        }
-                        else
-                        {
-                            break;
-                        }
-                    }
-                }
-                #else /* configUSE_QUEUE_SETS */
-                {
-                    /* Tasks that are removed from the event list will get added to
-                     * the pending ready list as the scheduler is still suspended. */
-                    if( listLIST_IS_EMPTY( &( pxQueue->xTasksWaitingToReceive ) ) == pdFALSE )
-                    {
-                        if( xTaskRemoveFromEventList( &( pxQueue->xTasksWaitingToReceive ) ) != pdFALSE )
-                        {
-                            /* The task waiting has a higher priority so record that
-                             * a context switch is required. */
-                            vTaskMissedYield();
-                        }
-                        else
-                        {
-                            mtCOVERAGE_TEST_MARKER();
-                        }
-                    }
-                    else
-                    {
-                        break;
-                    }
-                }
-                #endif /* configUSE_QUEUE_SETS */
-
-                --cTxLock;
-            }
-
-            pxQueue->cTxLock = queueUNLOCKED;
-        }
-        queueEXIT_CRITICAL( pxQueue );
-
-        /* Do the same for the Rx lock. */
-        queueENTER_CRITICAL( pxQueue );
-        {
-            int8_t cRxLock = pxQueue->cRxLock;
-
-            while( cRxLock > queueLOCKED_UNMODIFIED )
-            {
-                if( listLIST_IS_EMPTY( &( pxQueue->xTasksWaitingToSend ) ) == pdFALSE )
-                {
-                    if( xTaskRemoveFromEventList( &( pxQueue->xTasksWaitingToSend ) ) != pdFALSE )
-                    {
-                        vTaskMissedYield();
-                    }
-                    else
-                    {
-                        mtCOVERAGE_TEST_MARKER();
-                    }
-
-                    --cRxLock;
-                }
-                else
-                {
-                    break;
-                }
-            }
-
-            pxQueue->cRxLock = queueUNLOCKED;
-        }
-        queueEXIT_CRITICAL( pxQueue );
-    }
-#endif /* #if ( portUSING_GRANULAR_LOCKS == 0 ) */
-/*-----------------------------------------------------------*/
-
-#if ( ( portUSING_GRANULAR_LOCKS == 1 ) )
-    static void vQueueEnterCritical( const Queue_t * pxQueue )
-    {
-        portDISABLE_INTERRUPTS();
-        {
-            const BaseType_t xCoreID = ( BaseType_t ) portGET_CORE_ID();
-
-            /* Task spinlock is always taken first */
-            portGET_SPINLOCK( xCoreID, ( portSPINLOCK_TYPE * ) &( pxQueue->xTaskSpinlock ) );
-
-            /* Take the ISR spinlock next */
-            portGET_SPINLOCK( xCoreID, ( portSPINLOCK_TYPE * ) &( pxQueue->xISRSpinlock ) );
-
-            /* Increment the critical nesting count */
-            portINCREMENT_CRITICAL_NESTING_COUNT( xCoreID );
-        }
-    }
-#endif /* #if ( ( portUSING_GRANULAR_LOCKS == 1 ) ) */
-/*-----------------------------------------------------------*/
-
-#if ( ( portUSING_GRANULAR_LOCKS == 1 ) )
-    static UBaseType_t uxQueueEnterCriticalFromISR( const Queue_t * pxQueue )
-    {
-        UBaseType_t uxSavedInterruptStatus = portSET_INTERRUPT_MASK_FROM_ISR();
-
-        const BaseType_t xCoreID = ( BaseType_t ) portGET_CORE_ID();
-
-        /* Take the ISR spinlock */
-        portGET_SPINLOCK( xCoreID, ( portSPINLOCK_TYPE * ) &( pxQueue->xISRSpinlock ) );
-
-        /* Increment the critical nesting count */
-        portINCREMENT_CRITICAL_NESTING_COUNT( xCoreID );
-
-        return uxSavedInterruptStatus;
-    }
-#endif /* #if ( ( portUSING_GRANULAR_LOCKS == 1 ) ) */
-/*-----------------------------------------------------------*/
-
-#if ( ( portUSING_GRANULAR_LOCKS == 1 ) )
-    static void vQueueExitCritical( const Queue_t * pxQueue )
-    {
-        const BaseType_t xCoreID = ( BaseType_t ) portGET_CORE_ID();
-
-        configASSERT( portGET_CRITICAL_NESTING_COUNT( xCoreID ) > 0U );
-
-        /* Get the xYieldPending status inside the critical section. */
-        BaseType_t xYieldCurrentTask = xTaskUnlockCanYield();
-
-        /* Decrement the critical nesting count */
-        portDECREMENT_CRITICAL_NESTING_COUNT( xCoreID );
-
-        /* Release the ISR spinlock */
-        portRELEASE_SPINLOCK( xCoreID, ( portSPINLOCK_TYPE * ) &( pxQueue->xISRSpinlock ) );
-
-        /* Release the task spinlock */
-        portRELEASE_SPINLOCK( xCoreID, ( portSPINLOCK_TYPE * ) &( pxQueue->xTaskSpinlock ) );
-
-        if( portGET_CRITICAL_NESTING_COUNT( xCoreID ) == 0 )
-        {
-            portENABLE_INTERRUPTS();
-
-            if( xYieldCurrentTask != pdFALSE )
-            {
-                portYIELD();
-            }
-            else
-            {
-                mtCOVERAGE_TEST_MARKER();
-            }
-        }
-        else
-        {
-            mtCOVERAGE_TEST_MARKER();
-        }
-    }
-#endif /* #if ( ( portUSING_GRANULAR_LOCKS == 1 ) ) */
-/*-----------------------------------------------------------*/
-
-#if ( ( portUSING_GRANULAR_LOCKS == 1 ) )
-    static void vQueueExitCriticalFromISR( UBaseType_t uxSavedInterruptStatus,
-                                           const Queue_t * pxQueue )
-    {
-        const BaseType_t xCoreID = ( BaseType_t ) portGET_CORE_ID();
-
-        configASSERT( portGET_CRITICAL_NESTING_COUNT( xCoreID ) > 0U );
-
-        /* Decrement the critical nesting count */
-        portDECREMENT_CRITICAL_NESTING_COUNT( xCoreID );
-
-        /* Release the ISR spinlock */
-        portRELEASE_SPINLOCK( xCoreID, ( portSPINLOCK_TYPE * ) &( pxQueue->xISRSpinlock ) );
-
-        if( portGET_CRITICAL_NESTING_COUNT( xCoreID ) == 0 )
-        {
-            portCLEAR_INTERRUPT_MASK_FROM_ISR( uxSavedInterruptStatus );
-        }
-    }
-#endif /* #if ( ( portUSING_GRANULAR_LOCKS == 1 ) ) */
-/*-----------------------------------------------------------*/
-
-#if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) )
-    static void prvLockQueueForTasks( Queue_t * const pxQueue )
-    {
-        /* Disable preemption so that the current task cannot be preempted by another task */
-        vTaskPreemptionDisable( NULL );
-
-        /* Lock the queue data group so that we can suspend the queue atomically */
-        queueENTER_CRITICAL( pxQueue );
-
-        /* Suspend writing and reading to/from the queue */
-        if( pxQueue->cRxLock == queueUNLOCKED )
-        {
-            pxQueue->cRxLock = queueLOCKED_UNMODIFIED;
-        }
-
-        if( pxQueue->cTxLock == queueUNLOCKED )
-        {
-            pxQueue->cTxLock = queueLOCKED_UNMODIFIED;
-        }
-
-        queueEXIT_CRITICAL( pxQueue );
-
-        /* Keep holding xTaskSpinlock after unlocking the data group to prevent tasks
-         * on other cores from accessing the queue while it is suspended. */
-        portGET_SPINLOCK( portGET_CORE_ID(), &( pxQueue->xTaskSpinlock ) );
-    }
-#endif /* #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) ) */
-/*-----------------------------------------------------------*/
-
-#if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) )
-    static void prvUnlockQueueForTasks( Queue_t * const pxQueue )
-    {
-        /* Lock the queue data group so that we can handle any pended accesses atomically */
-        queueENTER_CRITICAL( pxQueue );
-
-        /* Handle pended TX access to the queue */
         int8_t cTxLock = pxQueue->cTxLock;
 
+        /* See if data was added to the queue while it was locked. */
         while( cTxLock > queueLOCKED_UNMODIFIED )
         {
             /* Data was posted while the queue was locked.  Are any tasks
@@ -2880,8 +2610,12 @@ static void prvCopyDataFromQueue( Queue_t * const pxQueue,
         }
 
         pxQueue->cTxLock = queueUNLOCKED;
+    }
+    queueEXIT_CRITICAL( pxQueue );
 
-        /* Handle pended RX access to the queue */
+    /* Do the same for the Rx lock. */
+    queueENTER_CRITICAL( pxQueue );
+    {
         int8_t cRxLock = pxQueue->cRxLock;
 
         while( cRxLock > queueLOCKED_UNMODIFIED )
@@ -2905,15 +2639,10 @@ static void prvCopyDataFromQueue( Queue_t * const pxQueue,
             }
         }
 
-        queueEXIT_CRITICAL( pxQueue );
-
-        /* Release the previously held task spinlock */
-        portRELEASE_SPINLOCK( portGET_CORE_ID(), &( pxQueue->xTaskSpinlock ) );
-
-        /* Re-enable preemption */
-        vTaskPreemptionEnable( NULL );
+        pxQueue->cRxLock = queueUNLOCKED;
     }
-#endif /* #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) ) */
+    queueEXIT_CRITICAL( pxQueue );
+}
 /*-----------------------------------------------------------*/
 
 static BaseType_t prvIsQueueEmpty( const Queue_t * pxQueue )

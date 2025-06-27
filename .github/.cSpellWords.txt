@@ -23,6 +23,7 @@ AIRCR
 ALMIEN
 ALMV
 ANDC
+andi
 ANDCCR
 APIC
 APROCFREQ
@@ -47,6 +48,7 @@ bcpc
 BCPC
 beevt
 BEEVT
+beqz
 BERR
 bfextu
 Biagioni
@@ -298,6 +300,7 @@ FADD
 FCMD
 fcolor
 FCSE
+fcsr
 fdiagnostics
 fdiv
 FDIV
@@ -783,6 +786,7 @@ SHPR
 SHTIM
 SIFIVE
 sinclude
+slli
 SODR
 SOFTIRQ
 SPCK
@@ -934,6 +938,7 @@ USRIO
 utest
 utilises
 utilising
+vcsr
 VDDCORE
 vect
 Vect
@@ -944,6 +949,7 @@ visualisation
 vldmdbeq
 vldmia
 vldmiaeq
+vlenb
 VMSRNE
 vpop
 VPOPNE
@@ -951,6 +957,7 @@ vpush
 VPUSHNE
 VRPM
 Vrtc
+vsetvl
 vstmdbeq
 vstmiaeq
 VTOR

@@ -63,15 +63,15 @@
  * Macros to mark the start and end of a critical code region.
  */
     #if ( portUSING_GRANULAR_LOCKS == 1 )
-        #define sbENTER_CRITICAL( pxStreamBuffer )                                    vStreamBufferEnterCritical( pxStreamBuffer )
-        #define sbENTER_CRITICAL_FROM_ISR( pxStreamBuffer )                           uxStreamBufferEnterCriticalFromISR( pxStreamBuffer )
-        #define sbEXIT_CRITICAL( pxStreamBuffer )                                     vStreamBufferExitCritical( pxStreamBuffer )
-        #define sbEXIT_CRITICAL_FROM_ISR( uxSavedInterruptStatus, pxStreamBuffer )    vStreamBufferExitCriticalFromISR( uxSavedInterruptStatus, pxStreamBuffer )
+        #define sbENTER_CRITICAL( pxStreamBuffer )                                      taskDATA_GROUP_ENTER_CRITICAL( &pxStreamBuffer->xTaskSpinlock, &pxStreamBuffer->xISRSpinlock )
+        #define sbENTER_CRITICAL_FROM_ISR( pxStreamBuffer, puxSavedInterruptStatus )    taskDATA_GROUP_ENTER_CRITICAL_FROM_ISR( &pxStreamBuffer->xISRSpinlock, puxSavedInterruptStatus )
+        #define sbEXIT_CRITICAL( pxStreamBuffer )                                       taskDATA_GROUP_EXIT_CRITICAL( &pxStreamBuffer->xTaskSpinlock, &pxStreamBuffer->xISRSpinlock )
+        #define sbEXIT_CRITICAL_FROM_ISR( uxSavedInterruptStatus, pxStreamBuffer )      taskDATA_GROUP_EXIT_CRITICAL_FROM_ISR( uxSavedInterruptStatus, &pxStreamBuffer->xISRSpinlock )
     #else /* #if ( portUSING_GRANULAR_LOCKS == 1 ) */
-        #define sbENTER_CRITICAL( pxEventBits )                                       taskENTER_CRITICAL()
-        #define sbENTER_CRITICAL_FROM_ISR( pxEventBits )                              taskENTER_CRITICAL_FROM_ISR()
-        #define sbEXIT_CRITICAL( pxEventBits )                                        taskEXIT_CRITICAL()
-        #define sbEXIT_CRITICAL_FROM_ISR( uxSavedInterruptStatus, pxStreamBuffer )    taskEXIT_CRITICAL_FROM_ISR( uxSavedInterruptStatus )
+        #define sbENTER_CRITICAL( pxStreamBuffer )                                      taskENTER_CRITICAL();
+        #define sbENTER_CRITICAL_FROM_ISR( pxStreamBuffer, puxSavedInterruptStatus )    do { *( puxSavedInterruptStatus ) = taskENTER_CRITICAL_FROM_ISR(); } while( 0 )
+        #define sbEXIT_CRITICAL( pxStreamBuffer )                                       taskEXIT_CRITICAL();
+        #define sbEXIT_CRITICAL_FROM_ISR( uxSavedInterruptStatus, pxStreamBuffer )      taskEXIT_CRITICAL_FROM_ISR( uxSavedInterruptStatus );
     #endif /* #if ( portUSING_GRANULAR_LOCKS == 1 ) */
 
 /*
@@ -138,7 +138,7 @@
     do {                                                                                     \
         UBaseType_t uxSavedInterruptStatus;                                                  \
                                                                                              \
-        uxSavedInterruptStatus = sbENTER_CRITICAL_FROM_ISR( pxStreamBuffer );                \
+        sbENTER_CRITICAL_FROM_ISR( pxStreamBuffer, &uxSavedInterruptStatus );                \
         {                                                                                    \
             if( ( pxStreamBuffer )->xTaskWaitingToSend != NULL )                             \
             {                                                                                \
@@ -217,7 +217,7 @@
     do {                                                                                       \
         UBaseType_t uxSavedInterruptStatus;                                                    \
                                                                                                \
-        uxSavedInterruptStatus = sbENTER_CRITICAL_FROM_ISR( pxStreamBuffer );                  \
+        sbENTER_CRITICAL_FROM_ISR( pxStreamBuffer, &uxSavedInterruptStatus );                  \
         {                                                                                      \
             if( ( pxStreamBuffer )->xTaskWaitingToReceive != NULL )                            \
             {                                                                                  \
@@ -287,35 +287,6 @@ typedef struct StreamBufferDef_t
         portSPINLOCK_TYPE xISRSpinlock;
     #endif /* #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) ) */
 } StreamBuffer_t;
-
-    #if ( ( portUSING_GRANULAR_LOCKS == 1 ) )
-
-/*
- * Enters a critical section for a stream buffer. Disables interrupts and takes
- * both task and ISR spinlocks to ensure thread safety.
- */
-    static void vStreamBufferEnterCritical( StreamBuffer_t * const pxStreamBuffer ) PRIVILEGED_FUNCTION;
-
-/*
- * Enters a critical section for a stream buffer from an ISR context. Takes the ISR
- * spinlock and returns the previous interrupt state.
- */
-    static UBaseType_t uxStreamBufferEnterCriticalFromISR( StreamBuffer_t * const pxStreamBuffer ) PRIVILEGED_FUNCTION;
-
-/*
- * Exits a critical section for a stream buffer. Releases spinlocks in reverse order
- * and conditionally re-enables interrupts and yields if required.
- */
-    static void vStreamBufferExitCritical( StreamBuffer_t * const pxStreamBuffer ) PRIVILEGED_FUNCTION;
-
-/*
- * Exits a critical section for a stream buffer from an ISR context. Releases the ISR
- * spinlock and conditionally restores the previous interrupt state.
- */
-    static void vStreamBufferExitCriticalFromISR( UBaseType_t uxSavedInterruptStatus,
-                                                  StreamBuffer_t * const pxStreamBuffer ) PRIVILEGED_FUNCTION;
-    #endif /* #if ( portUSING_GRANULAR_LOCKS == 1 ) ) */
-
 
 /*
  * Locks a stream buffer for tasks. Prevents other tasks from accessing the stream buffer
@@ -410,105 +381,6 @@ static void prvInitialiseNewStreamBuffer( StreamBuffer_t * const pxStreamBuffer,
                                           StreamBufferCallbackFunction_t pxSendCompletedCallback,
                                           StreamBufferCallbackFunction_t pxReceiveCompletedCallback ) PRIVILEGED_FUNCTION;
 
-/*-----------------------------------------------------------*/
-    #if ( ( portUSING_GRANULAR_LOCKS == 1 ) )
-    static void vStreamBufferEnterCritical( StreamBuffer_t * const pxStreamBuffer )
-    {
-        portDISABLE_INTERRUPTS();
-        {
-            const BaseType_t xCoreID = ( BaseType_t ) portGET_CORE_ID();
-
-            /* Task spinlock is always taken first */
-            portGET_SPINLOCK( xCoreID, &( pxStreamBuffer->xTaskSpinlock ) );
-
-            /* Take the ISR spinlock next */
-            portGET_SPINLOCK( xCoreID, &( pxStreamBuffer->xISRSpinlock ) );
-
-            /* Increment the critical nesting count */
-            portINCREMENT_CRITICAL_NESTING_COUNT( xCoreID );
-        }
-    }
-    #endif /* #if ( ( portUSING_GRANULAR_LOCKS == 1 ) ) */
-/*-----------------------------------------------------------*/
-
-    #if ( ( portUSING_GRANULAR_LOCKS == 1 ) )
-    static UBaseType_t uxStreamBufferEnterCriticalFromISR( StreamBuffer_t * const pxStreamBuffer )
-    {
-        UBaseType_t uxSavedInterruptStatus = portSET_INTERRUPT_MASK_FROM_ISR();
-
-        const BaseType_t xCoreID = ( BaseType_t ) portGET_CORE_ID();
-
-        /* Take the ISR spinlock */
-        portGET_SPINLOCK( xCoreID, &( pxStreamBuffer->xISRSpinlock ) );
-
-        /* Increment the critical nesting count */
-        portINCREMENT_CRITICAL_NESTING_COUNT( xCoreID );
-
-        return uxSavedInterruptStatus;
-    }
-    #endif /* #if ( ( portUSING_GRANULAR_LOCKS == 1 ) ) */
-/*-----------------------------------------------------------*/
-
-    #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) )
-    static void vStreamBufferExitCritical( StreamBuffer_t * const pxStreamBuffer )
-    {
-        const BaseType_t xCoreID = ( BaseType_t ) portGET_CORE_ID();
-
-        configASSERT( portGET_CRITICAL_NESTING_COUNT( xCoreID ) > 0U );
-
-        /* Get the xYieldPending status inside the critical section. */
-        BaseType_t xYieldCurrentTask = xTaskUnlockCanYield();
-
-        /* Decrement the critical nesting count */
-        portDECREMENT_CRITICAL_NESTING_COUNT( xCoreID );
-
-        /* Release the ISR spinlock */
-        portRELEASE_SPINLOCK( xCoreID, &( pxStreamBuffer->xISRSpinlock ) );
-
-        /* Release the task spinlock */
-        portRELEASE_SPINLOCK( xCoreID, &( pxStreamBuffer->xTaskSpinlock ) );
-
-        if( portGET_CRITICAL_NESTING_COUNT( xCoreID ) == 0 )
-        {
-            portENABLE_INTERRUPTS();
-
-            if( xYieldCurrentTask != pdFALSE )
-            {
-                portYIELD();
-            }
-            else
-            {
-                mtCOVERAGE_TEST_MARKER();
-            }
-        }
-        else
-        {
-            mtCOVERAGE_TEST_MARKER();
-        }
-    }
-    #endif /* #if ( ( portUSING_GRANULAR_LOCKS == 1 ) ) */
-/*-----------------------------------------------------------*/
-
-    #if ( ( portUSING_GRANULAR_LOCKS == 1 ) )
-    static void vStreamBufferExitCriticalFromISR( UBaseType_t uxSavedInterruptStatus,
-                                                  StreamBuffer_t * const pxStreamBuffer )
-    {
-        const BaseType_t xCoreID = ( BaseType_t ) portGET_CORE_ID();
-
-        configASSERT( portGET_CRITICAL_NESTING_COUNT( xCoreID ) > 0U );
-
-        /* Decrement the critical nesting count */
-        portDECREMENT_CRITICAL_NESTING_COUNT( xCoreID );
-
-        /* Release the ISR spinlock */
-        portRELEASE_SPINLOCK( xCoreID, &( pxStreamBuffer->xISRSpinlock ) );
-
-        if( portGET_CRITICAL_NESTING_COUNT( xCoreID ) == 0 )
-        {
-            portCLEAR_INTERRUPT_MASK_FROM_ISR( uxSavedInterruptStatus );
-        }
-    }
-    #endif /* #if ( ( portUSING_GRANULAR_LOCKS == 1 ) ) */
 /*-----------------------------------------------------------*/
 
     #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) )
@@ -1632,7 +1504,7 @@ BaseType_t xStreamBufferSendCompletedFromISR( StreamBufferHandle_t xStreamBuffer
     /* MISRA Ref 4.7.1 [Return value shall be checked] */
     /* More details at: https://github.com/FreeRTOS/FreeRTOS-Kernel/blob/main/MISRA.md#dir-47 */
     /* coverity[misra_c_2012_directive_4_7_violation] */
-    uxSavedInterruptStatus = sbENTER_CRITICAL_FROM_ISR( pxStreamBuffer );
+    sbENTER_CRITICAL_FROM_ISR( pxStreamBuffer, &uxSavedInterruptStatus );
     {
         if( ( pxStreamBuffer )->xTaskWaitingToReceive != NULL )
         {
@@ -1671,7 +1543,7 @@ BaseType_t xStreamBufferReceiveCompletedFromISR( StreamBufferHandle_t xStreamBuf
     /* MISRA Ref 4.7.1 [Return value shall be checked] */
     /* More details at: https://github.com/FreeRTOS/FreeRTOS-Kernel/blob/main/MISRA.md#dir-47 */
     /* coverity[misra_c_2012_directive_4_7_violation] */
-    uxSavedInterruptStatus = sbENTER_CRITICAL_FROM_ISR( pxStreamBuffer );
+    sbENTER_CRITICAL_FROM_ISR( pxStreamBuffer, &uxSavedInterruptStatus );
     {
         if( ( pxStreamBuffer )->xTaskWaitingToSend != NULL )
         {

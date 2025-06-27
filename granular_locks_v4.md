@@ -93,7 +93,7 @@ Entering multiple data group critical sections in a nested manner is permitted. 
 
 If nested locking only occurs from bottom up (e.g., User data group can nested into a Queue data group which in turn can nested into Kernel data group), then deadlocking will never occur.
 
-## Data Group Locking 
+## Data Group Locking
 
 FreeRTOS does not permit walking linked lists while interrupts are disabled to ensure deterministic ISR latency. Therefore, each data group must provide a method of locking so that non-deterministic operations can be executed for a data group. While a data group is locked:
 
@@ -227,7 +227,7 @@ Macros are provided for the spinlocks for initializing them either statically or
 #define portINIT__SPINLOCK_STATIC          PORT_SPINLOCK_STATIC_INIT
 ```
 
-## Critical Section Macros 
+## Critical Section Macros
 
 The port will need to provide implementations for macros to enter/exit a data group critical section according the procedures described above. Typical implementations of each macro is demonstrated below:
 

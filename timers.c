@@ -83,8 +83,8 @@
  * Macros to mark the start and end of a critical code region.
  */
     #if ( portUSING_GRANULAR_LOCKS == 1 )
-        #define tmrENTER_CRITICAL()    vTimerEnterCritical()
-        #define tmrEXIT_CRITICAL()     vTimerExitCritical()
+        #define tmrENTER_CRITICAL()    taskDATA_GROUP_ENTER_CRITICAL( &xTaskSpinlock, &xISRSpinlock )
+        #define tmrEXIT_CRITICAL()     taskDATA_GROUP_EXIT_CRITICAL( &xTaskSpinlock, &xISRSpinlock )
     #else /* #if ( portUSING_GRANULAR_LOCKS == 1 ) */
         #define tmrENTER_CRITICAL()    taskENTER_CRITICAL()
         #define tmrEXIT_CRITICAL()     taskEXIT_CRITICAL()
@@ -165,20 +165,6 @@
         PRIVILEGED_DATA static portSPINLOCK_TYPE xISRSpinlock = portINIT_SPINLOCK_STATIC;
     #endif /* #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) ) */
 
-    #if ( portUSING_GRANULAR_LOCKS == 1 )
-
-/*
- * Enters a critical section for timers. Disables interrupts and takes
- * both task and ISR spinlocks to ensure thread safety.
- */
-        static void vTimerEnterCritical( void ) PRIVILEGED_FUNCTION;
-
-/*
- * Exits a critical section for timers. Releases spinlocks in reverse order
- * and conditionally re-enables interrupts and yields if required.
- */
-        static void vTimerExitCritical( void ) PRIVILEGED_FUNCTION;
-    #endif /* #if ( portUSING_GRANULAR_LOCKS == 1 ) */
 /*-----------------------------------------------------------*/
 
 /*
@@ -287,7 +273,7 @@
                     configSTACK_DEPTH_TYPE uxTimerTaskStackSize;
 
                     vApplicationGetTimerTaskMemory( &pxTimerTaskTCBBuffer, &pxTimerTaskStackBuffer, &uxTimerTaskStackSize );
-                    xTimerTaskHandle = xTaskCreateStaticAffinitySet( prvTimerTask,
+                    xTimerTaskHandle = xTaskCreateStaticAffinitySet( &prvTimerTask,
                                                                      configTIMER_SERVICE_TASK_NAME,
                                                                      uxTimerTaskStackSize,
                                                                      NULL,
@@ -303,7 +289,7 @@
                 }
                 #else /* if ( configSUPPORT_STATIC_ALLOCATION == 1 ) */
                 {
-                    xReturn = xTaskCreateAffinitySet( prvTimerTask,
+                    xReturn = xTaskCreateAffinitySet( &prvTimerTask,
                                                       configTIMER_SERVICE_TASK_NAME,
                                                       configTIMER_TASK_STACK_DEPTH,
                                                       NULL,
@@ -322,7 +308,7 @@
                     configSTACK_DEPTH_TYPE uxTimerTaskStackSize;
 
                     vApplicationGetTimerTaskMemory( &pxTimerTaskTCBBuffer, &pxTimerTaskStackBuffer, &uxTimerTaskStackSize );
-                    xTimerTaskHandle = xTaskCreateStatic( prvTimerTask,
+                    xTimerTaskHandle = xTaskCreateStatic( &prvTimerTask,
                                                           configTIMER_SERVICE_TASK_NAME,
                                                           uxTimerTaskStackSize,
                                                           NULL,
@@ -337,7 +323,7 @@
                 }
                 #else /* if ( configSUPPORT_STATIC_ALLOCATION == 1 ) */
                 {
-                    xReturn = xTaskCreate( prvTimerTask,
+                    xReturn = xTaskCreate( &prvTimerTask,
                                            configTIMER_SERVICE_TASK_NAME,
                                            configTIMER_TASK_STACK_DEPTH,
                                            NULL,
@@ -488,11 +474,9 @@
 
         traceENTER_xTimerGenericCommandFromTask( xTimer, xCommandID, xOptionalValue, pxHigherPriorityTaskWoken, xTicksToWait );
 
-        configASSERT( xTimer );
-
         /* Send a message to the timer service task to perform a particular action
          * on a particular timer definition. */
-        if( xTimerQueue != NULL )
+        if( ( xTimerQueue != NULL ) && ( xTimer != NULL ) )
         {
             /* Send a command to the timer service task to start the xTimer timer. */
             xMessage.xMessageID = xCommandID;
@@ -539,11 +523,9 @@
 
         traceENTER_xTimerGenericCommandFromISR( xTimer, xCommandID, xOptionalValue, pxHigherPriorityTaskWoken, xTicksToWait );
 
-        configASSERT( xTimer );
-
         /* Send a message to the timer service task to perform a particular action
          * on a particular timer definition. */
-        if( xTimerQueue != NULL )
+        if( ( xTimerQueue != NULL ) && ( xTimer != NULL ) )
         {
             /* Send a command to the timer service task to start the xTimer timer. */
             xMessage.xMessageID = xCommandID;
@@ -1004,109 +986,116 @@
                  * software timer. */
                 pxTimer = xMessage.u.xTimerParameters.pxTimer;
 
-                if( listIS_CONTAINED_WITHIN( NULL, &( pxTimer->xTimerListItem ) ) == pdFALSE )
+                if( pxTimer != NULL )
                 {
-                    /* The timer is in a list, remove it. */
-                    ( void ) uxListRemove( &( pxTimer->xTimerListItem ) );
+                    if( listIS_CONTAINED_WITHIN( NULL, &( pxTimer->xTimerListItem ) ) == pdFALSE )
+                    {
+                        /* The timer is in a list, remove it. */
+                        ( void ) uxListRemove( &( pxTimer->xTimerListItem ) );
+                    }
+                    else
+                    {
+                        mtCOVERAGE_TEST_MARKER();
+                    }
+
+                    traceTIMER_COMMAND_RECEIVED( pxTimer, xMessage.xMessageID, xMessage.u.xTimerParameters.xMessageValue );
+
+                    /* In this case the xTimerListsWereSwitched parameter is not used, but
+                     *  it must be present in the function call.  prvSampleTimeNow() must be
+                     *  called after the message is received from xTimerQueue so there is no
+                     *  possibility of a higher priority task adding a message to the message
+                     *  queue with a time that is ahead of the timer daemon task (because it
+                     *  pre-empted the timer daemon task after the xTimeNow value was set). */
+                    xTimeNow = prvSampleTimeNow( &xTimerListsWereSwitched );
+
+                    switch( xMessage.xMessageID )
+                    {
+                        case tmrCOMMAND_START:
+                        case tmrCOMMAND_START_FROM_ISR:
+                        case tmrCOMMAND_RESET:
+                        case tmrCOMMAND_RESET_FROM_ISR:
+                            /* Start or restart a timer. */
+                            pxTimer->ucStatus |= ( uint8_t ) tmrSTATUS_IS_ACTIVE;
+
+                            if( prvInsertTimerInActiveList( pxTimer, xMessage.u.xTimerParameters.xMessageValue + pxTimer->xTimerPeriodInTicks, xTimeNow, xMessage.u.xTimerParameters.xMessageValue ) != pdFALSE )
+                            {
+                                /* The timer expired before it was added to the active
+                                 * timer list.  Process it now. */
+                                if( ( pxTimer->ucStatus & tmrSTATUS_IS_AUTORELOAD ) != 0U )
+                                {
+                                    prvReloadTimer( pxTimer, xMessage.u.xTimerParameters.xMessageValue + pxTimer->xTimerPeriodInTicks, xTimeNow );
+                                }
+                                else
+                                {
+                                    pxTimer->ucStatus &= ( ( uint8_t ) ~tmrSTATUS_IS_ACTIVE );
+                                }
+
+                                /* Call the timer callback. */
+                                traceTIMER_EXPIRED( pxTimer );
+                                pxTimer->pxCallbackFunction( ( TimerHandle_t ) pxTimer );
+                            }
+                            else
+                            {
+                                mtCOVERAGE_TEST_MARKER();
+                            }
+
+                            break;
+
+                        case tmrCOMMAND_STOP:
+                        case tmrCOMMAND_STOP_FROM_ISR:
+                            /* The timer has already been removed from the active list. */
+                            pxTimer->ucStatus &= ( ( uint8_t ) ~tmrSTATUS_IS_ACTIVE );
+                            break;
+
+                        case tmrCOMMAND_CHANGE_PERIOD:
+                        case tmrCOMMAND_CHANGE_PERIOD_FROM_ISR:
+                            pxTimer->ucStatus |= ( uint8_t ) tmrSTATUS_IS_ACTIVE;
+                            pxTimer->xTimerPeriodInTicks = xMessage.u.xTimerParameters.xMessageValue;
+                            configASSERT( ( pxTimer->xTimerPeriodInTicks > 0 ) );
+
+                            /* The new period does not really have a reference, and can
+                             * be longer or shorter than the old one.  The command time is
+                             * therefore set to the current time, and as the period cannot
+                             * be zero the next expiry time can only be in the future,
+                             * meaning (unlike for the xTimerStart() case above) there is
+                             * no fail case that needs to be handled here. */
+                            ( void ) prvInsertTimerInActiveList( pxTimer, ( xTimeNow + pxTimer->xTimerPeriodInTicks ), xTimeNow, xTimeNow );
+                            break;
+
+                        case tmrCOMMAND_DELETE:
+                            #if ( configSUPPORT_DYNAMIC_ALLOCATION == 1 )
+                            {
+                                /* The timer has already been removed from the active list,
+                                 * just free up the memory if the memory was dynamically
+                                 * allocated. */
+                                if( ( pxTimer->ucStatus & tmrSTATUS_IS_STATICALLY_ALLOCATED ) == ( uint8_t ) 0 )
+                                {
+                                    vPortFree( pxTimer );
+                                }
+                                else
+                                {
+                                    pxTimer->ucStatus &= ( ( uint8_t ) ~tmrSTATUS_IS_ACTIVE );
+                                }
+                            }
+                            #else /* if ( configSUPPORT_DYNAMIC_ALLOCATION == 1 ) */
+                            {
+                                /* If dynamic allocation is not enabled, the memory
+                                 * could not have been dynamically allocated. So there is
+                                 * no need to free the memory - just mark the timer as
+                                 * "not active". */
+                                pxTimer->ucStatus &= ( ( uint8_t ) ~tmrSTATUS_IS_ACTIVE );
+                            }
+                            #endif /* configSUPPORT_DYNAMIC_ALLOCATION */
+                            break;
+
+                        default:
+                            /* Don't expect to get here. */
+                            break;
+                    }
                 }
                 else
                 {
                     mtCOVERAGE_TEST_MARKER();
-                }
-
-                traceTIMER_COMMAND_RECEIVED( pxTimer, xMessage.xMessageID, xMessage.u.xTimerParameters.xMessageValue );
-
-                /* In this case the xTimerListsWereSwitched parameter is not used, but
-                 *  it must be present in the function call.  prvSampleTimeNow() must be
-                 *  called after the message is received from xTimerQueue so there is no
-                 *  possibility of a higher priority task adding a message to the message
-                 *  queue with a time that is ahead of the timer daemon task (because it
-                 *  pre-empted the timer daemon task after the xTimeNow value was set). */
-                xTimeNow = prvSampleTimeNow( &xTimerListsWereSwitched );
-
-                switch( xMessage.xMessageID )
-                {
-                    case tmrCOMMAND_START:
-                    case tmrCOMMAND_START_FROM_ISR:
-                    case tmrCOMMAND_RESET:
-                    case tmrCOMMAND_RESET_FROM_ISR:
-                        /* Start or restart a timer. */
-                        pxTimer->ucStatus |= ( uint8_t ) tmrSTATUS_IS_ACTIVE;
-
-                        if( prvInsertTimerInActiveList( pxTimer, xMessage.u.xTimerParameters.xMessageValue + pxTimer->xTimerPeriodInTicks, xTimeNow, xMessage.u.xTimerParameters.xMessageValue ) != pdFALSE )
-                        {
-                            /* The timer expired before it was added to the active
-                             * timer list.  Process it now. */
-                            if( ( pxTimer->ucStatus & tmrSTATUS_IS_AUTORELOAD ) != 0U )
-                            {
-                                prvReloadTimer( pxTimer, xMessage.u.xTimerParameters.xMessageValue + pxTimer->xTimerPeriodInTicks, xTimeNow );
-                            }
-                            else
-                            {
-                                pxTimer->ucStatus &= ( ( uint8_t ) ~tmrSTATUS_IS_ACTIVE );
-                            }
-
-                            /* Call the timer callback. */
-                            traceTIMER_EXPIRED( pxTimer );
-                            pxTimer->pxCallbackFunction( ( TimerHandle_t ) pxTimer );
-                        }
-                        else
-                        {
-                            mtCOVERAGE_TEST_MARKER();
-                        }
-
-                        break;
-
-                    case tmrCOMMAND_STOP:
-                    case tmrCOMMAND_STOP_FROM_ISR:
-                        /* The timer has already been removed from the active list. */
-                        pxTimer->ucStatus &= ( ( uint8_t ) ~tmrSTATUS_IS_ACTIVE );
-                        break;
-
-                    case tmrCOMMAND_CHANGE_PERIOD:
-                    case tmrCOMMAND_CHANGE_PERIOD_FROM_ISR:
-                        pxTimer->ucStatus |= ( uint8_t ) tmrSTATUS_IS_ACTIVE;
-                        pxTimer->xTimerPeriodInTicks = xMessage.u.xTimerParameters.xMessageValue;
-                        configASSERT( ( pxTimer->xTimerPeriodInTicks > 0 ) );
-
-                        /* The new period does not really have a reference, and can
-                         * be longer or shorter than the old one.  The command time is
-                         * therefore set to the current time, and as the period cannot
-                         * be zero the next expiry time can only be in the future,
-                         * meaning (unlike for the xTimerStart() case above) there is
-                         * no fail case that needs to be handled here. */
-                        ( void ) prvInsertTimerInActiveList( pxTimer, ( xTimeNow + pxTimer->xTimerPeriodInTicks ), xTimeNow, xTimeNow );
-                        break;
-
-                    case tmrCOMMAND_DELETE:
-                        #if ( configSUPPORT_DYNAMIC_ALLOCATION == 1 )
-                        {
-                            /* The timer has already been removed from the active list,
-                             * just free up the memory if the memory was dynamically
-                             * allocated. */
-                            if( ( pxTimer->ucStatus & tmrSTATUS_IS_STATICALLY_ALLOCATED ) == ( uint8_t ) 0 )
-                            {
-                                vPortFree( pxTimer );
-                            }
-                            else
-                            {
-                                pxTimer->ucStatus &= ( ( uint8_t ) ~tmrSTATUS_IS_ACTIVE );
-                            }
-                        }
-                        #else /* if ( configSUPPORT_DYNAMIC_ALLOCATION == 1 ) */
-                        {
-                            /* If dynamic allocation is not enabled, the memory
-                             * could not have been dynamically allocated. So there is
-                             * no need to free the memory - just mark the timer as
-                             * "not active". */
-                            pxTimer->ucStatus &= ( ( uint8_t ) ~tmrSTATUS_IS_ACTIVE );
-                        }
-                        #endif /* configSUPPORT_DYNAMIC_ALLOCATION */
-                        break;
-
-                    default:
-                        /* Don't expect to get here. */
-                        break;
                 }
             }
         }
@@ -1362,67 +1351,6 @@
         xTimerQueue = NULL;
         xTimerTaskHandle = NULL;
     }
-/*-----------------------------------------------------------*/
-
-    #if ( portUSING_GRANULAR_LOCKS == 1 )
-        static void vTimerEnterCritical( void )
-        {
-            portDISABLE_INTERRUPTS();
-            {
-                const BaseType_t xCoreID = ( BaseType_t ) portGET_CORE_ID();
-
-                /* Task spinlock is always taken first */
-                portGET_SPINLOCK( xCoreID, &xTaskSpinlock );
-
-                /* Take the ISR spinlock next */
-                portGET_SPINLOCK( xCoreID, &xISRSpinlock );
-
-                /* Increment the critical nesting count */
-                portINCREMENT_CRITICAL_NESTING_COUNT( xCoreID );
-            }
-        }
-    #endif /* #if ( portUSING_GRANULAR_LOCKS == 1 ) */
-
-/*-----------------------------------------------------------*/
-
-    #if ( portUSING_GRANULAR_LOCKS == 1 )
-        static void vTimerExitCritical( void )
-        {
-            const BaseType_t xCoreID = ( BaseType_t ) portGET_CORE_ID();
-
-            configASSERT( portGET_CRITICAL_NESTING_COUNT( xCoreID ) > 0U );
-
-            /* Get the xYieldPending status inside the critical section. */
-            BaseType_t xYieldCurrentTask = xTaskUnlockCanYield();
-
-            /* Decrement the critical nesting count */
-            portDECREMENT_CRITICAL_NESTING_COUNT( xCoreID );
-
-            /* Release the ISR spinlock */
-            portRELEASE_SPINLOCK( xCoreID, &xISRSpinlock );
-
-            /* Release the task spinlock */
-            portRELEASE_SPINLOCK( xCoreID, &xTaskSpinlock );
-
-            if( portGET_CRITICAL_NESTING_COUNT( xCoreID ) == 0 )
-            {
-                portENABLE_INTERRUPTS();
-
-                if( xYieldCurrentTask != pdFALSE )
-                {
-                    portYIELD();
-                }
-                else
-                {
-                    mtCOVERAGE_TEST_MARKER();
-                }
-            }
-            else
-            {
-                mtCOVERAGE_TEST_MARKER();
-            }
-        }
-    #endif /* #if ( portUSING_GRANULAR_LOCKS == 1 ) */
 /*-----------------------------------------------------------*/
 
 /* This entire source file will be skipped if the application is not configured
