@@ -12,6 +12,15 @@ static hwtimer_t xKernelTimer;
 
 uint32_t ulPortYieldRequired[ portMAX_CORE_COUNT ] = { pdFALSE };
 
+#if ( portCRITICAL_NESTING_IN_TCB == 0 )
+    UBaseType_t uxCriticalNestings[ configNUMBER_OF_CORES ] = { 0 };
+#endif
+
+#if ( portUSING_GRANULAR_LOCKS == 1 )
+    portSPINLOCK_TYPE xPortIsrSpinlock = portINIT_SPINLOCK_STATIC;
+    portSPINLOCK_TYPE xPortTaskSpinlock = portINIT_SPINLOCK_STATIC;
+#endif
+
 /* When this port was designed, it was assumed that pxCurrentTCBs would always
    exist and that it would always be an array containing pointers to the current
    TCBs for each core. In v11, this is not the case; if we are only running one

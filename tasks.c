@@ -973,9 +973,6 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
             BaseType_t xYieldCount = 0;
         #endif /* #if ( configRUN_MULTIPLE_PRIORITIES == 0 ) */
 
-        /* This must be called from a critical section. */
-        configASSERT( portGET_CRITICAL_NESTING_COUNT( xCurrentCoreID ) > 0U );
-
         #if ( configRUN_MULTIPLE_PRIORITIES == 0 )
 
             /* No task should yield for this one if it is a lower priority
@@ -3190,6 +3187,103 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
 #endif /* #if ( ( configNUMBER_OF_CORES > 1 ) && ( configUSE_CORE_AFFINITY == 1 ) ) */
 
 /*-----------------------------------------------------------*/
+static void prvLightCheckForRunStateChange( void )
+{
+    const TCB_t * pxThisTCB;
+    BaseType_t xCoreID = ( BaseType_t ) portGET_CORE_ID();
+
+    /* This must only be called from within a task. */
+    portASSERT_IF_IN_ISR();
+
+    /* This function is always called with interrupts disabled
+     * so this is safe. */
+    pxThisTCB = pxCurrentTCBs[ xCoreID ];
+
+    while( pxThisTCB->xTaskRunState == taskTASK_SCHEDULED_TO_YIELD )
+    {
+        UBaseType_t uxPrevCriticalNesting;
+
+        /* We are only here if we just entered a critical section
+        * or if we just suspended the scheduler, and another task
+        * has requested that we yield.
+        *
+        * This is slightly complicated since we need to save and restore
+        * the suspension and critical nesting counts, as well as release
+        * and reacquire the correct locks. And then, do it all over again
+        * if our state changed again during the reacquisition. */
+        uxPrevCriticalNesting = portGET_CRITICAL_NESTING_COUNT( xCoreID );
+
+        if( uxPrevCriticalNesting > 0U )
+        {
+            portSET_CRITICAL_NESTING_COUNT( xCoreID, 0U );
+            kernelRELEASE_ISR_LOCK( xCoreID );
+        }
+        else
+        {
+            /* The scheduler is suspended. uxSchedulerSuspended is updated
+             * only when the task is not requested to yield. */
+            mtCOVERAGE_TEST_MARKER();
+        }
+
+        portMEMORY_BARRIER();
+
+        portENABLE_INTERRUPTS();
+
+        /* Enabling interrupts should cause this core to immediately service
+         * the pending interrupt and yield. After servicing the pending interrupt,
+         * the task needs to re-evaluate its run state within this loop, as
+         * other cores may have requested this task to yield, potentially altering
+         * its run state. */
+
+        portDISABLE_INTERRUPTS();
+
+        xCoreID = ( BaseType_t ) portGET_CORE_ID();
+        kernelGET_ISR_LOCK( xCoreID );
+
+        portSET_CRITICAL_NESTING_COUNT( xCoreID, uxPrevCriticalNesting );
+
+        if( uxPrevCriticalNesting == 0U )
+        {
+            kernelRELEASE_ISR_LOCK( xCoreID );
+        }
+    }
+}
+
+void vKernelLightEnterCritical( void )
+{
+    portDISABLE_INTERRUPTS();
+    {
+        const BaseType_t xCoreID = ( BaseType_t ) portGET_CORE_ID();
+
+        kernelGET_ISR_LOCK( xCoreID );
+
+        portINCREMENT_CRITICAL_NESTING_COUNT( xCoreID );
+
+        if( portGET_CRITICAL_NESTING_COUNT( xCoreID ) == 1U )
+        {
+            prvLightCheckForRunStateChange();
+        }
+    }
+}
+
+void vKernelLightExitCritical( void )
+{
+    const BaseType_t xCoreID = ( BaseType_t ) portGET_CORE_ID();
+
+    if( portGET_CRITICAL_NESTING_COUNT( xCoreID ) > 0U )
+    {
+        /* Release the ISR and task locks */
+        kernelRELEASE_ISR_LOCK( xCoreID );
+
+        portDECREMENT_CRITICAL_NESTING_COUNT( xCoreID );
+
+        /* If the critical nesting count is 0, enable interrupts */
+        if( portGET_CRITICAL_NESTING_COUNT( xCoreID ) == 0U )
+        {
+            portENABLE_INTERRUPTS();
+        }
+    }
+}
 
 #if ( configUSE_TASK_PREEMPTION_DISABLE == 1 )
 
@@ -3198,8 +3292,7 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
         TCB_t * pxTCB;
 
         traceENTER_vTaskPreemptionDisable( xTask );
-
-        kernelENTER_CRITICAL();
+        vKernelLightEnterCritical();
         {
             if( xSchedulerRunning != pdFALSE )
             {
@@ -3213,8 +3306,7 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
                 mtCOVERAGE_TEST_MARKER();
             }
         }
-        kernelEXIT_CRITICAL();
-
+        vKernelLightExitCritical();
         traceRETURN_vTaskPreemptionDisable();
     }
 
@@ -3228,9 +3320,9 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
         TCB_t * pxTCB;
 
         traceENTER_vTaskPreemptionEnable( xTask );
-
-        kernelENTER_CRITICAL();
+        vKernelLightEnterCritical();
         {
+
             if( xSchedulerRunning != pdFALSE )
             {
                 pxTCB = prvGetTCBFromHandle( xTask );
@@ -3238,7 +3330,6 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
                 configASSERT( pxTCB->uxPreemptionDisable > 0U );
 
                 pxTCB->uxPreemptionDisable--;
-
                 if( pxTCB->uxPreemptionDisable == 0U )
                 {
                     /* Process deferred state changes which were inflicted while
@@ -3260,17 +3351,6 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
 
                         pxTCB->uxDeferredStateChange = 0U;
                     }
-                    else
-                    {
-                        if( ( taskTASK_IS_RUNNING( pxTCB ) == pdTRUE ) )
-                        {
-                            prvYieldCore( pxTCB->xTaskRunState );
-                        }
-                        else
-                        {
-                            mtCOVERAGE_TEST_MARKER();
-                        }
-                    }
                 }
                 else
                 {
@@ -3282,7 +3362,7 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
                 mtCOVERAGE_TEST_MARKER();
             }
         }
-        kernelEXIT_CRITICAL();
+        vKernelLightExitCritical();
 
         traceRETURN_vTaskPreemptionEnable();
     }
