@@ -3187,6 +3187,9 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
 #endif /* #if ( ( configNUMBER_OF_CORES > 1 ) && ( configUSE_CORE_AFFINITY == 1 ) ) */
 
 /*-----------------------------------------------------------*/
+
+#define configLIGHTWEIGHT_CRITICAL_SECTION      ( 1 )
+
 static void prvLightCheckForRunStateChange( void )
 {
     const TCB_t * pxThisTCB;
@@ -3277,10 +3280,20 @@ void vKernelLightExitCritical( void )
 
         portDECREMENT_CRITICAL_NESTING_COUNT( xCoreID );
 
+        BaseType_t xYieldCurrentTask;
+
+        /* Get the xYieldPending stats inside the critical section. */
+        xYieldCurrentTask = xYieldPendings[ xCoreID ];
+
         /* If the critical nesting count is 0, enable interrupts */
         if( portGET_CRITICAL_NESTING_COUNT( xCoreID ) == 0U )
         {
             portENABLE_INTERRUPTS();
+
+            if( xYieldCurrentTask != pdFALSE )
+            {
+                portYIELD();
+            }
         }
     }
 }
@@ -3292,7 +3305,11 @@ void vKernelLightExitCritical( void )
         TCB_t * pxTCB;
 
         traceENTER_vTaskPreemptionDisable( xTask );
-        vKernelLightEnterCritical();
+        #if ( configLIGHTWEIGHT_CRITICAL_SECTION == 1 )
+            vKernelLightEnterCritical();
+        #else
+            kernelENTER_CRITICAL();
+        #endif
         {
             if( xSchedulerRunning != pdFALSE )
             {
@@ -3306,7 +3323,11 @@ void vKernelLightExitCritical( void )
                 mtCOVERAGE_TEST_MARKER();
             }
         }
-        vKernelLightExitCritical();
+        #if ( configLIGHTWEIGHT_CRITICAL_SECTION == 1 )
+            vKernelLightExitCritical();
+        #else
+            kernelEXIT_CRITICAL();
+        #endif
         traceRETURN_vTaskPreemptionDisable();
     }
 
@@ -3320,7 +3341,11 @@ void vKernelLightExitCritical( void )
         TCB_t * pxTCB;
 
         traceENTER_vTaskPreemptionEnable( xTask );
-        vKernelLightEnterCritical();
+        #if ( configLIGHTWEIGHT_CRITICAL_SECTION == 1 )
+            vKernelLightEnterCritical();
+        #else
+            kernelENTER_CRITICAL();
+        #endif
         {
 
             if( xSchedulerRunning != pdFALSE )
@@ -3351,6 +3376,19 @@ void vKernelLightExitCritical( void )
 
                         pxTCB->uxDeferredStateChange = 0U;
                     }
+                    #if 0
+                    else
+                    {
+                        if( ( taskTASK_IS_RUNNING( pxTCB ) == pdTRUE ) )
+                        {
+                            prvYieldCore( pxTCB->xTaskRunState );
+                        }
+                        else
+                        {
+                            mtCOVERAGE_TEST_MARKER();
+                        }
+                    }
+                    #endif
                 }
                 else
                 {
@@ -3362,7 +3400,11 @@ void vKernelLightExitCritical( void )
                 mtCOVERAGE_TEST_MARKER();
             }
         }
-        vKernelLightExitCritical();
+        #if ( configLIGHTWEIGHT_CRITICAL_SECTION == 1 )
+            vKernelLightExitCritical();
+        #else
+            kernelEXIT_CRITICAL();
+        #endif
 
         traceRETURN_vTaskPreemptionEnable();
     }
