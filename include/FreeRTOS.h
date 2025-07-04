@@ -3241,6 +3241,9 @@ typedef struct xSTATIC_TCB
     #if ( configUSE_TASK_PREEMPTION_DISABLE == 1 )
         BaseType_t xDummy26;
     #endif
+    #if ( portUSING_GRANULAR_LOCKS == 1 )
+        portSPINLOCK_TYPE xDummy27;
+    #endif
     #if ( ( portSTACK_GROWTH > 0 ) || ( configRECORD_STACK_HIGH_ADDRESS == 1 ) )
         void * pxDummy8;
     #endif

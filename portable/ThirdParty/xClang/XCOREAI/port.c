@@ -30,6 +30,9 @@ uint32_t ulPortYieldRequired[ portMAX_CORE_COUNT ] = { pdFALSE };
    or singlecore RTOS. */
 void ** xcorePvtTCBContainer;
 
+typedef struct tskTaskControlBlock TCB_t;
+extern TCB_t * volatile pxCurrentTCBs[ configNUMBER_OF_CORES ];
+
 /*-----------------------------------------------------------*/
 
 void vIntercoreInterruptISR( void )
@@ -98,6 +101,8 @@ void vPortYieldOtherCore( int xOtherCoreID )
 /*	debug_printf("%d->%d\n", xCoreID, xOtherCoreID); */
 
 /*	debug_printf("Yield core %d from %d\n", xOtherCoreID, xCoreID ); */
+
+    configASSERT( ( ( StaticTask_t ** )( pxCurrentTCBs ) )[ xOtherCoreID ]->xDummy25 == 0 );
 
     rtos_irq( xOtherCoreID, xCoreID );
 }

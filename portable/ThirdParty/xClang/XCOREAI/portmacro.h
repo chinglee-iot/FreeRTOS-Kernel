@@ -79,7 +79,7 @@
 /*-----------------------------------------------------------*/
 
 /* Scheduler utilities. */
-        #define portYIELD()    asm volatile ( "KCALLI_lu6 0" ::: "memory" )
+        #define portYIELD()    do{ configASSERT( ( ( StaticTask_t ** )( pxCurrentTCBs ) )[ portGET_CORE_ID() ]->xDummy25 == 0 ); asm volatile ( "KCALLI_lu6 0" ::: "memory" ); } while( 0 )
 
         #define portEND_SWITCHING_ISR( xSwitchRequired )               \
     do                                                                 \

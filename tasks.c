@@ -351,15 +351,26 @@
  * must be valid. This macro is not required in single core since there is only
  * one core to yield. */
     #if ( configUSE_TASK_PREEMPTION_DISABLE == 1 )
+/* The task preemption disable count must be checked in with preemption lock. This
+ * is to prevent the following use case scenario:
+ * 1. Task A checks the preemption flag of Task B and request Task B to yield.
+ * 2. Task B already disable interrupt and setting the preemption disable flag right
+ *    after Task A request Task B to yield.
+ * 3. Task B leaves the task preemption critical section and serving the context
+ *    switch immediatly. This could result in a task with preemption disabled to yield
+ *    for other task and corrupt the scheduler state. */
         #define prvYieldCore( xCoreID )                                                          \
     do {                                                                                         \
-        if( ( xCoreID ) == ( BaseType_t ) portGET_CORE_ID() )                                    \
+        BaseType_t xCurrentCoreID;                                                               \
+        xCurrentCoreID = portGET_CORE_ID();                                                      \
+        if( ( xCoreID ) == xCurrentCoreID )                                                      \
         {                                                                                        \
             /* Pending a yield for this core since it is in the critical section. */             \
             xYieldPendings[ ( xCoreID ) ] = pdTRUE;                                              \
         }                                                                                        \
         else                                                                                     \
         {                                                                                        \
+            portGET_SPINLOCK( xCurrentCoreID, &( pxCurrentTCBs[ ( xCoreID ) ]->xPreemptionLock ) );              \
             if( pxCurrentTCBs[ ( xCoreID ) ]->uxPreemptionDisable == 0U )                        \
             {                                                                                    \
                 /* Request other core to yield if it is not requested before. */                 \
@@ -368,11 +379,13 @@
                     portYIELD_CORE( xCoreID );                                                   \
                     pxCurrentTCBs[ ( xCoreID ) ]->xTaskRunState = taskTASK_SCHEDULED_TO_YIELD;   \
                 }                                                                                \
+                configASSERT( pxCurrentTCBs[ ( xCoreID ) ]->uxPreemptionDisable == 0U );         \
             }                                                                                    \
             else                                                                                 \
             {                                                                                    \
                 xYieldPendings[ ( xCoreID ) ] = pdTRUE;                                          \
             }                                                                                    \
+            portRELEASE_SPINLOCK( xCurrentCoreID, &( pxCurrentTCBs[ ( xCoreID ) ]->xPreemptionLock ) );          \
         }                                                                                        \
     } while( 0 )
     #else /* if ( configUSE_TASK_PREEMPTION_DISABLE == 1 ) */
@@ -462,6 +475,10 @@ typedef struct tskTaskControlBlock       /* The old naming convention is used to
 
     #if ( configUSE_TASK_PREEMPTION_DISABLE == 1 )
         UBaseType_t uxDeferredStateChange; /**< Used to indicate if the task's state change is deferred. */
+    #endif
+
+    #if ( portUSING_GRANULAR_LOCKS == 1 )
+        portSPINLOCK_TYPE xPreemptionLock;
     #endif
 
     #if ( ( portSTACK_GROWTH > 0 ) || ( configRECORD_STACK_HIGH_ADDRESS == 1 ) )
@@ -1012,12 +1029,35 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
                             #endif
                             {
                                 #if ( configUSE_TASK_PREEMPTION_DISABLE == 1 )
-                                    if( pxCurrentTCBs[ xCoreID ]->uxPreemptionDisable == 0U )
-                                #endif
+                                {
+                                    /* Acquire the preemption lock to prevent the task changes
+                                     * it's preemption state. */
+                                    portGET_SPINLOCK( xCurrentCoreID, &( pxCurrentTCBs[ xCoreID ]->xPreemptionLock ) );
+                                    if( pxCurrentTCBs[ xCoreID ]->uxPreemptionDisable != 0U )
+                                    {
+                                        /* The core is running a task with lower priority but with
+                                         * preemption disabled. This task should yield for
+                                         * other task when preemptinos is enabled. */
+                                        xYieldPendings[ xCoreID ] = pdTRUE;
+                                        portRELEASE_SPINLOCK( xCurrentCoreID, &( pxCurrentTCBs[ xCoreID ]->xPreemptionLock ) );
+                                    }
+                                    else
+                                    {
+                                        if( xLowestPriorityCore != -1 )
+                                        {
+                                            /* Release previous preemption lock. */
+                                            portRELEASE_SPINLOCK( xCurrentCoreID, &( pxCurrentTCBs[ xLowestPriorityCore ]->xPreemptionLock ) );
+                                        }
+                                        xLowestPriorityToPreempt = xCurrentCoreTaskPriority;
+                                        xLowestPriorityCore = xCoreID;
+                                    }
+                                }
+                                #else
                                 {
                                     xLowestPriorityToPreempt = xCurrentCoreTaskPriority;
                                     xLowestPriorityCore = xCoreID;
                                 }
+                                #endif
                             }
                         }
                         else
@@ -1056,6 +1096,12 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
             #endif /* #if ( configRUN_MULTIPLE_PRIORITIES == 0 ) */
             {
                 prvYieldCore( xLowestPriorityCore );
+                /* After request the core to yield, preemption lock can be released.
+                 * The task tries to set the preemption disable count will check it's
+                 * run state first. If it is already requested to yield, it will serve
+                 * the yield request first then retring to set the preemption disable
+                 * count. */
+                portRELEASE_SPINLOCK( xCurrentCoreID, &( pxCurrentTCBs[ xLowestPriorityCore ]->xPreemptionLock ) );
             }
 
             #if ( configRUN_MULTIPLE_PRIORITIES == 0 )
@@ -1318,12 +1364,27 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
                                 ( xYieldPendings[ uxCore ] == pdFALSE ) )
                             {
                                 #if ( configUSE_TASK_PREEMPTION_DISABLE == 1 )
+                                    portGET_SPINLOCK( xCoreID, &( pxCurrentTCBs[ uxCore ]->xPreemptionLock ) );
                                     if( pxCurrentTCBs[ uxCore ]->uxPreemptionDisable == 0U )
-                                #endif
+                                    {
+                                        xYieldPendings[ uxCore ] = pdTRUE;
+                                        portRELEASE_SPINLOCK( xCoreID, &( pxCurrentTCBs[ uxCore ]->xPreemptionLock ) );
+                                    }
+                                    else
+                                    {
+                                        if( xLowestPriorityCore != -1 )
+                                        {
+                                            portRELEASE_SPINLOCK( xCoreID, &( pxCurrentTCBs[ xLowestPriorityCore ]->xPreemptionLock ) );
+                                        }
+                                        xLowestPriority = xTaskPriority;
+                                        xLowestPriorityCore = ( BaseType_t ) uxCore;
+                                    }
+                                #else
                                 {
                                     xLowestPriority = xTaskPriority;
                                     xLowestPriorityCore = ( BaseType_t ) uxCore;
                                 }
+                                #endif
                             }
                         }
                     }
@@ -1331,6 +1392,7 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
                     if( xLowestPriorityCore >= 0 )
                     {
                         prvYieldCore( xLowestPriorityCore );
+                        portRELEASE_SPINLOCK( xCoreID, &( pxCurrentTCBs[ xLowestPriorityCore ]->xPreemptionLock ) );
                     }
                 }
             }
@@ -2029,6 +2091,10 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
     }
     #endif
 
+    #if ( portUSING_GRANULAR_LOCK == 1 )
+        portINIT_SPINLOCK( &pxNewTCB->xPreemptionLock );
+    #endif
+
     /* Initialize the TCB stack to look as if the task was already running,
      * but had been interrupted by the scheduler.  The return address is set
      * to the start of the task function. Once the stack has been initialised
@@ -2286,6 +2352,7 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
         TCB_t * pxTCB;
         BaseType_t xDeleteTCBInIdleTask = pdFALSE;
         BaseType_t xTaskIsRunningOrYielding;
+        BaseType_t xCoreID;
 
         #if ( configUSE_TASK_PREEMPTION_DISABLE == 1 )
             BaseType_t xDeferredDeletion = pdFALSE;
@@ -2295,6 +2362,7 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
 
         kernelENTER_CRITICAL();
         {
+            xCoreID = portGET_CORE_ID();
             /* If null is passed in here then it is the calling task that is
              * being deleted. */
             pxTCB = prvGetTCBFromHandle( xTaskToDelete );
@@ -2304,10 +2372,12 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
 
                 /* If the task has disabled preemption, we need to defer the deletion until the
                  * task enables preemption. The deletion will be performed in vTaskPreemptionEnable(). */
+                portGET_SPINLOCK( xCoreID, &pxTCB->xPreemptionLock );
                 if( pxTCB->uxPreemptionDisable > 0U )
                 {
                     pxTCB->uxDeferredStateChange |= tskDEFERRED_DELETION;
                     xDeferredDeletion = pdTRUE;
+                    portRELEASE_SPINLOCK( xCoreID, &pxTCB->xPreemptionLock );
                 }
                 else
                 {
@@ -2419,6 +2489,7 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
                      * the task that has just been deleted. */
                     prvResetNextTaskUnblockTime();
                 }
+                portRELEASE_SPINLOCK( xCoreID, &pxTCB->xPreemptionLock );
             }
         }
         kernelEXIT_CRITICAL();
@@ -2979,12 +3050,11 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
                     /* Setting the priority of a running task down means
                      * there may now be another task of higher priority that
                      * is ready to execute. */
-                    #if ( configUSE_TASK_PREEMPTION_DISABLE == 1 )
-                        if( pxTCB->uxPreemptionDisable == 0U )
-                    #endif
-                    {
-                        xYieldRequired = pdTRUE;
-                    }
+                    /* Yield is still required when setting priority of a task
+                     * with preemption disabled. The yield request will just
+                     * setting a xYieldPendings flag and serve when preemtion is
+                     * enabled. */
+                    xYieldRequired = pdTRUE;
                 }
                 else
                 {
@@ -3188,9 +3258,9 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
 
 /*-----------------------------------------------------------*/
 
-#define configLIGHTWEIGHT_CRITICAL_SECTION      ( 1 )
+#define configUSE_TASK_PREEMPTION_CRITICAL_SECTION      ( 1 )
 
-static void prvLightCheckForRunStateChange( void )
+static void prvTaskPreemptionCheckForRunStateChange( void )
 {
     const TCB_t * pxThisTCB;
     BaseType_t xCoreID = ( BaseType_t ) portGET_CORE_ID();
@@ -3219,7 +3289,7 @@ static void prvLightCheckForRunStateChange( void )
         if( uxPrevCriticalNesting > 0U )
         {
             portSET_CRITICAL_NESTING_COUNT( xCoreID, 0U );
-            kernelRELEASE_ISR_LOCK( xCoreID );
+            portRELEASE_SPINLOCK( xCoreID, &pxCurrentTCBs[ xCoreID ]->xPreemptionLock );
         }
         else
         {
@@ -3241,49 +3311,46 @@ static void prvLightCheckForRunStateChange( void )
         portDISABLE_INTERRUPTS();
 
         xCoreID = ( BaseType_t ) portGET_CORE_ID();
-        kernelGET_ISR_LOCK( xCoreID );
+        portGET_SPINLOCK( xCoreID, &pxCurrentTCBs[ xCoreID ]->xPreemptionLock );
 
         portSET_CRITICAL_NESTING_COUNT( xCoreID, uxPrevCriticalNesting );
-
-        if( uxPrevCriticalNesting == 0U )
-        {
-            kernelRELEASE_ISR_LOCK( xCoreID );
-        }
     }
 }
 
-void vKernelLightEnterCritical( void )
+void vTaskPreemptionEnterCritical( void )
 {
     portDISABLE_INTERRUPTS();
     {
         const BaseType_t xCoreID = ( BaseType_t ) portGET_CORE_ID();
 
-        kernelGET_ISR_LOCK( xCoreID );
+        portGET_SPINLOCK( xCoreID, &pxCurrentTCBs[ xCoreID ]->xPreemptionLock );
 
         portINCREMENT_CRITICAL_NESTING_COUNT( xCoreID );
 
         if( portGET_CRITICAL_NESTING_COUNT( xCoreID ) == 1U )
         {
-            prvLightCheckForRunStateChange();
+            prvTaskPreemptionCheckForRunStateChange();
         }
     }
 }
 
-void vKernelLightExitCritical( void )
+void vTaskPreemptionExitCritical( void )
 {
     const BaseType_t xCoreID = ( BaseType_t ) portGET_CORE_ID();
 
     if( portGET_CRITICAL_NESTING_COUNT( xCoreID ) > 0U )
     {
-        /* Release the ISR and task locks */
-        kernelRELEASE_ISR_LOCK( xCoreID );
-
-        portDECREMENT_CRITICAL_NESTING_COUNT( xCoreID );
-
-        BaseType_t xYieldCurrentTask;
+        BaseType_t xYieldCurrentTask = pdFALSE;
 
         /* Get the xYieldPending stats inside the critical section. */
-        xYieldCurrentTask = xYieldPendings[ xCoreID ];
+        if( pxCurrentTCBs[ xCoreID ]->uxPreemptionDisable == 0U )
+        {
+            xYieldCurrentTask = xYieldPendings[ xCoreID ];
+        }
+
+        portRELEASE_SPINLOCK( xCoreID, &pxCurrentTCBs[ xCoreID ]->xPreemptionLock );
+
+        portDECREMENT_CRITICAL_NESTING_COUNT( xCoreID );
 
         /* If the critical nesting count is 0, enable interrupts */
         if( portGET_CRITICAL_NESTING_COUNT( xCoreID ) == 0U )
@@ -3305,8 +3372,8 @@ void vKernelLightExitCritical( void )
         TCB_t * pxTCB;
 
         traceENTER_vTaskPreemptionDisable( xTask );
-        #if ( configLIGHTWEIGHT_CRITICAL_SECTION == 1 )
-            vKernelLightEnterCritical();
+        #if ( configUSE_TASK_PREEMPTION_CRITICAL_SECTION == 1 )
+            vTaskPreemptionEnterCritical();
         #else
             kernelENTER_CRITICAL();
         #endif
@@ -3317,14 +3384,15 @@ void vKernelLightExitCritical( void )
                 configASSERT( pxTCB != NULL );
 
                 pxTCB->uxPreemptionDisable++;
+                configASSERT( pxTCB->xTaskRunState != taskTASK_SCHEDULED_TO_YIELD );
             }
             else
             {
                 mtCOVERAGE_TEST_MARKER();
             }
         }
-        #if ( configLIGHTWEIGHT_CRITICAL_SECTION == 1 )
-            vKernelLightExitCritical();
+        #if ( configUSE_TASK_PREEMPTION_CRITICAL_SECTION == 1 )
+            vTaskPreemptionExitCritical();
         #else
             kernelEXIT_CRITICAL();
         #endif
@@ -3341,8 +3409,8 @@ void vKernelLightExitCritical( void )
         TCB_t * pxTCB;
 
         traceENTER_vTaskPreemptionEnable( xTask );
-        #if ( configLIGHTWEIGHT_CRITICAL_SECTION == 1 )
-            vKernelLightEnterCritical();
+        #if ( configUSE_TASK_PREEMPTION_CRITICAL_SECTION == 1 )
+            vTaskPreemptionEnterCritical();
         #else
             kernelENTER_CRITICAL();
         #endif
@@ -3353,6 +3421,7 @@ void vKernelLightExitCritical( void )
                 pxTCB = prvGetTCBFromHandle( xTask );
                 configASSERT( pxTCB != NULL );
                 configASSERT( pxTCB->uxPreemptionDisable > 0U );
+                configASSERT( pxTCB->xTaskRunState != taskTASK_SCHEDULED_TO_YIELD );
 
                 pxTCB->uxPreemptionDisable--;
                 if( pxTCB->uxPreemptionDisable == 0U )
@@ -3363,11 +3432,33 @@ void vKernelLightExitCritical( void )
                     {
                         if( pxTCB->uxDeferredStateChange & tskDEFERRED_DELETION )
                         {
+                            #if ( configUSE_TASK_PREEMPTION_CRITICAL_SECTION == 1 )
+                            vTaskPreemptionExitCritical();
+
+                            /* Task deletion requires kernel data group. Leaving the
+                             * preemption critical section first to keep critical
+                             * section hierarchy. */
                             vTaskDelete( xTask );
+
+                            vTaskPreemptionEnterCritical();
+                            #else
+                                vTaskDelete( xTask );
+                            #endif
                         }
                         else if( pxTCB->uxDeferredStateChange & tskDEFERRED_SUSPENSION )
                         {
+                            #if ( configUSE_TASK_PREEMPTION_CRITICAL_SECTION == 1 )
+                            vTaskPreemptionExitCritical();
+
+                            /* Task suspension requires kernel data group. Leaving the
+                             * preemption critical section first to keep critical
+                             * section hierarchy. */
                             vTaskSuspend( xTask );
+
+                            vTaskPreemptionEnterCritical();
+                            #else
+                                vTaskSuspend( xTask );
+                            #endif
                         }
                         else
                         {
@@ -3377,6 +3468,17 @@ void vKernelLightExitCritical( void )
                         pxTCB->uxDeferredStateChange = 0U;
                     }
                     #if 0
+                    /* When a higher priority task is able to run, the scheduler
+                     * will select a core running a lower priority task to yield for
+                     * the higher priority task. It is possible that the lower priority
+                     * task is running in a data group critical section. Therefore, it
+                     * can't yield for the higher priority task. The scheduler must
+                     * select another medium priority task to yield. After the lower
+                     * priority task leave data group critical section, it should
+                     * yield for the medium priority task.
+                     * Instead of yield the task everytime enable preemption here,
+                     * the logic is moved to prvYieldCore.
+                     */
                     else
                     {
                         if( ( taskTASK_IS_RUNNING( pxTCB ) == pdTRUE ) )
@@ -3400,8 +3502,8 @@ void vKernelLightExitCritical( void )
                 mtCOVERAGE_TEST_MARKER();
             }
         }
-        #if ( configLIGHTWEIGHT_CRITICAL_SECTION == 1 )
-            vKernelLightExitCritical();
+        #if ( configUSE_TASK_PREEMPTION_CRITICAL_SECTION == 1 )
+            vTaskPreemptionExitCritical();
         #else
             kernelEXIT_CRITICAL();
         #endif
@@ -3417,6 +3519,7 @@ void vKernelLightExitCritical( void )
     void vTaskSuspend( TaskHandle_t xTaskToSuspend )
     {
         TCB_t * pxTCB;
+        BaseType_t xCoreID;
 
         #if ( configUSE_TASK_PREEMPTION_DISABLE == 1 )
             BaseType_t xDeferredSuspension = pdFALSE;
@@ -3426,6 +3529,7 @@ void vKernelLightExitCritical( void )
 
         kernelENTER_CRITICAL();
         {
+            xCoreID = portGET_CORE_ID();
             /* If null is passed in here then it is the running task that is
              * being suspended. */
             pxTCB = prvGetTCBFromHandle( xTaskToSuspend );
@@ -3435,10 +3539,12 @@ void vKernelLightExitCritical( void )
 
                 /* If the task has disabled preemption, we need to defer the suspension until the
                  * task enables preemption. The suspension will be performed in vTaskPreemptionEnable(). */
+                portGET_SPINLOCK( xCoreID, &pxTCB->xPreemptionLock );
                 if( pxTCB->uxPreemptionDisable > 0U )
                 {
                     pxTCB->uxDeferredStateChange |= tskDEFERRED_SUSPENSION;
                     xDeferredSuspension = pdTRUE;
+                    portRELEASE_SPINLOCK( xCoreID, &pxTCB->xPreemptionLock );
                 }
                 else
                 {
@@ -3528,6 +3634,7 @@ void vKernelLightExitCritical( void )
                     {
                         mtCOVERAGE_TEST_MARKER();
                     }
+                    portRELEASE_SPINLOCK( xCoreID, &pxTCB->xPreemptionLock );
                 }
                 #endif /* #if ( configNUMBER_OF_CORES > 1 ) */
             }
@@ -4454,11 +4561,11 @@ BaseType_t xTaskResumeAll( void )
                         }
                     }
 
-                    if( xYieldPendings[ xCoreID ] != pdFALSE
-                        #if ( configUSE_TASK_PREEMPTION_DISABLE == 1 )
-                            && ( pxCurrentTCBs[ xCoreID ]->uxPreemptionDisable == 0U )
-                        #endif
-                        )
+                    /* Task preemption state is not checked here. When xYieldPending
+                     * flag is set, the yield request will be processed once preemption
+                     * is enabled. The caller does not need to perform a yield based on
+                     * the return value. */
+                    if( xYieldPendings[ xCoreID ] != pdFALSE )
                     {
                         #if ( configUSE_PREEMPTION != 0 )
                         {
@@ -5202,32 +5309,14 @@ BaseType_t xTaskIncrementTick( void )
         {
             #if ( configNUMBER_OF_CORES == 1 )
             {
-                #if ( configUSE_TASK_PREEMPTION_DISABLE == 1 )
-                    if( pxCurrentTCB->uxPreemptionDisable != 0U )
-                    {
-                        mtCOVERAGE_TEST_MARKER();
-                    }
-                    else
-                    {
-                        if( listCURRENT_LIST_LENGTH( &( pxReadyTasksLists[ pxCurrentTCB->uxPriority ] ) ) > 1U )
-                        {
-                            xSwitchRequired = pdTRUE;
-                        }
-                        else
-                        {
-                            mtCOVERAGE_TEST_MARKER();
-                        }
-                    }
-                #else /* #if ( configUSE_TASK_PREEMPTION_DISABLE == 1 ) */
-                    if( listCURRENT_LIST_LENGTH( &( pxReadyTasksLists[ pxCurrentTCB->uxPriority ] ) ) > 1U )
-                    {
-                        xSwitchRequired = pdTRUE;
-                    }
-                    else
-                    {
-                        mtCOVERAGE_TEST_MARKER();
-                    }
-                #endif /* #if ( configUSE_TASK_PREEMPTION_DISABLE == 1 ) */
+                if( listCURRENT_LIST_LENGTH( &( pxReadyTasksLists[ pxCurrentTCB->uxPriority ] ) ) > 1U )
+                {
+                    xSwitchRequired = pdTRUE;
+                }
+                else
+                {
+                    mtCOVERAGE_TEST_MARKER();
+                }
             }
             #else /* #if ( configNUMBER_OF_CORES == 1 ) */
             {
@@ -5285,25 +5374,33 @@ BaseType_t xTaskIncrementTick( void )
 
                 for( xCoreID = 0; xCoreID < ( BaseType_t ) configNUMBER_OF_CORES; xCoreID++ )
                 {
-                    #if ( configUSE_TASK_PREEMPTION_DISABLE == 1 )
-                        if( pxCurrentTCBs[ xCoreID ]->uxPreemptionDisable == 0U )
-                    #endif
+                    if( xYieldPendings[ xCoreID ] != pdFALSE )
                     {
-                        if( xYieldPendings[ xCoreID ] != pdFALSE )
+                        if( xCoreID == xCurrentCoreID )
                         {
-                            if( xCoreID == xCurrentCoreID )
+                            #if ( configUSE_TASK_PREEMPTION_DISABLE == 1 )
+                                /* Preemtion lock is not required for getting the
+                                 * preemption disable flag on current core. Cause this flag
+                                 * must be set in a critical section where interrupt
+                                 * is disabled. */
+                                if( pxCurrentTCBs[ xCoreID ]->uxPreemptionDisable != 0U )
+                                {
+                                    xYieldPendings[ xCoreID ] = pdTRUE;
+                                }
+                                else
+                            #endif
                             {
                                 xSwitchRequired = pdTRUE;
-                            }
-                            else
-                            {
-                                prvYieldCore( xCoreID );
                             }
                         }
                         else
                         {
-                            mtCOVERAGE_TEST_MARKER();
+                            prvYieldCore( xCoreID );
                         }
+                    }
+                    else
+                    {
+                        mtCOVERAGE_TEST_MARKER();
                     }
                 }
             }
