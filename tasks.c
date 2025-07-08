@@ -2091,7 +2091,7 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
     }
     #endif
 
-    #if ( portUSING_GRANULAR_LOCK == 1 )
+    #if ( portUSING_GRANULAR_LOCKS == 1 )
         portINIT_SPINLOCK( &pxNewTCB->xPreemptionLock );
     #endif
 
@@ -3319,17 +3319,20 @@ static void prvTaskPreemptionCheckForRunStateChange( void )
 
 void vTaskPreemptionEnterCritical( void )
 {
-    portDISABLE_INTERRUPTS();
+    if( xSchedulerRunning != pdFALSE )
     {
-        const BaseType_t xCoreID = ( BaseType_t ) portGET_CORE_ID();
-
-        portGET_SPINLOCK( xCoreID, &pxCurrentTCBs[ xCoreID ]->xPreemptionLock );
-
-        portINCREMENT_CRITICAL_NESTING_COUNT( xCoreID );
-
-        if( portGET_CRITICAL_NESTING_COUNT( xCoreID ) == 1U )
+        portDISABLE_INTERRUPTS();
         {
-            prvTaskPreemptionCheckForRunStateChange();
+            const BaseType_t xCoreID = ( BaseType_t ) portGET_CORE_ID();
+
+            portGET_SPINLOCK( xCoreID, &pxCurrentTCBs[ xCoreID ]->xPreemptionLock );
+
+            portINCREMENT_CRITICAL_NESTING_COUNT( xCoreID );
+
+            if( portGET_CRITICAL_NESTING_COUNT( xCoreID ) == 1U )
+            {
+                prvTaskPreemptionCheckForRunStateChange();
+            }
         }
     }
 }
@@ -3338,28 +3341,31 @@ void vTaskPreemptionExitCritical( void )
 {
     const BaseType_t xCoreID = ( BaseType_t ) portGET_CORE_ID();
 
-    if( portGET_CRITICAL_NESTING_COUNT( xCoreID ) > 0U )
+    if( xSchedulerRunning != pdFALSE )
     {
-        BaseType_t xYieldCurrentTask = pdFALSE;
-
-        /* Get the xYieldPending stats inside the critical section. */
-        if( pxCurrentTCBs[ xCoreID ]->uxPreemptionDisable == 0U )
+        if( portGET_CRITICAL_NESTING_COUNT( xCoreID ) > 0U )
         {
-            xYieldCurrentTask = xYieldPendings[ xCoreID ];
-        }
+            BaseType_t xYieldCurrentTask = pdFALSE;
 
-        portRELEASE_SPINLOCK( xCoreID, &pxCurrentTCBs[ xCoreID ]->xPreemptionLock );
-
-        portDECREMENT_CRITICAL_NESTING_COUNT( xCoreID );
-
-        /* If the critical nesting count is 0, enable interrupts */
-        if( portGET_CRITICAL_NESTING_COUNT( xCoreID ) == 0U )
-        {
-            portENABLE_INTERRUPTS();
-
-            if( xYieldCurrentTask != pdFALSE )
+            /* Get the xYieldPending stats inside the critical section. */
+            if( pxCurrentTCBs[ xCoreID ]->uxPreemptionDisable == 0U )
             {
-                portYIELD();
+                xYieldCurrentTask = xYieldPendings[ xCoreID ];
+            }
+
+            portRELEASE_SPINLOCK( xCoreID, &pxCurrentTCBs[ xCoreID ]->xPreemptionLock );
+
+            portDECREMENT_CRITICAL_NESTING_COUNT( xCoreID );
+
+            /* If the critical nesting count is 0, enable interrupts */
+            if( portGET_CRITICAL_NESTING_COUNT( xCoreID ) == 0U )
+            {
+                portENABLE_INTERRUPTS();
+
+                if( xYieldCurrentTask != pdFALSE )
+                {
+                    portYIELD();
+                }
             }
         }
     }
