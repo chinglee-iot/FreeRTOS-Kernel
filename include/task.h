@@ -321,8 +321,9 @@ typedef enum
 #if ( portUSING_GRANULAR_LOCKS == 1 )
     #define taskDATA_GROUP_ENTER_CRITICAL_FROM_ISR( pxISRSpinlock, puxSavedInterruptStatus ) \
     do {                                                                                     \
+        BaseType_t xCoreID;                                                                  \
         *( puxSavedInterruptStatus ) = portSET_INTERRUPT_MASK_FROM_ISR();                    \
-        const BaseType_t xCoreID = ( BaseType_t ) portGET_CORE_ID();                         \
+        xCoreID = portGET_CORE_ID();                                                         \
         /* Take the ISR spinlock */                                                          \
         portGET_SPINLOCK( xCoreID, ( portSPINLOCK_TYPE * ) pxISRSpinlock );                  \
         /* Increment the critical nesting count */                                           \
