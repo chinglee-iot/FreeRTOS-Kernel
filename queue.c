@@ -331,8 +331,8 @@ static void prvInitialiseNewQueue( const UBaseType_t uxQueueLength,
     #define queueLOCK( pxQueue )                                            \
     do {                                                                    \
         vTaskPreemptionDisable( NULL );                                     \
-        prvLockQueue( ( pxQueue ) );                                        \
         portGET_SPINLOCK( portGET_CORE_ID(), &( pxQueue->xTaskSpinlock ) ); \
+        prvLockQueue( ( pxQueue ) );                                        \
     } while( 0 )
     #define queueUNLOCK( pxQueue, xYieldAPI )                                   \
     do {                                                                        \

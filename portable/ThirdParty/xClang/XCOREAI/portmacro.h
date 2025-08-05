@@ -156,17 +156,6 @@
         #define portGET_TASK_LOCK( xCoreID )              do{ ( void )( xCoreID ); rtos_lock_acquire( 1 ); } while( 0 )
         #define portRELEASE_TASK_LOCK( xCoreID )          do{ ( void )( xCoreID ); rtos_lock_release( 1 ); } while( 0 )
 
-
-        void vTaskEnterCritical( void );
-        void vTaskExitCritical( void );
-        #define portENTER_CRITICAL()    vTaskEnterCritical()
-        #define portEXIT_CRITICAL()     vTaskExitCritical()
-
-        extern UBaseType_t vTaskEnterCriticalFromISR( void );
-        extern void vTaskExitCriticalFromISR( UBaseType_t uxSavedInterruptStatus );
-        #define portENTER_CRITICAL_FROM_ISR    vTaskEnterCriticalFromISR
-        #define portEXIT_CRITICAL_FROM_ISR     vTaskExitCriticalFromISR
-
 /*-----------------------------------------------------------*/
 
 /* Runtime stats support */
@@ -265,6 +254,29 @@
                     } \
             } \
         } while( 0 )
+
+        #if ( portUSING_GRANULAR_LOCKS == 0 )
+            void vTaskEnterCritical( void );
+            void vTaskExitCritical( void );
+            #define portENTER_CRITICAL()    vTaskEnterCritical()
+            #define portEXIT_CRITICAL()     vTaskExitCritical()
+
+            extern UBaseType_t vTaskEnterCriticalFromISR( void );
+            extern void vTaskExitCriticalFromISR( UBaseType_t uxSavedInterruptStatus );
+            #define portENTER_CRITICAL_FROM_ISR    vTaskEnterCriticalFromISR
+            #define portEXIT_CRITICAL_FROM_ISR     vTaskExitCriticalFromISR
+        #else
+            extern portSPINLOCK_TYPE xPortIsrSpinlock;
+            extern portSPINLOCK_TYPE xPortTaskSpinlock;
+
+            #define portENTER_CRITICAL() taskDATA_GROUP_ENTER_CRITICAL( &xPortTaskSpinlock, &xPortIsrSpinlock )
+            #define portEXIT_CRITICAL() taskDATA_GROUP_EXIT_CRITICAL( &xPortTaskSpinlock, &xPortIsrSpinlock )
+
+            extern UBaseType_t vPortEnterCriticalFromISR( void );
+
+            #define portENTER_CRITICAL_FROM_ISR vPortEnterCriticalFromISR
+            #define portEXIT_CRITICAL_FROM_ISR( x )  taskDATA_GROUP_EXIT_CRITICAL_FROM_ISR( x, &xPortIsrSpinlock )
+        #endif
 
         #ifdef __cplusplus
 }

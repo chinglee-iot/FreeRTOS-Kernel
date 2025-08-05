@@ -3275,15 +3275,18 @@ void vKernelLightExitCritical( void )
 
     if( portGET_CRITICAL_NESTING_COUNT( xCoreID ) > 0U )
     {
+        BaseType_t xYieldCurrentTask = pdFALSE;
+
+        /* Get the xYieldPending stats inside the critical section. */
+        if( pxCurrentTCBs[ xCoreID ]->uxPreemptionDisable == 0U )
+        {
+            xYieldCurrentTask = xYieldPendings[ xCoreID ];
+        }
+
         /* Release the ISR and task locks */
         kernelRELEASE_ISR_LOCK( xCoreID );
 
         portDECREMENT_CRITICAL_NESTING_COUNT( xCoreID );
-
-        BaseType_t xYieldCurrentTask;
-
-        /* Get the xYieldPending stats inside the critical section. */
-        xYieldCurrentTask = xYieldPendings[ xCoreID ];
 
         /* If the critical nesting count is 0, enable interrupts */
         if( portGET_CRITICAL_NESTING_COUNT( xCoreID ) == 0U )
