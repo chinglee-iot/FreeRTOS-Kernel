@@ -12,6 +12,15 @@ static hwtimer_t xKernelTimer;
 
 uint32_t ulPortYieldRequired[ portMAX_CORE_COUNT ] = { pdFALSE };
 
+#if ( portCRITICAL_NESTING_IN_TCB == 0 )
+    UBaseType_t uxCriticalNestings[ configNUMBER_OF_CORES ] = { 0 };
+#endif
+
+#if ( portUSING_GRANULAR_LOCKS == 1 )
+    portSPINLOCK_TYPE xPortIsrSpinlock = portINIT_SPINLOCK_STATIC;
+    portSPINLOCK_TYPE xPortTaskSpinlock = portINIT_SPINLOCK_STATIC;
+#endif
+
 /* When this port was designed, it was assumed that pxCurrentTCBs would always
    exist and that it would always be an array containing pointers to the current
    TCBs for each core. In v11, this is not the case; if we are only running one
@@ -65,14 +74,18 @@ DEFINE_RTOS_INTERRUPT_CALLBACK( pxKernelTimerISR, pvData )
         rtos_time_increment( RTOS_TICK_PERIOD( configTICK_RATE_HZ ) );
     #endif
 
-    uxSavedInterruptStatus = taskENTER_CRITICAL_FROM_ISR();
+    #if ( portUSING_GRANULAR_LOCKS == 0 )
+        uxSavedInterruptStatus = taskENTER_CRITICAL_FROM_ISR();
+    #endif
 
     if( xTaskIncrementTick() != pdFALSE )
     {
         ulPortYieldRequired[ xCoreID ] = pdTRUE;
     }
 
-    taskEXIT_CRITICAL_FROM_ISR( uxSavedInterruptStatus );
+    #if ( portUSING_GRANULAR_LOCKS == 0 )
+        taskEXIT_CRITICAL_FROM_ISR( uxSavedInterruptStatus );
+    #endif
 }
 /*-----------------------------------------------------------*/
 
@@ -290,4 +303,14 @@ void vPortEndScheduler( void )
 {
     /* Do not implement. */
 }
+/*-----------------------------------------------------------*/
+
+#if ( portUSING_GRANULAR_LOCKS == 1 )
+    UBaseType_t vPortEnterCriticalFromISR( void )
+    {
+        UBaseType_t uxSavedInterruptMask;
+        taskDATA_GROUP_ENTER_CRITICAL_FROM_ISR( &xPortIsrSpinlock, &uxSavedInterruptMask );
+        return uxSavedInterruptMask;
+    }
+#endif
 /*-----------------------------------------------------------*/
