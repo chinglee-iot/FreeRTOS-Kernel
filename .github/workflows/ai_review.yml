@@ -1,0 +1,57 @@
+name: "AI Review"
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    branches: [main]
+
+env:
+  AGENT_RESRC_PATH: ".frtos_agent"
+  CPPCHECK_RESULT_FILE: "cppcheck-misra"
+  PR_BASE: origin/${{ github.base_ref }}
+  PR_HEAD: HEAD
+  GITHUB_PERSONAL_ACCESS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  AWS_REGION: ${{ secrets.AWS_REGION }}
+  FREERTOS_WEBSITE_KNOWLEDGE_BASE_ID: ${{ secrets.FREERTOS_WEBSITE_KNOWLEDGE_BASE_ID }}
+
+jobs:
+  ai_review:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+      pull-requests: write
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Dependencies
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y cppcheck npm
+          python3 -m pip install uv
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ secrets.AWS_REGION }}
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/${{ secrets.AWS_ROLE_TO_ASSUME }}
+
+      - name: Setup Agent Resources
+        run: |
+          mkdir -p ${{ env.AGENT_RESRC_PATH }}
+          aws s3 sync s3://${{ secrets.AGENT_RESOURCE_S3_PATH }} ${{ env.AGENT_RESRC_PATH }}
+
+      - name: Run MISRA Analysis
+        run: |
+          python3 ${{ env.AGENT_RESRC_PATH }}/script/convert_misra_rules.py --cppcheck_supress_file cppcheck_misra.config
+          bash ${{ env.AGENT_RESRC_PATH }}/script/cppcheck_misra.sh --commit-base ${{ env.PR_BASE }} --commit-target ${{ env.PR_HEAD }} --suppression-file cppcheck_misra.config --output ${{ env.CPPCHECK_RESULT_FILE }}-full.xml
+          python3 ${{ env.AGENT_RESRC_PATH }}/script/filter_cppcheck_result.py --git-diff ${{ env.PR_BASE }}...${{ env.PR_HEAD }} --input ${{ env.CPPCHECK_RESULT_FILE }}-full.xml --output ${{ env.CPPCHECK_RESULT_FILE }}-filter.csv
+
+      - name: Execute AI Review
+        run: |
+          uvx --from ${{ env.AGENT_RESRC_PATH }}/agent-0.1.0-py3-none-any.whl agent \
+            --config-dir ${{ env.AGENT_RESRC_PATH }}/agent_config \
+            --query "Review this GitHub PR and submit comments, if any, at ${{ github.event.pull_request.url }}. The scan result of MISRA C 2012 from CppCheck is available in the file ${{ env.CPPCHECK_RESULT_FILE }}-filter.csv."
