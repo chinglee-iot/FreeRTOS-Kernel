@@ -140,6 +140,8 @@ static void prvThreadKeyDestructor( void * pvData )
 static void prvInitThreadKey( void )
 {
     pthread_key_create( &xThreadKey, prvThreadKeyDestructor );
+    /* Destroy xThreadKey when the process exits. */
+    atexit( prvDestroyThreadKey );
 }
 /*-----------------------------------------------------------*/
 
@@ -193,7 +195,7 @@ void prvFatalError( const char * pcCall,
 }
 /*-----------------------------------------------------------*/
 
-static void prvPortSetCurrentThreadName( char * pxThreadName )
+static void prvPortSetCurrentThreadName( const char * pxThreadName )
 {
     #ifdef __APPLE__
         pthread_setname_np( pxThreadName );
@@ -314,8 +316,6 @@ BaseType_t xPortStartScheduler( void )
 
     /* Restore original signal mask. */
     ( void ) pthread_sigmask( SIG_SETMASK, &xSchedulerOriginalSignalMask, NULL );
-
-    prvDestroyThreadKey();
 
     return 0;
 }

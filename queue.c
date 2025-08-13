@@ -331,8 +331,8 @@ static void prvInitialiseNewQueue( const UBaseType_t uxQueueLength,
     #define queueLOCK( pxQueue )                                            \
     do {                                                                    \
         vTaskPreemptionDisable( NULL );                                     \
-        portGET_SPINLOCK( portGET_CORE_ID(), &( pxQueue->xTaskSpinlock ) ); \
         prvLockQueue( ( pxQueue ) );                                        \
+        portGET_SPINLOCK( portGET_CORE_ID(), &( pxQueue->xTaskSpinlock ) ); \
     } while( 0 )
     #define queueUNLOCK( pxQueue, xYieldAPI )                                   \
     do {                                                                        \
@@ -1238,9 +1238,8 @@ BaseType_t xQueueGenericSendFromISR( QueueHandle_t xQueue,
 
     traceENTER_xQueueGenericSendFromISR( xQueue, pvItemToQueue, pxHigherPriorityTaskWoken, xCopyPosition );
 
-    configASSERT( pxQueue );
-    configASSERT( !( ( pvItemToQueue == NULL ) && ( pxQueue->uxItemSize != ( UBaseType_t ) 0U ) ) );
-    configASSERT( !( ( xCopyPosition == queueOVERWRITE ) && ( pxQueue->uxLength != 1 ) ) );
+    configASSERT( ( pxQueue != NULL ) && !( ( pvItemToQueue == NULL ) && ( pxQueue->uxItemSize != ( UBaseType_t ) 0U ) ) );
+    configASSERT( ( pxQueue != NULL ) && !( ( xCopyPosition == queueOVERWRITE ) && ( pxQueue->uxLength != 1 ) ) );
 
     /* RTOS ports that support interrupt nesting have the concept of a maximum
      * system call (or maximum API call) interrupt priority.  Interrupts that are
@@ -1414,16 +1413,14 @@ BaseType_t xQueueGiveFromISR( QueueHandle_t xQueue,
      * not (i.e. has a task with a higher priority than us been woken by this
      * post). */
 
-    configASSERT( pxQueue );
-
     /* xQueueGenericSendFromISR() should be used instead of xQueueGiveFromISR()
      * if the item size is not 0. */
-    configASSERT( pxQueue->uxItemSize == 0 );
+    configASSERT( ( pxQueue != NULL ) && ( pxQueue->uxItemSize == 0 ) );
 
     /* Normally a mutex would not be given from an interrupt, especially if
      * there is a mutex holder, as priority inheritance makes no sense for an
-     * interrupts, only tasks. */
-    configASSERT( !( ( pxQueue->uxQueueType == queueQUEUE_IS_MUTEX ) && ( pxQueue->u.xSemaphore.xMutexHolder != NULL ) ) );
+     * interrupt, only tasks. */
+    configASSERT( ( pxQueue != NULL ) && !( ( pxQueue->uxQueueType == queueQUEUE_IS_MUTEX ) && ( pxQueue->u.xSemaphore.xMutexHolder != NULL ) ) );
 
     /* RTOS ports that support interrupt nesting have the concept of a maximum
      * system call (or maximum API call) interrupt priority.  Interrupts that are
@@ -1930,12 +1927,9 @@ BaseType_t xQueuePeek( QueueHandle_t xQueue,
 
     traceENTER_xQueuePeek( xQueue, pvBuffer, xTicksToWait );
 
-    /* Check the pointer is not NULL. */
-    configASSERT( ( pxQueue ) );
-
     /* The buffer into which data is received can only be NULL if the data size
      * is zero (so no data is copied into the buffer. */
-    configASSERT( !( ( ( pvBuffer ) == NULL ) && ( ( pxQueue )->uxItemSize != ( UBaseType_t ) 0U ) ) );
+    configASSERT( ( pxQueue != NULL ) && !( ( ( pvBuffer ) == NULL ) && ( ( pxQueue )->uxItemSize != ( UBaseType_t ) 0U ) ) );
 
     /* Cannot block if the scheduler is suspended. */
     #if ( ( INCLUDE_xTaskGetSchedulerState == 1 ) || ( configUSE_TIMERS == 1 ) )
@@ -2175,9 +2169,8 @@ BaseType_t xQueuePeekFromISR( QueueHandle_t xQueue,
 
     traceENTER_xQueuePeekFromISR( xQueue, pvBuffer );
 
-    configASSERT( pxQueue );
-    configASSERT( !( ( pvBuffer == NULL ) && ( pxQueue->uxItemSize != ( UBaseType_t ) 0U ) ) );
-    configASSERT( pxQueue->uxItemSize != 0 ); /* Can't peek a semaphore. */
+    configASSERT( ( pxQueue != NULL ) && !( ( pvBuffer == NULL ) && ( pxQueue->uxItemSize != ( UBaseType_t ) 0U ) ) );
+    configASSERT( ( pxQueue != NULL ) && ( pxQueue->uxItemSize != 0 ) ); /* Can't peek a semaphore. */
 
     /* RTOS ports that support interrupt nesting have the concept of a maximum
      * system call (or maximum API call) interrupt priority.  Interrupts that are
