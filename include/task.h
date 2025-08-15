@@ -321,9 +321,8 @@ typedef enum
 #if ( portUSING_GRANULAR_LOCKS == 1 )
     #define taskDATA_GROUP_ENTER_CRITICAL_FROM_ISR( pxISRSpinlock, puxSavedInterruptStatus ) \
     do {                                                                                     \
-        BaseType_t xCoreID;                                                                  \
         *( puxSavedInterruptStatus ) = portSET_INTERRUPT_MASK_FROM_ISR();                    \
-        xCoreID = portGET_CORE_ID();                                                         \
+        const BaseType_t xCoreID = ( BaseType_t ) portGET_CORE_ID();                         \
         /* Take the ISR spinlock */                                                          \
         portGET_SPINLOCK( xCoreID, ( portSPINLOCK_TYPE * ) pxISRSpinlock );                  \
         /* Increment the critical nesting count */                                           \
@@ -3858,6 +3857,22 @@ void vTaskInternalSetTimeOutState( TimeOut_t * const pxTimeOut ) PRIVILEGED_FUNC
  */
 #if ( configNUMBER_OF_CORES > 1 )
     void vTaskExitCriticalFromISR( UBaseType_t uxSavedInterruptStatus );
+#endif
+
+/*
+ * This function is only intended for use when disabling or enabling preemption of a task.
+ * This function takes only the kernel ISR lock, not the task lock.
+ */
+#if ( configLIGHTWEIGHT_CRITICAL_SECTION == 1 )
+    void vKernelLightWeightEnterCritical( void );
+#endif
+
+/*
+ * This function is only intended for use when disabling or enabling preemption of a task.
+ * This function releases only the kernel ISR lock, not the task lock.
+ */
+#if ( configLIGHTWEIGHT_CRITICAL_SECTION == 1 )
+    void vKernelLightWeightExitCritical( void );
 #endif
 
 /*

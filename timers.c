@@ -83,8 +83,8 @@
  * Macros to mark the start and end of a critical code region.
  */
     #if ( portUSING_GRANULAR_LOCKS == 1 )
-        #define tmrENTER_CRITICAL()    taskDATA_GROUP_ENTER_CRITICAL( &xTimerTaskSpinlock, &xTimerISRSpinlock )
-        #define tmrEXIT_CRITICAL()     taskDATA_GROUP_EXIT_CRITICAL( &xTimerTaskSpinlock, &xTimerISRSpinlock )
+        #define tmrENTER_CRITICAL()    taskDATA_GROUP_ENTER_CRITICAL( &xTaskSpinlock, &xISRSpinlock )
+        #define tmrEXIT_CRITICAL()     taskDATA_GROUP_EXIT_CRITICAL( &xTaskSpinlock, &xISRSpinlock )
     #else /* #if ( portUSING_GRANULAR_LOCKS == 1 ) */
         #define tmrENTER_CRITICAL()    taskENTER_CRITICAL()
         #define tmrEXIT_CRITICAL()     taskEXIT_CRITICAL()
@@ -161,13 +161,8 @@
     PRIVILEGED_DATA static TaskHandle_t xTimerTaskHandle = NULL;
 
     #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) )
-        #ifdef portREMOVE_STATIC_QUALIFIER
-            PRIVILEGED_DATA portSPINLOCK_TYPE xTimerTaskSpinlock = portINIT_SPINLOCK_STATIC;
-            PRIVILEGED_DATA portSPINLOCK_TYPE xTimerISRSpinlock = portINIT_SPINLOCK_STATIC;
-        #else
-            PRIVILEGED_DATA static portSPINLOCK_TYPE xTimerTaskSpinlock = portINIT_SPINLOCK_STATIC;
-            PRIVILEGED_DATA static portSPINLOCK_TYPE xTimerISRSpinlock = portINIT_SPINLOCK_STATIC;
-        #endif
+        PRIVILEGED_DATA static portSPINLOCK_TYPE xTaskSpinlock = portINIT_SPINLOCK_STATIC;
+        PRIVILEGED_DATA static portSPINLOCK_TYPE xISRSpinlock = portINIT_SPINLOCK_STATIC;
     #endif /* #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) ) */
 
 /*-----------------------------------------------------------*/
