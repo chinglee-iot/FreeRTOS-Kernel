@@ -3739,6 +3739,10 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
         TCB_t * const pxTCB = xTaskToResume;
         UBaseType_t uxSavedInterruptStatus;
 
+        #if ( configUSE_TASK_PREEMPTION_DISABLE == 1 )
+            BaseType_t xTaskResumed = pdFALSE;
+        #endif /* #if ( configUSE_TASK_PREEMPTION_DISABLE == 1 ) */
+
         traceENTER_xTaskResumeFromISR( xTaskToResume );
 
         configASSERT( xTaskToResume );
@@ -3766,58 +3770,79 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
         /* coverity[misra_c_2012_directive_4_7_violation] */
         uxSavedInterruptStatus = kernelENTER_CRITICAL_FROM_ISR();
         {
-            if( prvTaskIsTaskSuspended( pxTCB ) != pdFALSE )
+            #if ( configUSE_TASK_PREEMPTION_DISABLE == 1 )
             {
-                traceTASK_RESUME_FROM_ISR( pxTCB );
-
-                /* Check the ready lists can be accessed. */
-                if( uxSchedulerSuspended == ( UBaseType_t ) 0U )
+                /* If the task being resumed is in a deferred suspension state,
+                 * we simply clear the deferred suspension state and return. */
+                if( pxTCB->uxDeferredStateChange & tskDEFERRED_SUSPENSION )
                 {
-                    #if ( configNUMBER_OF_CORES == 1 )
-                    {
-                        /* Ready lists can be accessed so move the task from the
-                         * suspended list to the ready list directly. */
-                        if( pxTCB->uxPriority > pxCurrentTCB->uxPriority )
-                        {
-                            xYieldRequired = pdTRUE;
-
-                            /* Mark that a yield is pending in case the user is not
-                             * using the return value to initiate a context switch
-                             * from the ISR using the port specific portYIELD_FROM_ISR(). */
-                            xYieldPendings[ 0 ] = pdTRUE;
-                        }
-                        else
-                        {
-                            mtCOVERAGE_TEST_MARKER();
-                        }
-                    }
-                    #endif /* #if ( configNUMBER_OF_CORES == 1 ) */
-
-                    ( void ) uxListRemove( &( pxTCB->xStateListItem ) );
-                    prvAddTaskToReadyList( pxTCB );
+                    pxTCB->uxDeferredStateChange &= ~tskDEFERRED_SUSPENSION;
+                    xTaskResumed = pdTRUE;
                 }
                 else
                 {
-                    /* The delayed or ready lists cannot be accessed so the task
-                     * is held in the pending ready list until the scheduler is
-                     * unsuspended. */
-                    vListInsertEnd( &( xPendingReadyList ), &( pxTCB->xEventListItem ) );
+                    mtCOVERAGE_TEST_MARKER();
                 }
-
-                #if ( ( configNUMBER_OF_CORES > 1 ) && ( configUSE_PREEMPTION == 1 ) )
-                {
-                    prvYieldForTask( pxTCB );
-
-                    if( xYieldPendings[ portGET_CORE_ID() ] != pdFALSE )
-                    {
-                        xYieldRequired = pdTRUE;
-                    }
-                }
-                #endif /* #if ( ( configNUMBER_OF_CORES > 1 ) && ( configUSE_PREEMPTION == 1 ) ) */
             }
-            else
+            #endif /* configUSE_TASK_PREEMPTION_DISABLE */
+
+            #if ( configUSE_TASK_PREEMPTION_DISABLE == 1 )
+                if( xTaskResumed == pdFALSE )
+            #endif /* configUSE_TASK_PREEMPTION_DISABLE */
             {
-                mtCOVERAGE_TEST_MARKER();
+                if( prvTaskIsTaskSuspended( pxTCB ) != pdFALSE )
+                {
+                    traceTASK_RESUME_FROM_ISR( pxTCB );
+
+                    /* Check the ready lists can be accessed. */
+                    if( uxSchedulerSuspended == ( UBaseType_t ) 0U )
+                    {
+                        #if ( configNUMBER_OF_CORES == 1 )
+                        {
+                            /* Ready lists can be accessed so move the task from the
+                             * suspended list to the ready list directly. */
+                            if( pxTCB->uxPriority > pxCurrentTCB->uxPriority )
+                            {
+                                xYieldRequired = pdTRUE;
+
+                                /* Mark that a yield is pending in case the user is not
+                                 * using the return value to initiate a context switch
+                                 * from the ISR using the port specific portYIELD_FROM_ISR(). */
+                                xYieldPendings[ 0 ] = pdTRUE;
+                            }
+                            else
+                            {
+                                mtCOVERAGE_TEST_MARKER();
+                            }
+                        }
+                        #endif /* #if ( configNUMBER_OF_CORES == 1 ) */
+
+                        ( void ) uxListRemove( &( pxTCB->xStateListItem ) );
+                        prvAddTaskToReadyList( pxTCB );
+                    }
+                    else
+                    {
+                        /* The delayed or ready lists cannot be accessed so the task
+                         * is held in the pending ready list until the scheduler is
+                         * unsuspended. */
+                        vListInsertEnd( &( xPendingReadyList ), &( pxTCB->xEventListItem ) );
+                    }
+
+                    #if ( ( configNUMBER_OF_CORES > 1 ) && ( configUSE_PREEMPTION == 1 ) )
+                    {
+                        prvYieldForTask( pxTCB );
+
+                        if( xYieldPendings[ portGET_CORE_ID() ] != pdFALSE )
+                        {
+                            xYieldRequired = pdTRUE;
+                        }
+                    }
+                    #endif /* #if ( ( configNUMBER_OF_CORES > 1 ) && ( configUSE_PREEMPTION == 1 ) ) */
+                }
+                else
+                {
+                    mtCOVERAGE_TEST_MARKER();
+                }
             }
         }
         kernelEXIT_CRITICAL_FROM_ISR( uxSavedInterruptStatus );
@@ -5042,7 +5067,7 @@ BaseType_t xTaskIncrementTick( void )
     traceENTER_xTaskIncrementTick();
 
     #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) )
-        UBaseType_t uxSavedInterruptStatus = kernelENTER_CRITICAL_FROM_ISR();
+        uxSavedInterruptStatus = kernelENTER_CRITICAL_FROM_ISR();
     #endif /* #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) ) */
 
     /* Called by the portable layer each time a tick interrupt occurs.
@@ -5788,7 +5813,6 @@ BaseType_t xTaskRemoveFromEventList( const List_t * const pxEventList )
          * called from a critical section within an ISR. */
     #else /* #if ( ! ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) ) ) */
         /* Lock the kernel data group as we are about to access its members */
-        UBaseType_t uxSavedInterruptStatus;
 
         if( portCHECK_IF_IN_ISR() == pdTRUE )
         {
