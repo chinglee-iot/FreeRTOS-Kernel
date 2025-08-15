@@ -5796,40 +5796,12 @@ void vTaskPlaceOnUnorderedEventList( List_t * pxEventList,
 #endif /* configUSE_TIMERS */
 /*-----------------------------------------------------------*/
 
-BaseType_t xTaskRemoveFromEventList( const List_t * const pxEventList )
+static BaseType_t prvTaskRemoveFromEventList( const List_t * const pxEventList )
 {
     TCB_t * pxUnblockedTCB;
     BaseType_t xReturn;
 
-    #if ( ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) ) )
-        UBaseType_t uxSavedInterruptStatus;
-    #endif
-
     traceENTER_xTaskRemoveFromEventList( pxEventList );
-
-    #if ( !( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) ) )
-
-        /* THIS FUNCTION MUST BE CALLED FROM A CRITICAL SECTION.  It can also be
-         * called from a critical section within an ISR. */
-    #else /* #if ( ! ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) ) ) */
-        /* Lock the kernel data group as we are about to access its members */
-
-        if( portCHECK_IF_IN_ISR() == pdTRUE )
-        {
-            uxSavedInterruptStatus = kernelENTER_CRITICAL_FROM_ISR();
-        }
-        else
-        {
-            uxSavedInterruptStatus = 0;
-            kernelENTER_CRITICAL();
-        }
-
-        /* Before taking the kernel lock, another task/ISR could have already
-         * emptied the pxEventList. So we insert a check here to see if
-         * pxEventList is empty before attempting to remove an item from it. */
-        if( listLIST_IS_EMPTY( pxEventList ) == pdFALSE )
-        {
-    #endif /* #if ( ! ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) ) ) */
 
     /* The event list is sorted in priority order, so the first in the list can
      * be removed as it is known to be the highest priority.  Remove the TCB from
@@ -5909,29 +5881,65 @@ BaseType_t xTaskRemoveFromEventList( const List_t * const pxEventList )
     }
     #endif /* #if ( configNUMBER_OF_CORES == 1 ) */
 
-    #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) )
-}
-else
-{
-    /* The pxEventList was emptied before we entered the critical
-     * section, Nothing to do except return pdFALSE. */
-    xReturn = pdFALSE;
-}
-
-/* We are done accessing the kernel data group. Unlock it. */
-if( portCHECK_IF_IN_ISR() == pdTRUE )
-{
-    kernelEXIT_CRITICAL_FROM_ISR( uxSavedInterruptStatus );
-}
-else
-{
-    kernelEXIT_CRITICAL();
-}
-    #endif /* #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) ) */
-
     traceRETURN_xTaskRemoveFromEventList( xReturn );
     return xReturn;
 }
+/*-----------------------------------------------------------*/
+
+BaseType_t xTaskRemoveFromEventList( const List_t * const pxEventList )
+{
+    BaseType_t xReturn;
+
+    #if ( !( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) ) )
+    {
+        /* THIS FUNCTION MUST BE CALLED FROM A CRITICAL SECTION.  It can also be
+         * called from a critical section within an ISR. */
+        xReturn = prvTaskRemoveFromEventList( pxEventList );
+    }
+    #else /* #if ( ! ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) ) ) */
+    {
+        kernelENTER_CRITICAL();
+        {
+            /* Lock the kernel data group as we are about to access its members */
+            if( listLIST_IS_EMPTY( pxEventList ) == pdFALSE )
+            {
+                xReturn = prvTaskRemoveFromEventList( pxEventList );
+            }
+            else
+            {
+                xReturn = pdFALSE;
+            }
+        }
+        kernelEXIT_CRITICAL();
+    }
+    #endif
+
+    return xReturn;
+}
+/*-----------------------------------------------------------*/
+
+#if ( portUSING_GRANULAR_LOCKS == 1 )
+    BaseType_t xTaskRemoveFromEventListFromISR( const List_t * const pxEventList )
+    {
+        BaseType_t xReturn;
+
+        UBaseType_t uxSavedInterruptStatus = kernelENTER_CRITICAL_FROM_ISR();
+        {
+            /* Lock the kernel data group as we are about to access its members */
+            if( listLIST_IS_EMPTY( pxEventList ) == pdFALSE )
+            {
+                xReturn = prvTaskRemoveFromEventList( pxEventList );
+            }
+            else
+            {
+                xReturn = pdFALSE;
+            }
+        }
+        kernelEXIT_CRITICAL_FROM_ISR( uxSavedInterruptStatus );
+
+        return xReturn;
+    }
+#endif
 /*-----------------------------------------------------------*/
 
 void vTaskRemoveFromUnorderedEventList( ListItem_t * pxEventListItem,

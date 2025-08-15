@@ -222,6 +222,11 @@ static void prvCopyDataFromQueue( Queue_t * const pxQueue,
  * the queue set that the queue contains data.
  */
     static BaseType_t prvNotifyQueueSetContainer( const Queue_t * const pxQueue ) PRIVILEGED_FUNCTION;
+    #if ( portUSING_GRANULAR_LOCKS == 1 )
+        static BaseType_t prvNotifyQueueSetContainerFromISR( const Queue_t * const pxQueue );
+    #else
+        #define prvNotifyQueueSetContainerFromISR       prvNotifyQueueSetContainer
+    #endif
 #endif
 
 /*
@@ -1319,7 +1324,11 @@ BaseType_t xQueueGenericSendFromISR( QueueHandle_t xQueue,
                     {
                         if( listLIST_IS_EMPTY( &( pxQueue->xTasksWaitingToReceive ) ) == pdFALSE )
                         {
-                            if( xTaskRemoveFromEventList( &( pxQueue->xTasksWaitingToReceive ) ) != pdFALSE )
+                            #if ( portUSING_GRANULAR_LOCKS == 1 )
+                                if( xTaskRemoveFromEventListFromISR( &( pxQueue->xTasksWaitingToReceive ) ) != pdFALSE )
+                            #else
+                                if( xTaskRemoveFromEventList( &( pxQueue->xTasksWaitingToReceive ) ) != pdFALSE )
+                            #endif
                             {
                                 /* The task waiting has a higher priority so
                                  *  record that a context switch is required. */
@@ -1493,7 +1502,11 @@ BaseType_t xQueueGiveFromISR( QueueHandle_t xQueue,
                     {
                         if( listLIST_IS_EMPTY( &( pxQueue->xTasksWaitingToReceive ) ) == pdFALSE )
                         {
-                            if( xTaskRemoveFromEventList( &( pxQueue->xTasksWaitingToReceive ) ) != pdFALSE )
+                            #if ( portUSING_GRANULAR_LOCKS == 1 )
+                                if( xTaskRemoveFromEventListFromISR( &( pxQueue->xTasksWaitingToReceive ) ) != pdFALSE )
+                            #else
+                                if( xTaskRemoveFromEventList( &( pxQueue->xTasksWaitingToReceive ) ) != pdFALSE )
+                            #endif
                             {
                                 /* The task waiting has a higher priority so
                                  *  record that a context switch is required. */
@@ -2113,7 +2126,11 @@ BaseType_t xQueueReceiveFromISR( QueueHandle_t xQueue,
             {
                 if( listLIST_IS_EMPTY( &( pxQueue->xTasksWaitingToSend ) ) == pdFALSE )
                 {
-                    if( xTaskRemoveFromEventList( &( pxQueue->xTasksWaitingToSend ) ) != pdFALSE )
+                    #if ( portUSING_GRANULAR_LOCKS == 1 )
+                        if( xTaskRemoveFromEventListFromISR( &( pxQueue->xTasksWaitingToReceive ) ) != pdFALSE )
+                    #else
+                        if( xTaskRemoveFromEventList( &( pxQueue->xTasksWaitingToReceive ) ) != pdFALSE )
+                    #endif
                     {
                         /* The task waiting has a higher priority than us so
                          * force a context switch. */
@@ -3408,5 +3425,65 @@ BaseType_t xQueueIsQueueFullFromISR( const QueueHandle_t xQueue )
 
         return xReturn;
     }
+
+    #if ( portUSING_GRANULAR_LOCKS == 1 )
+    static BaseType_t prvNotifyQueueSetContainerFromISR( const Queue_t * const pxQueue )
+    {
+        Queue_t * pxQueueSetContainer = pxQueue->pxQueueSetContainer;
+        BaseType_t xReturn = pdFALSE;
+
+        /* This function must be called form a critical section. */
+
+        /* The following line is not reachable in unit tests because every call
+         * to prvNotifyQueueSetContainer is preceded by a check that
+         * pxQueueSetContainer != NULL */
+        configASSERT( pxQueueSetContainer ); /* LCOV_EXCL_BR_LINE */
+        configASSERT( pxQueueSetContainer->uxMessagesWaiting < pxQueueSetContainer->uxLength );
+
+        if( pxQueueSetContainer->uxMessagesWaiting < pxQueueSetContainer->uxLength )
+        {
+            const int8_t cTxLock = pxQueueSetContainer->cTxLock;
+
+            traceQUEUE_SET_SEND( pxQueueSetContainer );
+
+            /* The data copied is the handle of the queue that contains data. */
+            xReturn = prvCopyDataToQueue( pxQueueSetContainer, &pxQueue, queueSEND_TO_BACK );
+
+            if( cTxLock == queueUNLOCKED )
+            {
+                if( listLIST_IS_EMPTY( &( pxQueueSetContainer->xTasksWaitingToReceive ) ) == pdFALSE )
+                {
+                    #if ( portUSING_GRANULAR_LOCKS == 1 )
+                        if( xTaskRemoveFromEventListFromISR( &( pxQueue->xTasksWaitingToReceive ) ) != pdFALSE )
+                    #else
+                        if( xTaskRemoveFromEventList( &( pxQueue->xTasksWaitingToReceive ) ) != pdFALSE )
+                    #endif
+                    {
+                        /* The task waiting has a higher priority. */
+                        xReturn = pdTRUE;
+                    }
+                    else
+                    {
+                        mtCOVERAGE_TEST_MARKER();
+                    }
+                }
+                else
+                {
+                    mtCOVERAGE_TEST_MARKER();
+                }
+            }
+            else
+            {
+                prvIncrementQueueTxLock( pxQueueSetContainer, cTxLock );
+            }
+        }
+        else
+        {
+            mtCOVERAGE_TEST_MARKER();
+        }
+
+        return xReturn;
+    }
+    #endif
 
 #endif /* configUSE_QUEUE_SETS */
