@@ -112,24 +112,18 @@
  */
     #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) )
         #define event_groupsLOCK( pxEventBits )      taskDATA_GROUP_LOCK( &( ( pxEventBits )->xTaskSpinlock ) )
-        #define event_groupsUNLOCK( pxEventBits )                     \
-    ( {                                                               \
-        taskDATA_GROUP_UNLOCK( &( ( pxEventBits )->xTaskSpinlock ) ); \
-        BaseType_t xAlreadyYielded;                                   \
-        if( xTaskUnlockCanYield() == pdTRUE )                         \
-        {                                                             \
-            taskYIELD_WITHIN_API();                                   \
-            xAlreadyYielded = pdTRUE;                                 \
-        }                                                             \
-        else                                                          \
-        {                                                             \
-            xAlreadyYielded = pdFALSE;                                \
-        }                                                             \
-        xAlreadyYielded;                                              \
-    } )
+        #define event_groupsUNLOCK( pxEventBits )    taskDATA_GROUP_UNLOCK( &( ( pxEventBits )->xTaskSpinlock ) )
+        #define event_groupsUNLOCK_WITH_YIELD_STATUS( pxEventBits, pxxAlreadyYielded )                     \
+    do {                                                                                                   \
+        taskDATA_GROUP_UNLOCK_WITH_YIELD_STATUS( &( ( pxEventBits )->xTaskSpinlock ), pxxAlreadyYielded ); \
+    } while( 0 )
     #else /* #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) ) */
         #define event_groupsLOCK( pxEventBits )      vTaskSuspendAll()
-        #define event_groupsUNLOCK( pxEventBits )    xTaskResumeAll()
+        #define event_groupsUNLOCK( pxEventBits )    do{ ( void ) xTaskResumeAll(); } while( 0 )
+        #define event_groupsUNLOCK_WITH_YIELD_STATUS( pxEventBits, pxxAlreadyYielded ) \
+    do {                                                                               \
+        *( pxxAlreadyYielded ) = xTaskResumeAll();                                     \
+    } while( 0 )
     #endif /* #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) ) */
 
 /*-----------------------------------------------------------*/
@@ -312,7 +306,7 @@
                 }
             }
         }
-        xAlreadyYielded = event_groupsUNLOCK( pxEventBits );
+        event_groupsUNLOCK_WITH_YIELD_STATUS( pxEventBits, &xAlreadyYielded );
 
         if( xTicksToWait != ( TickType_t ) 0 )
         {
@@ -468,7 +462,7 @@
                 traceEVENT_GROUP_WAIT_BITS_BLOCK( xEventGroup, uxBitsToWaitFor );
             }
         }
-        xAlreadyYielded = event_groupsUNLOCK( pxEventBits );
+        event_groupsUNLOCK_WITH_YIELD_STATUS( pxEventBits, &xAlreadyYielded );
 
         if( xTicksToWait != ( TickType_t ) 0 )
         {
@@ -636,7 +630,6 @@
             traceEVENT_GROUP_SET_BITS( xEventGroup, uxBitsToSet );
 
             #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) )
-
                 /* We are about to access the kernel data group non-deterministically,
                  * thus we suspend the kernel data group.*/
                 vTaskSuspendAll();
@@ -717,7 +710,7 @@
                 ( void ) xTaskResumeAll();
             #endif /* #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) ) */
         }
-        ( void ) event_groupsUNLOCK( pxEventBits );
+        event_groupsUNLOCK( pxEventBits );
 
         traceRETURN_xEventGroupSetBits( uxReturnBits );
 
@@ -741,7 +734,6 @@
             traceEVENT_GROUP_DELETE( xEventGroup );
 
             #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) )
-
                 /* We are about to access the kernel data group non-deterministically,
                  * thus we suspend the kernel data group.*/
                 vTaskSuspendAll();
@@ -759,7 +751,7 @@
                 ( void ) xTaskResumeAll();
             #endif /* #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) ) */
         }
-        ( void ) event_groupsUNLOCK( pxEventBits );
+        event_groupsUNLOCK( pxEventBits );
 
         #if ( ( configSUPPORT_DYNAMIC_ALLOCATION == 1 ) && ( configSUPPORT_STATIC_ALLOCATION == 0 ) )
         {

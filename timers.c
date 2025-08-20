@@ -161,8 +161,13 @@
     PRIVILEGED_DATA static TaskHandle_t xTimerTaskHandle = NULL;
 
     #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) )
-        PRIVILEGED_DATA static portSPINLOCK_TYPE xTimerTaskSpinlock = portINIT_SPINLOCK_STATIC;
-        PRIVILEGED_DATA static portSPINLOCK_TYPE xTimerISRSpinlock = portINIT_SPINLOCK_STATIC;
+        #ifdef portREMOVE_STATIC_QUALIFIER
+            PRIVILEGED_DATA portSPINLOCK_TYPE xTimerTaskSpinlock = portINIT_SPINLOCK_STATIC;
+            PRIVILEGED_DATA portSPINLOCK_TYPE xTimerISRSpinlock = portINIT_SPINLOCK_STATIC;
+        #else
+            PRIVILEGED_DATA static portSPINLOCK_TYPE xTimerTaskSpinlock = portINIT_SPINLOCK_STATIC;
+            PRIVILEGED_DATA static portSPINLOCK_TYPE xTimerISRSpinlock = portINIT_SPINLOCK_STATIC;
+        #endif
     #endif /* #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) ) */
 
 /*-----------------------------------------------------------*/
@@ -1080,19 +1085,19 @@
 
                         case tmrCOMMAND_DELETE:
                             #if ( configSUPPORT_DYNAMIC_ALLOCATION == 1 )
-                            {
-                                /* The timer has already been removed from the active list,
-                                 * just free up the memory if the memory was dynamically
-                                 * allocated. */
-                                if( ( pxTimer->ucStatus & tmrSTATUS_IS_STATICALLY_ALLOCATED ) == ( uint8_t ) 0 )
-                                {
-                                    vPortFree( pxTimer );
-                                }
-                                else
-                                {
-                                    pxTimer->ucStatus &= ( ( uint8_t ) ~tmrSTATUS_IS_ACTIVE );
-                                }
-                            }
+                           {
+                               /* The timer has already been removed from the active list,
+                                * just free up the memory if the memory was dynamically
+                                * allocated. */
+                               if( ( pxTimer->ucStatus & tmrSTATUS_IS_STATICALLY_ALLOCATED ) == ( uint8_t ) 0 )
+                               {
+                                   vPortFree( pxTimer );
+                               }
+                               else
+                               {
+                                   pxTimer->ucStatus &= ( ( uint8_t ) ~tmrSTATUS_IS_ACTIVE );
+                               }
+                           }
                             #else /* if ( configSUPPORT_DYNAMIC_ALLOCATION == 1 ) */
                             {
                                 /* If dynamic allocation is not enabled, the memory

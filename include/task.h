@@ -324,7 +324,7 @@ typedef enum
         BaseType_t xCoreID;                                                                  \
         *( puxSavedInterruptStatus ) = portSET_INTERRUPT_MASK_FROM_ISR();                    \
         {                                                                                    \
-            const BaseType_t xCoreID = ( BaseType_t ) portGET_CORE_ID();                     \
+            xCoreID = ( BaseType_t ) portGET_CORE_ID();                                      \
             /* Take the ISR spinlock */                                                      \
             portGET_SPINLOCK( xCoreID, ( portSPINLOCK_TYPE * ) ( pxISRSpinlock ) );          \
             /* Increment the critical nesting count */                                       \
@@ -399,13 +399,11 @@ typedef enum
  * \ingroup GranularLocks
  */
 #if ( portUSING_GRANULAR_LOCKS == 1 )
-    #define taskDATA_GROUP_LOCK( pxTaskSpinlock )                                              \
-    do {                                                                                       \
-        /* Disable preemption while holding the task spinlock. */                              \
-        vTaskPreemptionDisable( NULL );                                                        \
-        {                                                                                      \
-            portGET_SPINLOCK( portGET_CORE_ID(), ( portSPINLOCK_TYPE * ) ( pxTaskSpinlock ) ); \
-        }                                                                                      \
+    #define taskDATA_GROUP_LOCK( pxTaskSpinlock )                                          \
+    do {                                                                                   \
+        /* Disable preemption while holding the task spinlock. */                          \
+        vTaskPreemptionDisable( NULL );                                                    \
+        portGET_SPINLOCK( portGET_CORE_ID(), ( portSPINLOCK_TYPE * ) ( pxTaskSpinlock ) ); \
     } while( 0 )
 #endif /* #if ( portUSING_GRANULAR_LOCKS == 1 ) */
 
@@ -418,13 +416,45 @@ typedef enum
  * \ingroup GranularLocks
  */
 #if ( portUSING_GRANULAR_LOCKS == 1 )
-    #define taskDATA_GROUP_UNLOCK( pxTaskSpinlock )                                                \
-    do {                                                                                           \
-        {                                                                                          \
-            portRELEASE_SPINLOCK( portGET_CORE_ID(), ( portSPINLOCK_TYPE * ) ( pxTaskSpinlock ) ); \
-        }                                                                                          \
-        /* Re-enable preemption after releasing the task spinlock. */                              \
-        vTaskPreemptionEnable( NULL );                                                             \
+    #define taskDATA_GROUP_UNLOCK( pxTaskSpinlock )                                            \
+    do {                                                                                       \
+        portRELEASE_SPINLOCK( portGET_CORE_ID(), ( portSPINLOCK_TYPE * ) ( pxTaskSpinlock ) ); \
+        /* Re-enable preemption after releasing the task spinlock. */                          \
+        vTaskPreemptionEnable( NULL );                                                         \
+    } while( 0 )
+#endif /* #if ( portUSING_GRANULAR_LOCKS == 1 ) */
+
+/**
+ * task. h
+ *
+ * Macros to unlock a data group (task-level lock only).
+ *
+ * \defgroup taskDATA_GROUP_UNLOCK taskDATA_GROUP_UNLOCK
+ * \ingroup GranularLocks
+ */
+#if ( portUSING_GRANULAR_LOCKS == 1 )
+    #define taskDATA_GROUP_UNLOCK( pxTaskSpinlock )                                            \
+    do {                                                                                       \
+        portRELEASE_SPINLOCK( portGET_CORE_ID(), ( portSPINLOCK_TYPE * ) ( pxTaskSpinlock ) ); \
+        /* Re-enable preemption after releasing the task spinlock. */                          \
+        vTaskPreemptionEnable( NULL );                                                         \
+    } while( 0 )
+#endif /* #if ( portUSING_GRANULAR_LOCKS == 1 ) */
+
+/**
+ * task. h
+ *
+ * Macros to unlock a data group and return the task yield status. (task-level lock only).
+ *
+ * \defgroup taskDATA_GROUP_UNLOCK taskDATA_GROUP_UNLOCK_WITH_YIELD_STATUS
+ * \ingroup GranularLocks
+ */
+#if ( portUSING_GRANULAR_LOCKS == 1 )
+    #define taskDATA_GROUP_UNLOCK_WITH_YIELD_STATUS( pxTaskSpinlock, pxTaskAlreadyYielded )    \
+    do {                                                                                       \
+        portRELEASE_SPINLOCK( portGET_CORE_ID(), ( portSPINLOCK_TYPE * ) ( pxTaskSpinlock ) ); \
+        /* Re-enable preemption after releasing the task spinlock. */                          \
+        *( pxTaskAlreadyYielded ) = xCurrentTaskPreemptionEnable();                            \
     } while( 0 )
 #endif /* #if ( portUSING_GRANULAR_LOCKS == 1 ) */
 
@@ -3920,12 +3950,12 @@ void vTaskInternalSetTimeOutState( TimeOut_t * const pxTimeOut ) PRIVILEGED_FUNC
 #endif
 
 /*
- * Checks whether a yield is required after portUNLOCK_DATA_GROUP() returns.
- * To be called while data group is locked.
+ * Enable preemption of current task asl return the task already yield status.
  */
 #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) )
-    BaseType_t xTaskUnlockCanYield( void );
+    BaseType_t xCurrentTaskPreemptionEnable( void );
 #endif /* #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) ) */
+
 
 #if ( portUSING_MPU_WRAPPERS == 1 )
 
