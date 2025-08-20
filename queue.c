@@ -2125,9 +2125,9 @@ BaseType_t xQueueReceiveFromISR( QueueHandle_t xQueue,
                 if( listLIST_IS_EMPTY( &( pxQueue->xTasksWaitingToSend ) ) == pdFALSE )
                 {
                     #if ( portUSING_GRANULAR_LOCKS == 1 )
-                        if( xTaskRemoveFromEventListFromISR( &( pxQueue->xTasksWaitingToReceive ) ) != pdFALSE )
+                        if( xTaskRemoveFromEventListFromISR( &( pxQueue->xTasksWaitingToSend ) ) != pdFALSE )
                     #else
-                        if( xTaskRemoveFromEventList( &( pxQueue->xTasksWaitingToReceive ) ) != pdFALSE )
+                        if( xTaskRemoveFromEventList( &( pxQueue->xTasksWaitingToSend ) ) != pdFALSE )
                     #endif
                     {
                         /* The task waiting has a higher priority than us so

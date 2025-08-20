@@ -2341,7 +2341,8 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
                 }
                 else
                 {
-                    mtCOVERAGE_TEST_MARKER();
+                    /* Reset the deferred state change flags */
+                    pxTCB->uxDeferredStateChange &= ~tskDEFERRED_DELETION;
                 }
             }
             #endif /* configUSE_TASK_PREEMPTION_DISABLE */
@@ -3300,8 +3301,6 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
         BaseType_t xTaskAlreadyYielded = pdFALSE;
         BaseType_t xCoreID;
 
-        traceENTER_vTaskPreemptionEnable( xTask );
-
         kernelENTER_CRITICAL();
         {
             xCoreID = portGET_CORE_ID();
@@ -3338,18 +3337,25 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
                     }
                     else
                     {
-                        if( pxTCB->xTaskRunState != xCoreID )
+                        if( taskTASK_IS_RUNNING( pxTCB ) == pdTRUE )
                         {
-                            /* When enable preemption of other tasks, the task is
-                             * should handle the pending yield request for other tasks. */
-                            prvYieldCore( pxTCB->xTaskRunState );
-                            xTaskAlreadyYielded = pdTRUE;
+                            if( pxTCB->xTaskRunState != xCoreID )
+                            {
+                                /* When enable preemption of other tasks, the task is
+                                 * should handle the pending yield request for other tasks. */
+                                prvYieldCore( pxTCB->xTaskRunState );
+                                xTaskAlreadyYielded = pdTRUE;
+                            }
+                            else
+                            {
+                                /* The pending yield request will be handled after leaving
+                                 * the critical section. */
+                                xTaskAlreadyYielded = xYieldPendings[ xCoreID ];
+                            }
                         }
                         else
                         {
-                            /* The pending yield request will be handled after leaving
-                             * the critical section. */
-                            xTaskAlreadyYielded = xYieldPendings[ xCoreID ];
+                            mtCOVERAGE_TEST_MARKER();
                         }
                     }
                 }
@@ -3365,8 +3371,6 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
         }
         kernelEXIT_CRITICAL();
 
-        traceRETURN_vTaskPreemptionEnable();
-
         return xTaskAlreadyYielded;
     }
 
@@ -3377,7 +3381,11 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
 
     void vTaskPreemptionEnable( const TaskHandle_t xTask )
     {
+        traceENTER_vTaskPreemptionEnable( xTask );
+
         ( void ) prvTaskPreemptionEnable( xTask );
+
+        traceRETURN_vTaskPreemptionEnable();
     }
 
 #endif /* #if ( configUSE_TASK_PREEMPTION_DISABLE == 1 ) */
@@ -3413,7 +3421,8 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
                 }
                 else
                 {
-                    mtCOVERAGE_TEST_MARKER();
+                    /* Reset the deferred state change flags */
+                    pxTCB->uxDeferredStateChange &= ~tskDEFERRED_SUSPENSION;
                 }
             }
             #endif /* configUSE_TASK_PREEMPTION_DISABLE */
@@ -5775,8 +5784,6 @@ static BaseType_t prvTaskRemoveFromEventList( const List_t * const pxEventList )
     TCB_t * pxUnblockedTCB;
     BaseType_t xReturn;
 
-    traceENTER_xTaskRemoveFromEventList( pxEventList );
-
     /* The event list is sorted in priority order, so the first in the list can
      * be removed as it is known to be the highest priority.  Remove the TCB from
      * the delayed list, and add it to the ready list.
@@ -5855,7 +5862,6 @@ static BaseType_t prvTaskRemoveFromEventList( const List_t * const pxEventList )
     }
     #endif /* #if ( configNUMBER_OF_CORES == 1 ) */
 
-    traceRETURN_xTaskRemoveFromEventList( xReturn );
     return xReturn;
 }
 /*-----------------------------------------------------------*/
@@ -5863,6 +5869,8 @@ static BaseType_t prvTaskRemoveFromEventList( const List_t * const pxEventList )
 BaseType_t xTaskRemoveFromEventList( const List_t * const pxEventList )
 {
     BaseType_t xReturn;
+
+    traceENTER_xTaskRemoveFromEventList( pxEventList );
 
     #if ( !( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) ) )
     {
@@ -5887,6 +5895,8 @@ BaseType_t xTaskRemoveFromEventList( const List_t * const pxEventList )
         kernelEXIT_CRITICAL();
     }
     #endif /* if ( !( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) ) ) */
+
+    traceRETURN_xTaskRemoveFromEventList( xReturn );
 
     return xReturn;
 }
