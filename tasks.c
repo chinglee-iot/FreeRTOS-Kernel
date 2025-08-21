@@ -895,6 +895,9 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
     static BaseType_t prvTaskPreemptionEnable( const TaskHandle_t xTask );
 
 #endif /* #if ( configUSE_TASK_PREEMPTION_DISABLE == 1 ) */
+
+static BaseType_t prvTaskRemoveFromEventList( const List_t * const pxEventList );
+
 /*-----------------------------------------------------------*/
 
 #if ( configNUMBER_OF_CORES > 1 )
@@ -5902,13 +5905,19 @@ BaseType_t xTaskRemoveFromEventList( const List_t * const pxEventList )
 }
 /*-----------------------------------------------------------*/
 
-#if ( portUSING_GRANULAR_LOCKS == 1 )
-    BaseType_t xTaskRemoveFromEventListFromISR( const List_t * const pxEventList )
+BaseType_t xTaskRemoveFromEventListFromISR( const List_t * const pxEventList )
+{
+    BaseType_t xReturn;
+
+    #if ( !( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) ) )
     {
-        BaseType_t xReturn;
-
+        /* THIS FUNCTION MUST BE CALLED FROM A CRITICAL SECTION.  It can also be
+         * called from a critical section within an ISR. */
+        xReturn = prvTaskRemoveFromEventList( pxEventList );
+    }
+    #else /* #if ( ! ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) ) ) */
+    {
         UBaseType_t uxSavedInterruptStatus = kernelENTER_CRITICAL_FROM_ISR();
-
         {
             /* Lock the kernel data group as we are about to access its members */
             if( listLIST_IS_EMPTY( pxEventList ) == pdFALSE )
@@ -5921,10 +5930,11 @@ BaseType_t xTaskRemoveFromEventList( const List_t * const pxEventList )
             }
         }
         kernelEXIT_CRITICAL_FROM_ISR( uxSavedInterruptStatus );
-
-        return xReturn;
     }
-#endif /* if ( portUSING_GRANULAR_LOCKS == 1 ) */
+    #endif /* if ( !( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) ) ) */
+
+    return xReturn;
+}
 /*-----------------------------------------------------------*/
 
 void vTaskRemoveFromUnorderedEventList( ListItem_t * pxEventListItem,

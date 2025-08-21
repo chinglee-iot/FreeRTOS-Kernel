@@ -95,20 +95,6 @@ typedef struct SemaphoreData
     #endif /* #if ( configNUMBER_OF_CORES == 1 ) */
 #endif
 
-#if ( portUSING_GRANULAR_LOCKS == 1 )
-
-    /* Kernel data and queue data are in different protection domains, each guarded
-     * by its own critical section. Use the kernel-specific API to access kernel data. */
-    #define queueREMOVE_TASK_FROM_EVENT_LIST             xTaskRemoveFromEventList
-    #define queueREMOVE_TASK_FROM_EVENT_LIST_FROM_ISR    xTaskRemoveFromEventListFromISR
-#else
-
-    /* A single critical section protects both kernel and queue data.
-     * The same API is used for task removal in both normal and ISR contexts. */
-    #define queueREMOVE_TASK_FROM_EVENT_LIST             xTaskRemoveFromEventList
-    #define queueREMOVE_TASK_FROM_EVENT_LIST_FROM_ISR    xTaskRemoveFromEventList
-#endif
-
 /*
  * Definition of the queue used by the scheduler.
  * Items are queued by copy, not reference.  See the following link for the
@@ -429,7 +415,7 @@ BaseType_t xQueueGenericReset( QueueHandle_t xQueue,
                  * it will be possible to write to it. */
                 if( listLIST_IS_EMPTY( &( pxQueue->xTasksWaitingToSend ) ) == pdFALSE )
                 {
-                    if( queueREMOVE_TASK_FROM_EVENT_LIST( &( pxQueue->xTasksWaitingToSend ) ) != pdFALSE )
+                    if( xTaskRemoveFromEventList( &( pxQueue->xTasksWaitingToSend ) ) != pdFALSE )
                     {
                         queueYIELD_IF_USING_PREEMPTION();
                     }
@@ -1107,7 +1093,7 @@ BaseType_t xQueueGenericSend( QueueHandle_t xQueue,
                          * queue then unblock it now. */
                         if( listLIST_IS_EMPTY( &( pxQueue->xTasksWaitingToReceive ) ) == pdFALSE )
                         {
-                            if( queueREMOVE_TASK_FROM_EVENT_LIST( &( pxQueue->xTasksWaitingToReceive ) ) != pdFALSE )
+                            if( xTaskRemoveFromEventList( &( pxQueue->xTasksWaitingToReceive ) ) != pdFALSE )
                             {
                                 /* The unblocked task has a priority higher than
                                  * our own so yield immediately.  Yes it is ok to
@@ -1142,7 +1128,7 @@ BaseType_t xQueueGenericSend( QueueHandle_t xQueue,
                      * queue then unblock it now. */
                     if( listLIST_IS_EMPTY( &( pxQueue->xTasksWaitingToReceive ) ) == pdFALSE )
                     {
-                        if( queueREMOVE_TASK_FROM_EVENT_LIST( &( pxQueue->xTasksWaitingToReceive ) ) != pdFALSE )
+                        if( xTaskRemoveFromEventList( &( pxQueue->xTasksWaitingToReceive ) ) != pdFALSE )
                         {
                             /* The unblocked task has a priority higher than
                              * our own so yield immediately.  Yes it is ok to do
@@ -1334,7 +1320,7 @@ BaseType_t xQueueGenericSendFromISR( QueueHandle_t xQueue,
                     {
                         if( listLIST_IS_EMPTY( &( pxQueue->xTasksWaitingToReceive ) ) == pdFALSE )
                         {
-                            if( queueREMOVE_TASK_FROM_EVENT_LIST_FROM_ISR( &( pxQueue->xTasksWaitingToReceive ) ) != pdFALSE )
+                            if( xTaskRemoveFromEventListFromISR( &( pxQueue->xTasksWaitingToReceive ) ) != pdFALSE )
                             {
                                 /* The task waiting has a higher priority so
                                  *  record that a context switch is required. */
@@ -1362,7 +1348,7 @@ BaseType_t xQueueGenericSendFromISR( QueueHandle_t xQueue,
                 {
                     if( listLIST_IS_EMPTY( &( pxQueue->xTasksWaitingToReceive ) ) == pdFALSE )
                     {
-                        if( queueREMOVE_TASK_FROM_EVENT_LIST( &( pxQueue->xTasksWaitingToReceive ) ) != pdFALSE )
+                        if( xTaskRemoveFromEventList( &( pxQueue->xTasksWaitingToReceive ) ) != pdFALSE )
                         {
                             /* The task waiting has a higher priority so record that a
                              * context switch is required. */
@@ -1508,7 +1494,7 @@ BaseType_t xQueueGiveFromISR( QueueHandle_t xQueue,
                     {
                         if( listLIST_IS_EMPTY( &( pxQueue->xTasksWaitingToReceive ) ) == pdFALSE )
                         {
-                            if( queueREMOVE_TASK_FROM_EVENT_LIST_FROM_ISR( &( pxQueue->xTasksWaitingToReceive ) ) != pdFALSE )
+                            if( xTaskRemoveFromEventListFromISR( &( pxQueue->xTasksWaitingToReceive ) ) != pdFALSE )
                             {
                                 /* The task waiting has a higher priority so
                                  *  record that a context switch is required. */
@@ -1536,7 +1522,7 @@ BaseType_t xQueueGiveFromISR( QueueHandle_t xQueue,
                 {
                     if( listLIST_IS_EMPTY( &( pxQueue->xTasksWaitingToReceive ) ) == pdFALSE )
                     {
-                        if( queueREMOVE_TASK_FROM_EVENT_LIST( &( pxQueue->xTasksWaitingToReceive ) ) != pdFALSE )
+                        if( xTaskRemoveFromEventList( &( pxQueue->xTasksWaitingToReceive ) ) != pdFALSE )
                         {
                             /* The task waiting has a higher priority so record that a
                              * context switch is required. */
@@ -1628,7 +1614,7 @@ BaseType_t xQueueReceive( QueueHandle_t xQueue,
                  * task. */
                 if( listLIST_IS_EMPTY( &( pxQueue->xTasksWaitingToSend ) ) == pdFALSE )
                 {
-                    if( queueREMOVE_TASK_FROM_EVENT_LIST( &( pxQueue->xTasksWaitingToSend ) ) != pdFALSE )
+                    if( xTaskRemoveFromEventList( &( pxQueue->xTasksWaitingToSend ) ) != pdFALSE )
                     {
                         queueYIELD_IF_USING_PREEMPTION();
                     }
@@ -1786,7 +1772,7 @@ BaseType_t xQueueSemaphoreTake( QueueHandle_t xQueue,
                  * semaphore, and if so, unblock the highest priority such task. */
                 if( listLIST_IS_EMPTY( &( pxQueue->xTasksWaitingToSend ) ) == pdFALSE )
                 {
-                    if( queueREMOVE_TASK_FROM_EVENT_LIST( &( pxQueue->xTasksWaitingToSend ) ) != pdFALSE )
+                    if( xTaskRemoveFromEventList( &( pxQueue->xTasksWaitingToSend ) ) != pdFALSE )
                     {
                         queueYIELD_IF_USING_PREEMPTION();
                     }
@@ -1978,7 +1964,7 @@ BaseType_t xQueuePeek( QueueHandle_t xQueue,
                  * any other tasks waiting for the data. */
                 if( listLIST_IS_EMPTY( &( pxQueue->xTasksWaitingToReceive ) ) == pdFALSE )
                 {
-                    if( queueREMOVE_TASK_FROM_EVENT_LIST( &( pxQueue->xTasksWaitingToReceive ) ) != pdFALSE )
+                    if( xTaskRemoveFromEventList( &( pxQueue->xTasksWaitingToReceive ) ) != pdFALSE )
                     {
                         /* The task waiting has a higher priority than this task. */
                         queueYIELD_IF_USING_PREEMPTION();
@@ -2128,7 +2114,7 @@ BaseType_t xQueueReceiveFromISR( QueueHandle_t xQueue,
             {
                 if( listLIST_IS_EMPTY( &( pxQueue->xTasksWaitingToSend ) ) == pdFALSE )
                 {
-                    if( queueREMOVE_TASK_FROM_EVENT_LIST_FROM_ISR( &( pxQueue->xTasksWaitingToSend ) ) != pdFALSE )
+                    if( xTaskRemoveFromEventListFromISR( &( pxQueue->xTasksWaitingToSend ) ) != pdFALSE )
                     {
                         /* The task waiting has a higher priority than us so
                          * force a context switch. */
@@ -2573,7 +2559,7 @@ static void prvUnlockQueue( Queue_t * const pxQueue )
                      * suspended. */
                     if( listLIST_IS_EMPTY( &( pxQueue->xTasksWaitingToReceive ) ) == pdFALSE )
                     {
-                        if( queueREMOVE_TASK_FROM_EVENT_LIST( &( pxQueue->xTasksWaitingToReceive ) ) != pdFALSE )
+                        if( xTaskRemoveFromEventList( &( pxQueue->xTasksWaitingToReceive ) ) != pdFALSE )
                         {
                             /* The task waiting has a higher priority so record that a
                              * context switch is required. */
@@ -2596,7 +2582,7 @@ static void prvUnlockQueue( Queue_t * const pxQueue )
                  * the pending ready list as the scheduler is still suspended. */
                 if( listLIST_IS_EMPTY( &( pxQueue->xTasksWaitingToReceive ) ) == pdFALSE )
                 {
-                    if( queueREMOVE_TASK_FROM_EVENT_LIST( &( pxQueue->xTasksWaitingToReceive ) ) != pdFALSE )
+                    if( xTaskRemoveFromEventList( &( pxQueue->xTasksWaitingToReceive ) ) != pdFALSE )
                     {
                         /* The task waiting has a higher priority so record that
                          * a context switch is required. */
@@ -2630,7 +2616,7 @@ static void prvUnlockQueue( Queue_t * const pxQueue )
         {
             if( listLIST_IS_EMPTY( &( pxQueue->xTasksWaitingToSend ) ) == pdFALSE )
             {
-                if( queueREMOVE_TASK_FROM_EVENT_LIST( &( pxQueue->xTasksWaitingToSend ) ) != pdFALSE )
+                if( xTaskRemoveFromEventList( &( pxQueue->xTasksWaitingToSend ) ) != pdFALSE )
                 {
                     vTaskMissedYield();
                 }
@@ -3398,7 +3384,7 @@ BaseType_t xQueueIsQueueFullFromISR( const QueueHandle_t xQueue )
                 {
                     if( xNotifyFromISR != pdTRUE )
                     {
-                        if( queueREMOVE_TASK_FROM_EVENT_LIST( &( pxQueueSetContainer->xTasksWaitingToReceive ) ) != pdFALSE )
+                        if( xTaskRemoveFromEventList( &( pxQueueSetContainer->xTasksWaitingToReceive ) ) != pdFALSE )
                         {
                             /* The task waiting has a higher priority. */
                             xReturn = pdTRUE;
@@ -3410,7 +3396,7 @@ BaseType_t xQueueIsQueueFullFromISR( const QueueHandle_t xQueue )
                     }
                     else
                     {
-                        if( queueREMOVE_TASK_FROM_EVENT_LIST_FROM_ISR( &( pxQueueSetContainer->xTasksWaitingToReceive ) ) != pdFALSE )
+                        if( xTaskRemoveFromEventListFromISR( &( pxQueueSetContainer->xTasksWaitingToReceive ) ) != pdFALSE )
                         {
                             /* The task waiting has a higher priority. */
                             xReturn = pdTRUE;

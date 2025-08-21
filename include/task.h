@@ -3751,9 +3751,7 @@ void vTaskPlaceOnEventListRestricted( List_t * const pxEventList,
  * making the call, otherwise pdFALSE.
  */
 BaseType_t xTaskRemoveFromEventList( const List_t * const pxEventList ) PRIVILEGED_FUNCTION;
-#if ( portUSING_GRANULAR_LOCKS == 1 )
-    BaseType_t xTaskRemoveFromEventListFromISR( const List_t * const pxEventList ) PRIVILEGED_FUNCTION;
-#endif
+BaseType_t xTaskRemoveFromEventListFromISR( const List_t * const pxEventList ) PRIVILEGED_FUNCTION;
 void vTaskRemoveFromUnorderedEventList( ListItem_t * pxEventListItem,
                                         const TickType_t xItemValue ) PRIVILEGED_FUNCTION;
 
