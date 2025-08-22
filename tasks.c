@@ -1023,23 +1023,12 @@ static BaseType_t prvTaskRemoveFromEventList( const List_t * const pxEventList )
                             #endif
                             {
                                 #if ( configUSE_TASK_PREEMPTION_DISABLE == 1 )
-                                {
                                     if( pxCurrentTCBs[ xCoreID ]->uxPreemptionDisable == 0U )
-                                    {
-                                        xLowestPriorityToPreempt = xCurrentCoreTaskPriority;
-                                        xLowestPriorityCore = xCoreID;
-                                    }
-                                    else
-                                    {
-                                        xYieldPendings[ xCoreID ] = pdTRUE;
-                                    }
-                                }
-                                #else /* if ( configUSE_TASK_PREEMPTION_DISABLE == 1 ) */
+                                #endif
                                 {
                                     xLowestPriorityToPreempt = xCurrentCoreTaskPriority;
                                     xLowestPriorityCore = xCoreID;
                                 }
-                                #endif /* if ( configUSE_TASK_PREEMPTION_DISABLE == 1 ) */
                             }
                         }
                         else
@@ -1077,6 +1066,16 @@ static BaseType_t prvTaskRemoveFromEventList( const List_t * const pxEventList )
                 if( xLowestPriorityCore >= 0 )
             #endif /* #if ( configRUN_MULTIPLE_PRIORITIES == 0 ) */
             {
+                #if ( configUSE_TASK_PREEMPTION_DISABLE == 1 )
+                for( xCoreID = 0; xCoreID < configNUMBER_OF_CORES; xCoreID++ )
+                {
+                    if( ( pxCurrentTCBs[ xCoreID ]->uxPreemptionDisable != 0U ) &&
+                        ( pxCurrentTCBs[ xCoreID ]->uxPriority < xLowestPriorityToPreempt ) )
+                    {
+                        xYieldPendings[ xCoreID ] = pdTRUE;
+                    }
+                }
+                #endif
                 prvYieldCore( xLowestPriorityCore );
             }
 
@@ -1340,29 +1339,28 @@ static BaseType_t prvTaskRemoveFromEventList( const List_t * const pxEventList )
                                 ( xYieldPendings[ uxCore ] == pdFALSE ) )
                             {
                                 #if ( configUSE_TASK_PREEMPTION_DISABLE == 1 )
-                                {
                                     if( pxCurrentTCBs[ uxCore ]->uxPreemptionDisable == 0U )
-                                    {
-                                        xLowestPriority = xTaskPriority;
-                                        xLowestPriorityCore = ( BaseType_t ) uxCore;
-                                    }
-                                    else
-                                    {
-                                        xYieldPendings[ uxCore ] = pdTRUE;
-                                    }
-                                }
-                                #else /* if ( configUSE_TASK_PREEMPTION_DISABLE == 1 ) */
+                                #endif /* if ( configUSE_TASK_PREEMPTION_DISABLE == 1 ) */
                                 {
                                     xLowestPriority = xTaskPriority;
                                     xLowestPriorityCore = ( BaseType_t ) uxCore;
                                 }
-                                #endif /* if ( configUSE_TASK_PREEMPTION_DISABLE == 1 ) */
                             }
                         }
                     }
 
                     if( xLowestPriorityCore >= 0 )
                     {
+                        #if ( configUSE_TASK_PREEMPTION_DISABLE == 1 )
+                        for( x = 0; x < configNUMBER_OF_CORES; x++ )
+                        {
+                            if( ( pxCurrentTCBs[ x ]->uxPreemptionDisable != 0U ) &&
+                                ( pxCurrentTCBs[ x ]->uxPriority < xLowestPriority ) )
+                            {
+                                xYieldPendings[ x ] = pdTRUE;
+                            }
+                        }
+                        #endif
                         prvYieldCore( xLowestPriorityCore );
                     }
                 }
