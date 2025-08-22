@@ -221,7 +221,10 @@ static void prvCopyDataFromQueue( Queue_t * const pxQueue,
  * Checks to see if a queue is a member of a queue set, and if so, notifies
  * the queue set that the queue contains data.
  */
-    static BaseType_t prvNotifyQueueSetContainer( const Queue_t * const pxQueue ) PRIVILEGED_FUNCTION;
+    static BaseType_t prvNotifyQueueSetContainerGeneric( const Queue_t * const pxQueue,
+                                                         BaseType_t xNotifyFromISR ) PRIVILEGED_FUNCTION;
+    #define prvNotifyQueueSetContainer( pxQueue )           prvNotifyQueueSetContainerGeneric( pxQueue, pdFALSE )
+    #define prvNotifyQueueSetContainerFromISR( pxQueue )    prvNotifyQueueSetContainerGeneric( pxQueue, pdTRUE )
 #endif
 
 /*
@@ -328,25 +331,23 @@ static void prvInitialiseNewQueue( const UBaseType_t uxQueueLength,
  * When the tasks unlocks the queue, all pended access attempts are handled.
  */
 #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) )
-    #define queueLOCK( pxQueue )                                            \
-    do {                                                                    \
-        vTaskPreemptionDisable( NULL );                                     \
-        prvLockQueue( ( pxQueue ) );                                        \
-        portGET_SPINLOCK( portGET_CORE_ID(), &( pxQueue->xTaskSpinlock ) ); \
+    #define queueLOCK( pxQueue )                                \
+    do {                                                        \
+        taskDATA_GROUP_LOCK( &( ( pxQueue )->xTaskSpinlock ) ); \
+        prvLockQueue( ( pxQueue ) );                            \
     } while( 0 )
-    #define queueUNLOCK( pxQueue, xYieldAPI )                                   \
-    do {                                                                        \
-        prvUnlockQueue( ( pxQueue ) );                                          \
-        portRELEASE_SPINLOCK( portGET_CORE_ID(), &( pxQueue->xTaskSpinlock ) ); \
-        vTaskPreemptionEnable( NULL );                                          \
-        if( ( xYieldAPI ) == pdTRUE )                                           \
-        {                                                                       \
-            taskYIELD_WITHIN_API();                                             \
-        }                                                                       \
-        else                                                                    \
-        {                                                                       \
-            mtCOVERAGE_TEST_MARKER();                                           \
-        }                                                                       \
+    #define queueUNLOCK( pxQueue, xYieldAPI )                     \
+    do {                                                          \
+        prvUnlockQueue( ( pxQueue ) );                            \
+        taskDATA_GROUP_UNLOCK( &( ( pxQueue )->xTaskSpinlock ) ); \
+        if( ( xYieldAPI ) == pdTRUE )                             \
+        {                                                         \
+            taskYIELD_WITHIN_API();                               \
+        }                                                         \
+        else                                                      \
+        {                                                         \
+            mtCOVERAGE_TEST_MARKER();                             \
+        }                                                         \
     } while( 0 )
 #else /* #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) ) */
     #define queueLOCK( pxQueue )     \
@@ -1296,7 +1297,7 @@ BaseType_t xQueueGenericSendFromISR( QueueHandle_t xQueue,
                              * in the queue has not changed. */
                             mtCOVERAGE_TEST_MARKER();
                         }
-                        else if( prvNotifyQueueSetContainer( pxQueue ) != pdFALSE )
+                        else if( prvNotifyQueueSetContainerFromISR( pxQueue ) != pdFALSE )
                         {
                             /* The queue is a member of a queue set, and posting
                              * to the queue set caused a higher priority task to
@@ -1319,7 +1320,7 @@ BaseType_t xQueueGenericSendFromISR( QueueHandle_t xQueue,
                     {
                         if( listLIST_IS_EMPTY( &( pxQueue->xTasksWaitingToReceive ) ) == pdFALSE )
                         {
-                            if( xTaskRemoveFromEventList( &( pxQueue->xTasksWaitingToReceive ) ) != pdFALSE )
+                            if( xTaskRemoveFromEventListFromISR( &( pxQueue->xTasksWaitingToReceive ) ) != pdFALSE )
                             {
                                 /* The task waiting has a higher priority so
                                  *  record that a context switch is required. */
@@ -1470,7 +1471,7 @@ BaseType_t xQueueGiveFromISR( QueueHandle_t xQueue,
                 {
                     if( pxQueue->pxQueueSetContainer != NULL )
                     {
-                        if( prvNotifyQueueSetContainer( pxQueue ) != pdFALSE )
+                        if( prvNotifyQueueSetContainerFromISR( pxQueue ) != pdFALSE )
                         {
                             /* The semaphore is a member of a queue set, and
                              * posting to the queue set caused a higher priority
@@ -1493,7 +1494,7 @@ BaseType_t xQueueGiveFromISR( QueueHandle_t xQueue,
                     {
                         if( listLIST_IS_EMPTY( &( pxQueue->xTasksWaitingToReceive ) ) == pdFALSE )
                         {
-                            if( xTaskRemoveFromEventList( &( pxQueue->xTasksWaitingToReceive ) ) != pdFALSE )
+                            if( xTaskRemoveFromEventListFromISR( &( pxQueue->xTasksWaitingToReceive ) ) != pdFALSE )
                             {
                                 /* The task waiting has a higher priority so
                                  *  record that a context switch is required. */
@@ -2113,7 +2114,7 @@ BaseType_t xQueueReceiveFromISR( QueueHandle_t xQueue,
             {
                 if( listLIST_IS_EMPTY( &( pxQueue->xTasksWaitingToSend ) ) == pdFALSE )
                 {
-                    if( xTaskRemoveFromEventList( &( pxQueue->xTasksWaitingToSend ) ) != pdFALSE )
+                    if( xTaskRemoveFromEventListFromISR( &( pxQueue->xTasksWaitingToSend ) ) != pdFALSE )
                     {
                         /* The task waiting has a higher priority than us so
                          * force a context switch. */
@@ -3354,8 +3355,8 @@ BaseType_t xQueueIsQueueFullFromISR( const QueueHandle_t xQueue )
 /*-----------------------------------------------------------*/
 
 #if ( configUSE_QUEUE_SETS == 1 )
-
-    static BaseType_t prvNotifyQueueSetContainer( const Queue_t * const pxQueue )
+    static BaseType_t prvNotifyQueueSetContainerGeneric( const Queue_t * const pxQueue,
+                                                         BaseType_t xNotifyFromISR )
     {
         Queue_t * pxQueueSetContainer = pxQueue->pxQueueSetContainer;
         BaseType_t xReturn = pdFALSE;
@@ -3381,14 +3382,29 @@ BaseType_t xQueueIsQueueFullFromISR( const QueueHandle_t xQueue )
             {
                 if( listLIST_IS_EMPTY( &( pxQueueSetContainer->xTasksWaitingToReceive ) ) == pdFALSE )
                 {
-                    if( xTaskRemoveFromEventList( &( pxQueueSetContainer->xTasksWaitingToReceive ) ) != pdFALSE )
+                    if( xNotifyFromISR != pdTRUE )
                     {
-                        /* The task waiting has a higher priority. */
-                        xReturn = pdTRUE;
+                        if( xTaskRemoveFromEventList( &( pxQueueSetContainer->xTasksWaitingToReceive ) ) != pdFALSE )
+                        {
+                            /* The task waiting has a higher priority. */
+                            xReturn = pdTRUE;
+                        }
+                        else
+                        {
+                            mtCOVERAGE_TEST_MARKER();
+                        }
                     }
                     else
                     {
-                        mtCOVERAGE_TEST_MARKER();
+                        if( xTaskRemoveFromEventListFromISR( &( pxQueueSetContainer->xTasksWaitingToReceive ) ) != pdFALSE )
+                        {
+                            /* The task waiting has a higher priority. */
+                            xReturn = pdTRUE;
+                        }
+                        else
+                        {
+                            mtCOVERAGE_TEST_MARKER();
+                        }
                     }
                 }
                 else

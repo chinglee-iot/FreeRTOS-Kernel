@@ -88,24 +88,6 @@
     #endif /* #if ( portUSING_GRANULAR_LOCKS == 1 ) */
 
 /*
- * Locks an event group for tasks. Prevents other tasks from accessing the event group but allows
- * ISRs to pend access to the event group. Caller cannot be preempted by other tasks
- * after locking the event group, thus allowing the caller to execute non-deterministic
- * operations.
- */
-    #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) )
-        static void prvLockEventGroupForTasks( EventGroup_t * pxEventBits ) PRIVILEGED_FUNCTION;
-    #endif /* #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) ) */
-
-/*
- * Unlocks an event group for tasks. Handles all pended access from ISRs, then reenables
- * preemption for the caller.
- */
-    #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) )
-        static BaseType_t prvUnlockEventGroupForTasks( EventGroup_t * pxEventBits ) PRIVILEGED_FUNCTION;
-    #endif /* #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) ) */
-
-/*
  * Test the bits set in uxCurrentEventBits to see if the wait condition is met.
  * The wait condition is defined by xWaitForAllBits.  If xWaitForAllBits is
  * pdTRUE then the wait condition is met if all the bits set in uxBitsToWaitFor
@@ -129,11 +111,19 @@
  * When the task unlocks the event group, all pended access attempts are handled.
  */
     #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) )
-        #define event_groupsLOCK( pxEventBits )      prvLockEventGroupForTasks( pxEventBits )
-        #define event_groupsUNLOCK( pxEventBits )    prvUnlockEventGroupForTasks( pxEventBits );
+        #define event_groupsLOCK( pxEventBits )      taskDATA_GROUP_LOCK( &( ( pxEventBits )->xTaskSpinlock ) )
+        #define event_groupsUNLOCK( pxEventBits )    taskDATA_GROUP_UNLOCK( &( ( pxEventBits )->xTaskSpinlock ) )
+        #define event_groupsUNLOCK_WITH_YIELD_STATUS( pxEventBits, pxxAlreadyYielded )                     \
+    do {                                                                                                   \
+        taskDATA_GROUP_UNLOCK_WITH_YIELD_STATUS( &( ( pxEventBits )->xTaskSpinlock ), pxxAlreadyYielded ); \
+    } while( 0 )
     #else /* #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) ) */
         #define event_groupsLOCK( pxEventBits )      vTaskSuspendAll()
-        #define event_groupsUNLOCK( pxEventBits )    xTaskResumeAll()
+        #define event_groupsUNLOCK( pxEventBits )    do{ ( void ) xTaskResumeAll(); } while( 0 )
+        #define event_groupsUNLOCK_WITH_YIELD_STATUS( pxEventBits, pxxAlreadyYielded ) \
+    do {                                                                               \
+        *( pxxAlreadyYielded ) = xTaskResumeAll();                                     \
+    } while( 0 )
     #endif /* #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) ) */
 
 /*-----------------------------------------------------------*/
@@ -316,7 +306,7 @@
                 }
             }
         }
-        xAlreadyYielded = event_groupsUNLOCK( pxEventBits );
+        event_groupsUNLOCK_WITH_YIELD_STATUS( pxEventBits, &xAlreadyYielded );
 
         if( xTicksToWait != ( TickType_t ) 0 )
         {
@@ -472,7 +462,7 @@
                 traceEVENT_GROUP_WAIT_BITS_BLOCK( xEventGroup, uxBitsToWaitFor );
             }
         }
-        xAlreadyYielded = event_groupsUNLOCK( pxEventBits );
+        event_groupsUNLOCK_WITH_YIELD_STATUS( pxEventBits, &xAlreadyYielded );
 
         if( xTicksToWait != ( TickType_t ) 0 )
         {
@@ -640,7 +630,6 @@
             traceEVENT_GROUP_SET_BITS( xEventGroup, uxBitsToSet );
 
             #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) )
-
                 /* We are about to access the kernel data group non-deterministically,
                  * thus we suspend the kernel data group.*/
                 vTaskSuspendAll();
@@ -721,7 +710,7 @@
                 ( void ) xTaskResumeAll();
             #endif /* #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) ) */
         }
-        ( void ) event_groupsUNLOCK( pxEventBits );
+        event_groupsUNLOCK( pxEventBits );
 
         traceRETURN_xEventGroupSetBits( uxReturnBits );
 
@@ -745,7 +734,6 @@
             traceEVENT_GROUP_DELETE( xEventGroup );
 
             #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) )
-
                 /* We are about to access the kernel data group non-deterministically,
                  * thus we suspend the kernel data group.*/
                 vTaskSuspendAll();
@@ -763,7 +751,7 @@
                 ( void ) xTaskResumeAll();
             #endif /* #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) ) */
         }
-        ( void ) event_groupsUNLOCK( pxEventBits );
+        event_groupsUNLOCK( pxEventBits );
 
         #if ( ( configSUPPORT_DYNAMIC_ALLOCATION == 1 ) && ( configSUPPORT_STATIC_ALLOCATION == 0 ) )
         {
@@ -866,48 +854,6 @@
 
         traceRETURN_vEventGroupClearBitsCallback();
     }
-/*-----------------------------------------------------------*/
-    #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) )
-        static void prvLockEventGroupForTasks( EventGroup_t * pxEventBits )
-        {
-            /* Disable preemption so that the current task cannot be preempted by another task */
-            vTaskPreemptionDisable( NULL );
-
-            /* Keep holding xTaskSpinlock to prevent tasks on other cores from accessing
-             * the event group while it is suspended. */
-            portGET_SPINLOCK( portGET_CORE_ID(), &( pxEventBits->xTaskSpinlock ) );
-        }
-    #endif /* #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) ) */
-/*-----------------------------------------------------------*/
-
-    #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) )
-        static BaseType_t prvUnlockEventGroupForTasks( EventGroup_t * pxEventBits )
-        {
-            BaseType_t xReturn = pdFALSE;
-
-            /* Release the previously held task spinlock */
-            portRELEASE_SPINLOCK( portGET_CORE_ID(), &( pxEventBits->xTaskSpinlock ) );
-
-            /* Re-enable preemption */
-            vTaskPreemptionEnable( NULL );
-
-            /* Yield if preemption was re-enabled*/
-            if( xTaskUnlockCanYield() == pdTRUE )
-            {
-                taskYIELD_WITHIN_API();
-
-                /* Return true as the task was preempted */
-                xReturn = pdTRUE;
-            }
-            else
-            {
-                /* Return false as the task was not preempted */
-                xReturn = pdFALSE;
-            }
-
-            return xReturn;
-        }
-    #endif /* #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) ) */
 /*-----------------------------------------------------------*/
 
     static BaseType_t prvTestWaitCondition( const EventBits_t uxCurrentEventBits,
