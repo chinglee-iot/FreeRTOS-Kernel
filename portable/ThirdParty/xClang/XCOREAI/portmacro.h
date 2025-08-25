@@ -47,7 +47,6 @@
     #define portSTACK_GROWTH               ( -1 )
     #define portTICK_PERIOD_MS             ( ( TickType_t ) 1000 / configTICK_RATE_HZ )
     #define portBYTE_ALIGNMENT             8
-    #define portCRITICAL_NESTING_IN_TCB    1
     #define portMAX_CORE_COUNT             8
     #ifndef configNUMBER_OF_CORES
         #define configNUMBER_OF_CORES      1
@@ -157,17 +156,6 @@
         #define portGET_TASK_LOCK( xCoreID )              do{ ( void )( xCoreID ); rtos_lock_acquire( 1 ); } while( 0 )
         #define portRELEASE_TASK_LOCK( xCoreID )          do{ ( void )( xCoreID ); rtos_lock_release( 1 ); } while( 0 )
 
-
-        void vTaskEnterCritical( void );
-        void vTaskExitCritical( void );
-        #define portENTER_CRITICAL()    vTaskEnterCritical()
-        #define portEXIT_CRITICAL()     vTaskExitCritical()
-
-        extern UBaseType_t vTaskEnterCriticalFromISR( void );
-        extern void vTaskExitCriticalFromISR( UBaseType_t uxSavedInterruptStatus );
-        #define portENTER_CRITICAL_FROM_ISR    vTaskEnterCriticalFromISR
-        #define portEXIT_CRITICAL_FROM_ISR     vTaskExitCriticalFromISR
-
 /*-----------------------------------------------------------*/
 
 /* Runtime stats support */
@@ -202,6 +190,93 @@
         #define portTASK_FUNCTION( vFunction, pvParameters )          void vFunction( void * pvParameters )
 /*-----------------------------------------------------------*/
 
+        #define portTEST_GET_TIME __xcore_get_reference_time
+
+        /* Granular lock macros. */
+        #include "swlock.h"
+
+        #define portUSING_GRANULAR_LOCKS            1
+        #define portCRITICAL_NESTING_IN_TCB         0
+
+        /* Critical nesting count management. */
+        #if ( portCRITICAL_NESTING_IN_TCB == 0 )
+            extern UBaseType_t uxCriticalNestings[ configNUMBER_OF_CORES ];
+            #define portGET_CRITICAL_NESTING_COUNT( xCoreID )          ( uxCriticalNestings[ ( xCoreID ) ] )
+            #define portSET_CRITICAL_NESTING_COUNT( xCoreID, x )       ( uxCriticalNestings[ ( xCoreID ) ] = ( x ) )
+            #define portINCREMENT_CRITICAL_NESTING_COUNT( xCoreID )    ( uxCriticalNestings[ ( xCoreID ) ]++ )
+            #define portDECREMENT_CRITICAL_NESTING_COUNT( xCoreID )    ( uxCriticalNestings[ ( xCoreID ) ]-- )
+        #endif
+
+        typedef struct xPortSpinLock
+        {
+            volatile int xOwnerCore;
+            volatile int xLockCount;
+            swlock_t xLock;
+        } xPortSpinLock_t;
+        #define portSPINLOCK_TYPE   xPortSpinLock_t
+
+        #define portINIT_SPINLOCK( pxSpinlock ) \
+        do \
+        { \
+            ( pxSpinlock )->xOwnerCore = -1; \
+            ( pxSpinlock )->xLockCount = 0; \
+            swlock_init( &( ( pxSpinlock )->xLock ) ); \
+        } while( 0 )
+
+        #define portINIT_SPINLOCK_STATIC \
+        { \
+            .xOwnerCore = -1, \
+            .xLockCount = 0, \
+            .xLock = SWLOCK_INITIAL_VALUE \
+        }
+
+        #define portGET_SPINLOCK( xCoreID, pxSpinlock ) \
+        do{ \
+            if ( ( pxSpinlock )->xOwnerCore == xCoreID) { \
+                ( pxSpinlock )->xLockCount++; \
+            } \
+            else \
+            { \
+                swlock_acquire( &( ( pxSpinlock )->xLock )); \
+                ( pxSpinlock )->xOwnerCore = xCoreID; \
+                ( pxSpinlock )->xLockCount = 1; \
+            } \
+        } while( 0 )
+
+        #define portRELEASE_SPINLOCK( xCoreID, pxSpinlock ) \
+        do{ \
+            if ( ( pxSpinlock )->xOwnerCore == xCoreID) { \
+                ( pxSpinlock )->xLockCount--; \
+                if( ( pxSpinlock )->xLockCount == 0U ) \
+                { \
+                    ( pxSpinlock )->xOwnerCore = -1; \
+                    swlock_release( &( ( pxSpinlock )->xLock )); \
+                    } \
+            } \
+        } while( 0 )
+
+        #if ( portUSING_GRANULAR_LOCKS == 0 )
+            void vTaskEnterCritical( void );
+            void vTaskExitCritical( void );
+            #define portENTER_CRITICAL()    vTaskEnterCritical()
+            #define portEXIT_CRITICAL()     vTaskExitCritical()
+
+            extern UBaseType_t vTaskEnterCriticalFromISR( void );
+            extern void vTaskExitCriticalFromISR( UBaseType_t uxSavedInterruptStatus );
+            #define portENTER_CRITICAL_FROM_ISR    vTaskEnterCriticalFromISR
+            #define portEXIT_CRITICAL_FROM_ISR     vTaskExitCriticalFromISR
+        #else
+            extern portSPINLOCK_TYPE xPortIsrSpinlock;
+            extern portSPINLOCK_TYPE xPortTaskSpinlock;
+
+            #define portENTER_CRITICAL() taskDATA_GROUP_ENTER_CRITICAL( &xPortTaskSpinlock, &xPortIsrSpinlock )
+            #define portEXIT_CRITICAL() taskDATA_GROUP_EXIT_CRITICAL( &xPortTaskSpinlock, &xPortIsrSpinlock )
+
+            extern UBaseType_t vPortEnterCriticalFromISR( void );
+
+            #define portENTER_CRITICAL_FROM_ISR vPortEnterCriticalFromISR
+            #define portEXIT_CRITICAL_FROM_ISR( x )  taskDATA_GROUP_EXIT_CRITICAL_FROM_ISR( x, &xPortIsrSpinlock )
+        #endif
 
         #ifdef __cplusplus
 }
