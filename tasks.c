@@ -3316,6 +3316,8 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
             kernelENTER_CRITICAL();
         #endif
         {
+            const BaseType_t xCoreID = portGET_CORE_ID();
+
             if( xSchedulerRunning != pdFALSE )
             {
                 pxTCB = prvGetTCBFromHandle( xTask );
@@ -3332,7 +3334,7 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
                     }
                     else
                     {
-                        if( taskTASK_IS_RUNNING( pxTCB ) == pdTRUE )
+                        if( ( xYieldPendings[ pxTCB->xTaskRunState ] != pdFALSE ) && ( taskTASK_IS_RUNNING( pxTCB ) != pdFALSE ) )
                         {
                             prvYieldCore( pxTCB->xTaskRunState );
                             xAlreadyYielded = pdTRUE;
@@ -3353,7 +3355,11 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
                 mtCOVERAGE_TEST_MARKER();
             }
         }
-        kernelEXIT_CRITICAL();
+        #if ( configLIGHTWEIGHT_CRITICAL_SECTION == 1 )
+            vKernelLightWeightExitCritical();
+        #else
+            kernelEXIT_CRITICAL();
+        #endif
 
         if( uxDeferredAction != 0U )
         {
@@ -5937,7 +5943,6 @@ void vTaskRemoveFromUnorderedEventList( ListItem_t * pxEventListItem,
     traceENTER_vTaskRemoveFromUnorderedEventList( pxEventListItem, xItemValue );
 
     #if ( !( portUSING_GRANULAR_LOCKS == 1 ) )
-
         /* THIS FUNCTION MUST BE CALLED WITH THE SCHEDULER SUSPENDED.  It is used by
          * the event flags implementation. */
         configASSERT( uxSchedulerSuspended != ( UBaseType_t ) 0U );
@@ -7524,13 +7529,20 @@ static void prvResetNextTaskUnblockTime( void )
                  * might have already been incremented if this call is a nested
                  * call from a data group critical section. Hence, we have to
                  * acquire the kernel task and ISR locks unconditionally. */
-                #if ( portUSING_GRANULAR_LOCKS != 1 )
-                    if( portGET_CRITICAL_NESTING_COUNT( xCoreID ) == 0U )
-                #endif /* portUSING_GRANULAR_LOCKS */
+                #if ( portUSING_GRANULAR_LOCKS == 1 )
                 {
                     kernelGET_TASK_LOCK( xCoreID );
                     kernelGET_ISR_LOCK( xCoreID );
                 }
+                #else /* portUSING_GRANULAR_LOCKS */
+                {
+                    if( portGET_CRITICAL_NESTING_COUNT( xCoreID ) == 0U )
+                    {
+                        kernelGET_TASK_LOCK( xCoreID );
+                        kernelGET_ISR_LOCK( xCoreID );
+                    }
+                }
+                #endif /* portUSING_GRANULAR_LOCKS */
 
                 portINCREMENT_CRITICAL_NESTING_COUNT( xCoreID );
 
