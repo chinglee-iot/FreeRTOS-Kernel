@@ -863,13 +863,6 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
 #endif
 
 /*
- * Helper function to enable preemption for a task.
- */
-#if ( configUSE_TASK_PREEMPTION_DISABLE == 1 )
-    BaseType_t prvTaskPreemptionEnable( const TaskHandle_t xTask ) PRIVILEGED_FUNCTION;
-#endif /* #if ( configUSE_TASK_PREEMPTION_DISABLE == 1 ) */
-
-/*
  * freertos_tasks_c_additions_init() should only be called if the user definable
  * macro FREERTOS_TASKS_C_ADDITIONS_INIT() is defined, as that is the only macro
  * called by the function.
@@ -910,14 +903,6 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
                                                         size_t n );
 
 #endif /* #if ( ( configUSE_TRACE_FACILITY == 1 ) && ( configUSE_STATS_FORMATTING_FUNCTIONS > 0 ) ) */
-
-#if ( configUSE_TASK_PREEMPTION_DISABLE == 1 )
-
-    static BaseType_t prvTaskPreemptionEnable( const TaskHandle_t xTask );
-
-#endif /* #if ( configUSE_TASK_PREEMPTION_DISABLE == 1 ) */
-
-static BaseType_t prvTaskRemoveFromEventList( const List_t * const pxEventList );
 
 /*-----------------------------------------------------------*/
 
@@ -3319,7 +3304,7 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
 
 #if ( configUSE_TASK_PREEMPTION_DISABLE == 1 )
 
-    BaseType_t prvTaskPreemptionEnable( const TaskHandle_t xTask )
+    BaseType_t xTaskPreemptionEnableWithYieldStatus( const TaskHandle_t xTask )
     {
         TCB_t * pxTCB;
         UBaseType_t uxDeferredAction = 0U;
@@ -3331,8 +3316,6 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
             kernelENTER_CRITICAL();
         #endif
         {
-            xCoreID = portGET_CORE_ID();
-
             if( xSchedulerRunning != pdFALSE )
             {
                 pxTCB = prvGetTCBFromHandle( xTask );
@@ -3402,7 +3385,7 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
     {
         traceENTER_vTaskPreemptionEnable( xTask );
 
-        ( void ) prvTaskPreemptionEnable( xTask );
+        ( void ) xTaskPreemptionEnableWithYieldStatus( xTask );
 
         traceRETURN_vTaskPreemptionEnable();
     }
@@ -5798,7 +5781,7 @@ void vTaskPlaceOnUnorderedEventList( List_t * pxEventList,
 #endif /* configUSE_TIMERS */
 /*-----------------------------------------------------------*/
 
-static BaseType_t prvTaskRemoveFromEventList( const List_t * const pxEventList )
+BaseType_t xTaskRemoveFromEventList( const List_t * const pxEventList )
 {
     traceENTER_xTaskRemoveFromEventList( pxEventList );
 
