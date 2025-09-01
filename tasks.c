@@ -863,13 +863,6 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
 #endif
 
 /*
- * Helper function to enable preemption for a task.
- */
-#if ( configUSE_TASK_PREEMPTION_DISABLE == 1 )
-    BaseType_t prvTaskPreemptionEnable( const TaskHandle_t xTask ) PRIVILEGED_FUNCTION;
-#endif /* #if ( configUSE_TASK_PREEMPTION_DISABLE == 1 ) */
-
-/*
  * freertos_tasks_c_additions_init() should only be called if the user definable
  * macro FREERTOS_TASKS_C_ADDITIONS_INIT() is defined, as that is the only macro
  * called by the function.
@@ -910,14 +903,6 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
                                                         size_t n );
 
 #endif /* #if ( ( configUSE_TRACE_FACILITY == 1 ) && ( configUSE_STATS_FORMATTING_FUNCTIONS > 0 ) ) */
-
-#if ( configUSE_TASK_PREEMPTION_DISABLE == 1 )
-
-    static BaseType_t prvTaskPreemptionEnable( const TaskHandle_t xTask );
-
-#endif /* #if ( configUSE_TASK_PREEMPTION_DISABLE == 1 ) */
-
-static BaseType_t prvTaskRemoveFromEventList( const List_t * const pxEventList );
 
 /*-----------------------------------------------------------*/
 
@@ -3319,7 +3304,7 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
 
 #if ( configUSE_TASK_PREEMPTION_DISABLE == 1 )
 
-    BaseType_t prvTaskPreemptionEnable( const TaskHandle_t xTask )
+    BaseType_t xTaskPreemptionEnableWithYieldStatus( const TaskHandle_t xTask )
     {
         TCB_t * pxTCB;
         UBaseType_t uxDeferredAction = 0U;
@@ -3331,8 +3316,6 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
             kernelENTER_CRITICAL();
         #endif
         {
-            xCoreID = portGET_CORE_ID();
-
             if( xSchedulerRunning != pdFALSE )
             {
                 pxTCB = prvGetTCBFromHandle( xTask );
@@ -3402,7 +3385,7 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
     {
         traceENTER_vTaskPreemptionEnable( xTask );
 
-        ( void ) prvTaskPreemptionEnable( xTask );
+        ( void ) xTaskPreemptionEnableWithYieldStatus( xTask );
 
         traceRETURN_vTaskPreemptionEnable();
     }
@@ -5798,7 +5781,7 @@ void vTaskPlaceOnUnorderedEventList( List_t * pxEventList,
 #endif /* configUSE_TIMERS */
 /*-----------------------------------------------------------*/
 
-static BaseType_t prvTaskRemoveFromEventList( const List_t * const pxEventList )
+BaseType_t xTaskRemoveFromEventList( const List_t * const pxEventList )
 {
     traceENTER_xTaskRemoveFromEventList( pxEventList );
 
@@ -7689,25 +7672,6 @@ static void prvResetNextTaskUnblockTime( void )
 
             if( portGET_CRITICAL_NESTING_COUNT( xCoreID ) > 0U )
             {
-                BaseType_t xYieldCurrentTask = pdFALSE;
-
-                /* Get the xYieldPending stats inside the critical section. */
-                if( uxSchedulerSuspended == 0U )
-                {
-                    #if ( configUSE_TASK_PREEMPTION_DISABLE == 1 )
-                        if( ( pxCurrentTCBs[ xCoreID ]->uxPreemptionDisable == 0U ) &&
-                            ( pxCurrentTCBs[ xCoreID ]->uxDeferredStateChange == 0U ) )
-                    #endif /* ( configUSE_TASK_PREEMPTION_DISABLE == 1 ) */
-                    {
-                        xYieldCurrentTask = xYieldPendings[ xCoreID ];
-                    }
-                }
-                else
-                {
-                    mtCOVERAGE_TEST_MARKER();
-                }
-
-                /* Release the ISR and task locks first when using granular locks. */
                 #if ( portUSING_GRANULAR_LOCKS == 1 )
                 {
                     BaseType_t xYieldCurrentTask;
@@ -7730,33 +7694,57 @@ static void prvResetNextTaskUnblockTime( void )
                     /* Release the ISR and task locks first when using granular locks. */
                     kernelRELEASE_ISR_LOCK( xCoreID );
                     kernelRELEASE_TASK_LOCK( xCoreID );
-                }
-                #endif
-                portDECREMENT_CRITICAL_NESTING_COUNT( xCoreID );
+                    portDECREMENT_CRITICAL_NESTING_COUNT( xCoreID );
 
-                if( portGET_CRITICAL_NESTING_COUNT( xCoreID ) == 0U )
-                {
-                    #if ( portUSING_GRANULAR_LOCKS == 0 )
+                    if( portGET_CRITICAL_NESTING_COUNT( xCoreID ) == 0U )
                     {
+                        portENABLE_INTERRUPTS();
+
+                        /* When a task yields in a critical section it just sets
+                         * xYieldPending to true. So now that we have exited the
+                         * critical section check if xYieldPending is true, and
+                         * if so yield. */
+                        if( xYieldCurrentTask != pdFALSE )
+                        {
+                            portYIELD();
+                        }
+                    }
+                    else
+                    {
+                        mtCOVERAGE_TEST_MARKER();
+                    }
+                }
+                #else /* portUSING_GRANULAR_LOCKS */
+                {
+                    /* Decrement first; release locks and enable interrupts when count reaches zero. */
+                    portDECREMENT_CRITICAL_NESTING_COUNT( xCoreID );
+
+                    if( portGET_CRITICAL_NESTING_COUNT( xCoreID ) == 0U )
+                    {
+                        BaseType_t xYieldCurrentTask;
+
+                        /* Get the xYieldPending stats inside the critical section. */
+                        xYieldCurrentTask = xYieldPendings[ xCoreID ];
+
                         kernelRELEASE_ISR_LOCK( xCoreID );
                         kernelRELEASE_TASK_LOCK( xCoreID );
-                    }
-                    #endif
-                    portENABLE_INTERRUPTS();
+                        portENABLE_INTERRUPTS();
 
-                    /* When a task yields in a critical section it just sets
-                     * xYieldPending to true. So now that we have exited the
-                     * critical section check if xYieldPending is true, and
-                     * if so yield. */
-                    if( xYieldCurrentTask != pdFALSE )
+                        /* When a task yields in a critical section it just sets
+                         * xYieldPending to true. So now that we have exited the
+                         * critical section check if xYieldPending is true, and
+                         * if so yield. */
+                        if( xYieldCurrentTask != pdFALSE )
+                        {
+                            portYIELD();
+                        }
+                    }
+                    else
                     {
-                        portYIELD();
+                        mtCOVERAGE_TEST_MARKER();
                     }
                 }
-                else
-                {
-                    mtCOVERAGE_TEST_MARKER();
-                }
+                #endif /* portUSING_GRANULAR_LOCKS */
             }
             else
             {
