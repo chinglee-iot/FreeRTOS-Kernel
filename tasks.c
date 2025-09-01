@@ -3516,6 +3516,7 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
             kernelENTER_CRITICAL();
         #endif
         {
+            const BaseType_t xCoreID = portGET_CORE_ID();
             if( xSchedulerRunning != pdFALSE )
             {
                 pxTCB = prvGetTCBFromHandle( xTask );
@@ -3550,8 +3551,19 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
                     {
                         if( taskTASK_IS_RUNNING( pxTCB ) == pdTRUE )
                         {
-                            prvYieldCore( pxTCB->xTaskRunState );
-                            xTaskAlreadyYielded = pdTRUE;
+                            if( ( pxTCB->xTaskRunState != xCoreID ) && ( xYieldPendings[ pxTCB->xTaskRunState ] != pdFALSE ) )
+                            {
+                                /* When enable preemption of other tasks, the task
+                                 * should handle the pending yield request for other tasks. */
+                                prvYieldCore( pxTCB->xTaskRunState );
+                                xAlreadyYielded = pdTRUE;
+                            }
+                            else
+                            {
+                                /* The pending yield request will be handled after leaving
+                                 * the critical section. */
+                                xAlreadyYielded = xYieldPendings[ xCoreID ];
+                            }
                         }
                         else
                         {
