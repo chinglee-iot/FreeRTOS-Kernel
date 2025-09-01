@@ -361,7 +361,7 @@ typedef enum
             mtCOVERAGE_TEST_MARKER();                                                \
         }                                                                            \
         /* Re-enable preemption */                                                   \
-        vTaskPreemptionEnable( NULL );                                               \
+        prvTaskPreemptionEnable( NULL );                                             \
     } while( 0 )
 #endif /* #if ( portUSING_GRANULAR_LOCKS == 1 ) */
 
@@ -416,45 +416,11 @@ typedef enum
  */
 #if ( portUSING_GRANULAR_LOCKS == 1 )
     #define taskDATA_GROUP_UNLOCK( pxTaskSpinlock )                                            \
-    do {                                                                                       \
+    ( {                                                                                        \
         portRELEASE_SPINLOCK( portGET_CORE_ID(), ( portSPINLOCK_TYPE * ) ( pxTaskSpinlock ) ); \
         /* Re-enable preemption after releasing the task spinlock. */                          \
-        vTaskPreemptionEnable( NULL );                                                         \
-    } while( 0 )
-#endif /* #if ( portUSING_GRANULAR_LOCKS == 1 ) */
-
-/**
- * task. h
- *
- * Macros to unlock a data group (task-level lock only).
- *
- * \defgroup taskDATA_GROUP_UNLOCK taskDATA_GROUP_UNLOCK
- * \ingroup GranularLocks
- */
-#if ( portUSING_GRANULAR_LOCKS == 1 )
-    #define taskDATA_GROUP_UNLOCK( pxTaskSpinlock )                                            \
-    do {                                                                                       \
-        portRELEASE_SPINLOCK( portGET_CORE_ID(), ( portSPINLOCK_TYPE * ) ( pxTaskSpinlock ) ); \
-        /* Re-enable preemption after releasing the task spinlock. */                          \
-        vTaskPreemptionEnable( NULL );                                                         \
-    } while( 0 )
-#endif /* #if ( portUSING_GRANULAR_LOCKS == 1 ) */
-
-/**
- * task. h
- *
- * Macros to unlock a data group and return the task yield status. (task-level lock only).
- *
- * \defgroup taskDATA_GROUP_UNLOCK taskDATA_GROUP_UNLOCK_WITH_YIELD_STATUS
- * \ingroup GranularLocks
- */
-#if ( portUSING_GRANULAR_LOCKS == 1 )
-    #define taskDATA_GROUP_UNLOCK_WITH_YIELD_STATUS( pxTaskSpinlock, pxTaskAlreadyYielded )    \
-    do {                                                                                       \
-        portRELEASE_SPINLOCK( portGET_CORE_ID(), ( portSPINLOCK_TYPE * ) ( pxTaskSpinlock ) ); \
-        /* Re-enable preemption after releasing the task spinlock. */                          \
-        *( pxTaskAlreadyYielded ) = xCurrentTaskPreemptionEnable();                            \
-    } while( 0 )
+        prvTaskPreemptionEnable( NULL );                                                       \
+    } )
 #endif /* #if ( portUSING_GRANULAR_LOCKS == 1 ) */
 
 /*-----------------------------------------------------------
@@ -1655,6 +1621,23 @@ BaseType_t xTaskResumeFromISR( TaskHandle_t xTaskToResume ) PRIVILEGED_FUNCTION;
  * }
  */
     void vTaskPreemptionEnable( const TaskHandle_t xTask );
+#endif
+
+#if ( configUSE_TASK_PREEMPTION_DISABLE == 1 )
+
+/*
+ * THIS FUNCTION MUST NOT BE USED FROM APPLICATION CODE.  IT IS ONLY
+ * INTENDED FOR USE WHEN IMPLEMENTING A PORT OF THE SCHEDULER AND IS
+ * AN INTERFACE WHICH IS FOR THE EXCLUSIVE USE OF THE SCHEDULER.
+ *
+ * @param xTask The handle of the task to enable preemption. Passing NULL
+ * enables preemption for the calling task.
+ *
+ * @return pdTRUE if enabling preemption for the task resulted in a context
+ * switch, otherwise pdFALSE. This is used by the scheduler to determine if a
+ * context switch may be required following the enable.
+ */
+    BaseType_t prvTaskPreemptionEnable( const TaskHandle_t xTask );
 #endif
 
 /*-----------------------------------------------------------
@@ -3735,6 +3718,8 @@ void vTaskPlaceOnEventListRestricted( List_t * const pxEventList,
  * Removes a task from both the specified event list and the list of blocked
  * tasks, and places it on a ready queue.
  *
+ * Do not call this function from an ISR context. Call xTaskRemoveFromEventListFromISR() instead.
+ *
  * xTaskRemoveFromEventList()/vTaskRemoveFromUnorderedEventList() will be called
  * if either an event occurs to unblock a task, or the block timeout period
  * expires.
@@ -3751,7 +3736,23 @@ void vTaskPlaceOnEventListRestricted( List_t * const pxEventList,
  * making the call, otherwise pdFALSE.
  */
 BaseType_t xTaskRemoveFromEventList( const List_t * const pxEventList ) PRIVILEGED_FUNCTION;
+
+/*
+ * THIS FUNCTION MUST NOT BE USED FROM APPLICATION CODE.  IT IS ONLY
+ * INTENDED FOR USE WHEN IMPLEMENTING A PORT OF THE SCHEDULER AND IS
+ * AN INTERFACE WHICH IS FOR THE EXCLUSIVE USE OF THE SCHEDULER.
+ *
+ * THIS FUNCTION MUST BE CALLED WITH INTERRUPTS DISABLED.
+ *
+ * Removes a task from both the specified event list and the list of blocked
+ * tasks, and places it on a ready queue. This function is the ISR-safe version
+ * of xTaskRemoveFromEventList().
+ *
+ * @return pdTRUE if the task being removed has a higher priority than the task
+ * making the call, otherwise pdFALSE.
+ */
 BaseType_t xTaskRemoveFromEventListFromISR( const List_t * const pxEventList ) PRIVILEGED_FUNCTION;
+
 void vTaskRemoveFromUnorderedEventList( ListItem_t * pxEventListItem,
                                         const TickType_t xItemValue ) PRIVILEGED_FUNCTION;
 
@@ -3945,14 +3946,6 @@ void vTaskInternalSetTimeOutState( TimeOut_t * const pxTimeOut ) PRIVILEGED_FUNC
 #if ( configLIGHTWEIGHT_CRITICAL_SECTION == 1 )
     void vKernelLightWeightExitCritical( void );
 #endif
-
-/*
- * Enable preemption of current task asl return the task already yield status.
- */
-#if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) )
-    BaseType_t xCurrentTaskPreemptionEnable( void );
-#endif /* #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) ) */
-
 
 #if ( portUSING_MPU_WRAPPERS == 1 )
 

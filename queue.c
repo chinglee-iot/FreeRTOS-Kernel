@@ -221,11 +221,21 @@ static void prvCopyDataFromQueue( Queue_t * const pxQueue,
  * Checks to see if a queue is a member of a queue set, and if so, notifies
  * the queue set that the queue contains data.
  */
+    static BaseType_t prvNotifyQueueSetContainer( const Queue_t * const pxQueue ) PRIVILEGED_FUNCTION;
+
+/*
+ * A version of prvNotifyQueueSetContainer() that can be called from an
+ * interrupt service routine (ISR).
+ */
+    static BaseType_t prvNotifyQueueSetContainerFromISR( const Queue_t * const pxQueue ) PRIVILEGED_FUNCTION;
+
+/*
+ * This function serves as a generic implementation for prvNotifyQueueSetContainer()
+ * and prvNotifyQueueSetContainerFromISR().
+ */
     static BaseType_t prvNotifyQueueSetContainerGeneric( const Queue_t * const pxQueue,
-                                                         BaseType_t xNotifyFromISR ) PRIVILEGED_FUNCTION;
-    #define prvNotifyQueueSetContainer( pxQueue )           prvNotifyQueueSetContainerGeneric( pxQueue, pdFALSE )
-    #define prvNotifyQueueSetContainerFromISR( pxQueue )    prvNotifyQueueSetContainerGeneric( pxQueue, pdTRUE )
-#endif
+                                                         const BaseType_t xIsISR ) PRIVILEGED_FUNCTION;
+#endif /* if ( configUSE_QUEUE_SETS == 1 ) */
 
 /*
  * Called after a Queue_t structure has been allocated either statically or
@@ -277,8 +287,34 @@ static void prvInitialiseNewQueue( const UBaseType_t uxQueueLength,
 /*
  * Macro to mark a queue as locked.  Locking a queue prevents an ISR from
  * accessing the queue event lists.
+ *
+ * Under granular locks, queueLOCK()/queueUNLOCK() already surround this with
+ * task-level spinlock + preemption-disabled region. To avoid redundant
+ * data-group enter/exit (which would re-disable preemption and re-acquire the
+ * same task spinlock), we minimize to interrupt masking only for the small
+ * metadata updates here. For the non-granular path, retain the full
+ * queueENTER_CRITICAL/queueEXIT_CRITICAL.
  */
-#define prvLockQueue( pxQueue )                            \
+#if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) )
+    #define prvLockQueue( pxQueue )                                                                        \
+    do {                                                                                                   \
+        UBaseType_t ulState = portSET_INTERRUPT_MASK();                                                    \
+        portGET_SPINLOCK( portGET_CORE_ID(), ( portSPINLOCK_TYPE * ) &( ( pxQueue )->xISRSpinlock ) );     \
+        {                                                                                                  \
+            if( ( pxQueue )->cRxLock == queueUNLOCKED )                                                    \
+            {                                                                                              \
+                ( pxQueue )->cRxLock = queueLOCKED_UNMODIFIED;                                             \
+            }                                                                                              \
+            if( ( pxQueue )->cTxLock == queueUNLOCKED )                                                    \
+            {                                                                                              \
+                ( pxQueue )->cTxLock = queueLOCKED_UNMODIFIED;                                             \
+            }                                                                                              \
+        }                                                                                                  \
+        portRELEASE_SPINLOCK( portGET_CORE_ID(), ( portSPINLOCK_TYPE * ) &( ( pxQueue )->xISRSpinlock ) ); \
+        portCLEAR_INTERRUPT_MASK( ulState );                                                               \
+    } while( 0 )
+#else /* if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) ) */
+    #define prvLockQueue( pxQueue )                        \
     queueENTER_CRITICAL( pxQueue );                        \
     {                                                      \
         if( ( pxQueue )->cRxLock == queueUNLOCKED )        \
@@ -291,6 +327,7 @@ static void prvInitialiseNewQueue( const UBaseType_t uxQueueLength,
         }                                                  \
     }                                                      \
     queueEXIT_CRITICAL( pxQueue )
+#endif /* if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) ) */
 
 /*
  * Macro to increment cTxLock member of the queue data structure. It is
@@ -336,18 +373,19 @@ static void prvInitialiseNewQueue( const UBaseType_t uxQueueLength,
         taskDATA_GROUP_LOCK( &( ( pxQueue )->xTaskSpinlock ) ); \
         prvLockQueue( ( pxQueue ) );                            \
     } while( 0 )
-    #define queueUNLOCK( pxQueue, xYieldAPI )                     \
-    do {                                                          \
-        prvUnlockQueue( ( pxQueue ) );                            \
-        taskDATA_GROUP_UNLOCK( &( ( pxQueue )->xTaskSpinlock ) ); \
-        if( ( xYieldAPI ) == pdTRUE )                             \
-        {                                                         \
-            taskYIELD_WITHIN_API();                               \
-        }                                                         \
-        else                                                      \
-        {                                                         \
-            mtCOVERAGE_TEST_MARKER();                             \
-        }                                                         \
+    #define queueUNLOCK( pxQueue, xYieldAPI )                                       \
+    do {                                                                            \
+        BaseType_t xAlreadyYielded;                                                 \
+        prvUnlockQueue( ( pxQueue ) );                                              \
+        xAlreadyYielded = taskDATA_GROUP_UNLOCK( &( ( pxQueue )->xTaskSpinlock ) ); \
+        if( ( xAlreadyYielded == pdFALSE ) && ( ( xYieldAPI ) == pdTRUE ) )         \
+        {                                                                           \
+            taskYIELD_WITHIN_API();                                                 \
+        }                                                                           \
+        else                                                                        \
+        {                                                                           \
+            mtCOVERAGE_TEST_MARKER();                                               \
+        }                                                                           \
     } while( 0 )
 #else /* #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) ) */
     #define queueLOCK( pxQueue )     \
@@ -1348,7 +1386,7 @@ BaseType_t xQueueGenericSendFromISR( QueueHandle_t xQueue,
                 {
                     if( listLIST_IS_EMPTY( &( pxQueue->xTasksWaitingToReceive ) ) == pdFALSE )
                     {
-                        if( xTaskRemoveFromEventList( &( pxQueue->xTasksWaitingToReceive ) ) != pdFALSE )
+                        if( xTaskRemoveFromEventListFromISR( &( pxQueue->xTasksWaitingToReceive ) ) != pdFALSE )
                         {
                             /* The task waiting has a higher priority so record that a
                              * context switch is required. */
@@ -1522,7 +1560,7 @@ BaseType_t xQueueGiveFromISR( QueueHandle_t xQueue,
                 {
                     if( listLIST_IS_EMPTY( &( pxQueue->xTasksWaitingToReceive ) ) == pdFALSE )
                     {
-                        if( xTaskRemoveFromEventList( &( pxQueue->xTasksWaitingToReceive ) ) != pdFALSE )
+                        if( xTaskRemoveFromEventListFromISR( &( pxQueue->xTasksWaitingToReceive ) ) != pdFALSE )
                         {
                             /* The task waiting has a higher priority so record that a
                              * context switch is required. */
@@ -2527,7 +2565,12 @@ static void prvUnlockQueue( Queue_t * const pxQueue )
      * removed from the queue while the queue was locked.  When a queue is
      * locked items can be added or removed, but the event lists cannot be
      * updated. */
-    queueENTER_CRITICAL( pxQueue );
+    #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) )
+        UBaseType_t ulState = portSET_INTERRUPT_MASK();
+        portGET_SPINLOCK( portGET_CORE_ID(), ( portSPINLOCK_TYPE * ) &( pxQueue->xISRSpinlock ) );
+    #else
+        queueENTER_CRITICAL( pxQueue );
+    #endif
     {
         int8_t cTxLock = pxQueue->cTxLock;
 
@@ -2605,10 +2648,20 @@ static void prvUnlockQueue( Queue_t * const pxQueue )
 
         pxQueue->cTxLock = queueUNLOCKED;
     }
-    queueEXIT_CRITICAL( pxQueue );
+    #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) )
+        portRELEASE_SPINLOCK( portGET_CORE_ID(), ( portSPINLOCK_TYPE * ) &( pxQueue->xISRSpinlock ) );
+        portCLEAR_INTERRUPT_MASK( ulState );
+    #else
+        queueEXIT_CRITICAL( pxQueue );
+    #endif
 
     /* Do the same for the Rx lock. */
-    queueENTER_CRITICAL( pxQueue );
+    #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) )
+        ulState = portSET_INTERRUPT_MASK();
+        portGET_SPINLOCK( portGET_CORE_ID(), ( portSPINLOCK_TYPE * ) &( pxQueue->xISRSpinlock ) );
+    #else
+        queueENTER_CRITICAL( pxQueue );
+    #endif
     {
         int8_t cRxLock = pxQueue->cRxLock;
 
@@ -2635,7 +2688,12 @@ static void prvUnlockQueue( Queue_t * const pxQueue )
 
         pxQueue->cRxLock = queueUNLOCKED;
     }
-    queueEXIT_CRITICAL( pxQueue );
+    #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) )
+        portRELEASE_SPINLOCK( portGET_CORE_ID(), ( portSPINLOCK_TYPE * ) &( pxQueue->xISRSpinlock ) );
+        portCLEAR_INTERRUPT_MASK( ulState );
+    #else
+        queueEXIT_CRITICAL( pxQueue );
+    #endif
 }
 /*-----------------------------------------------------------*/
 
@@ -3358,6 +3416,19 @@ BaseType_t xQueueIsQueueFullFromISR( const QueueHandle_t xQueue )
     static BaseType_t prvNotifyQueueSetContainerGeneric( const Queue_t * const pxQueue,
                                                          BaseType_t xNotifyFromISR )
     {
+        /* Call the generic version with xIsISR = pdFALSE to indicate task context */
+        return prvNotifyQueueSetContainerGeneric( pxQueue, pdFALSE );
+    }
+
+    static BaseType_t prvNotifyQueueSetContainerFromISR( const Queue_t * const pxQueue )
+    {
+        /* Call the generic version with xIsISR = pdTRUE to indicate ISR context */
+        return prvNotifyQueueSetContainerGeneric( pxQueue, pdTRUE );
+    }
+
+    static BaseType_t prvNotifyQueueSetContainerGeneric( const Queue_t * const pxQueue,
+                                                         const BaseType_t xIsISR )
+    {
         Queue_t * pxQueueSetContainer = pxQueue->pxQueueSetContainer;
         BaseType_t xReturn = pdFALSE;
 
@@ -3382,7 +3453,18 @@ BaseType_t xQueueIsQueueFullFromISR( const QueueHandle_t xQueue )
             {
                 if( listLIST_IS_EMPTY( &( pxQueueSetContainer->xTasksWaitingToReceive ) ) == pdFALSE )
                 {
-                    if( xNotifyFromISR != pdTRUE )
+                    BaseType_t xHigherPriorityTaskWoken;
+
+                    if( xIsISR == pdTRUE )
+                    {
+                        xHigherPriorityTaskWoken = xTaskRemoveFromEventListFromISR( &( pxQueueSetContainer->xTasksWaitingToReceive ) );
+                    }
+                    else
+                    {
+                        xHigherPriorityTaskWoken = xTaskRemoveFromEventList( &( pxQueueSetContainer->xTasksWaitingToReceive ) );
+                    }
+
+                    if( xHigherPriorityTaskWoken != pdFALSE )
                     {
                         if( xTaskRemoveFromEventList( &( pxQueueSetContainer->xTasksWaitingToReceive ) ) != pdFALSE )
                         {
