@@ -3465,27 +3465,12 @@ BaseType_t xQueueIsQueueFullFromISR( const QueueHandle_t xQueue )
 
                     if( xHigherPriorityTaskWoken != pdFALSE )
                     {
-                        if( xTaskRemoveFromEventList( &( pxQueueSetContainer->xTasksWaitingToReceive ) ) != pdFALSE )
-                        {
-                            /* The task waiting has a higher priority. */
-                            xReturn = pdTRUE;
-                        }
-                        else
-                        {
-                            mtCOVERAGE_TEST_MARKER();
-                        }
+                        /* The task waiting has a higher priority. */
+                        xReturn = pdTRUE;
                     }
                     else
                     {
-                        if( xTaskRemoveFromEventListFromISR( &( pxQueueSetContainer->xTasksWaitingToReceive ) ) != pdFALSE )
-                        {
-                            /* The task waiting has a higher priority. */
-                            xReturn = pdTRUE;
-                        }
-                        else
-                        {
-                            mtCOVERAGE_TEST_MARKER();
-                        }
+                        mtCOVERAGE_TEST_MARKER();
                     }
                 }
                 else
