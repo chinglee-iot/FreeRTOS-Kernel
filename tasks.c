@@ -607,8 +607,8 @@ PRIVILEGED_DATA static volatile configRUN_TIME_COUNTER_TYPE ulTotalRunTime[ conf
 
 /* Kernel spinlock variables when using granular locking */
 #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) )
-    PRIVILEGED_DATA static portSPINLOCK_TYPE xTaskSpinlock = portINIT_SPINLOCK_STATIC;
-    PRIVILEGED_DATA static portSPINLOCK_TYPE xISRSpinlock = portINIT_SPINLOCK_STATIC;
+    PRIVILEGED_DATA portSPINLOCK_TYPE xTaskSpinlock = portINIT_SPINLOCK_STATIC;
+    PRIVILEGED_DATA portSPINLOCK_TYPE xISRSpinlock = portINIT_SPINLOCK_STATIC;
 #endif /* #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) ) */
 
 /*-----------------------------------------------------------*/
@@ -6199,6 +6199,15 @@ void vTaskMissedYield( void )
 
         for( ; configCONTROL_INFINITE_LOOP(); )
         {
+            /* If the application use a IDLE priority task, then all the idle task
+             * will yield itself for the IDLE priority task. This result in all the
+             * idle task core are waiting to entering kernel critical section and
+             * interrupt can't be served, for example tick ISR. Adding a busy looping
+             * here as a workaround. */
+            /* FIXME : prevent all idle task yield at the same time for IDLE priority
+             * tasks. */
+            for( volatile int a = 0; a < 1000000; a++ );
+
             #if ( configUSE_PREEMPTION == 0 )
             {
                 /* If we are not using preemption we keep forcing a task switch to
@@ -7462,7 +7471,15 @@ static void prvResetNextTaskUnblockTime( void )
         {
             const BaseType_t xCoreID = ( BaseType_t ) portGET_CORE_ID();
 
-            if( portGET_CRITICAL_NESTING_COUNT( xCoreID ) == 0U )
+            if( ( portGET_CRITICAL_NESTING_COUNT( xCoreID ) == 0U )
+                #if ( configUSE_TASK_PREEMPTION_DISABLE == 1 )
+                    /* Task yield can be called in a data group critilcal section.
+                     * Adding a preemption disable check to prevent invalid context
+                     * switch. */
+                    && ( pxCurrentTCBs[ xCoreID ]->uxPreemptionDisable == 0U )
+                    && ( pxCurrentTCBs[ xCoreID ]->uxDeferredStateChange == 0U )
+                #endif /* #if ( configUSE_TASK_PREEMPTION_DISABLE == 1 ) */
+                )
             {
                 portYIELD();
             }
