@@ -85,6 +85,14 @@ DEFINE_RTOS_INTERRUPT_CALLBACK( pxKernelTimerISR, pvData )
 
     #if ( portUSING_GRANULAR_LOCKS == 0 )
         taskEXIT_CRITICAL_FROM_ISR( uxSavedInterruptStatus );
+    #else
+
+        extern void vPortApplicationTickHook( void );
+        vPortApplicationTickHook();
+        if( xTaskUnlockCanYield() == pdTRUE )
+        {
+            ulPortYieldRequired[ xCoreID ] = pdTRUE;
+        }
     #endif
 }
 /*-----------------------------------------------------------*/

@@ -6199,15 +6199,6 @@ void vTaskMissedYield( void )
 
         for( ; configCONTROL_INFINITE_LOOP(); )
         {
-            /* If the application use a IDLE priority task, then all the idle task
-             * will yield itself for the IDLE priority task. This result in all the
-             * idle task core are waiting to entering kernel critical section and
-             * interrupt can't be served, for example tick ISR. Adding a busy looping
-             * here as a workaround. */
-            /* FIXME : prevent all idle task yield at the same time for IDLE priority
-             * tasks. */
-            for( volatile int a = 0; a < 1000000; a++ );
-
             #if ( configUSE_PREEMPTION == 0 )
             {
                 /* If we are not using preemption we keep forcing a task switch to
