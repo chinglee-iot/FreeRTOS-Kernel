@@ -5795,11 +5795,11 @@ BaseType_t xTaskRemoveFromEventList( const List_t * const pxEventList )
 
     #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) )
         /* Lock the kernel data group as we are about to access its members */
-        kernelENTER_CRITICAL();
+        vKernelLightWeightEnterCritical();
         {
             xReturn = prvTaskRemoveFromEventList( pxEventList );
         }
-        kernelEXIT_CRITICAL();
+        vKernelLightWeightExitCritical();
     #else
         xReturn = prvTaskRemoveFromEventList( pxEventList );
     #endif
@@ -7848,7 +7848,6 @@ static void prvResetNextTaskUnblockTime( void )
 #endif /* #if ( configNUMBER_OF_CORES > 1 ) */
 /*-----------------------------------------------------------*/
 
-#if ( configLIGHTWEIGHT_CRITICAL_SECTION == 1 )
 
     static void prvLightWeightCheckForRunStateChange( void )
     {
@@ -7951,7 +7950,6 @@ static void prvResetNextTaskUnblockTime( void )
         }
     }
 
-#endif /* configLIGHTWEIGHT_CRITICAL_SECTION == 1 */
 /*-----------------------------------------------------------*/
 
 #if ( configUSE_STATS_FORMATTING_FUNCTIONS > 0 )
@@ -9564,4 +9562,31 @@ void vTaskResetState( void )
     }
     #endif /* #if ( configGENERATE_RUN_TIME_STATS == 1 ) */
 }
+/*-----------------------------------------------------------*/
+
+#if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) )
+
+    BaseType_t xTaskUnlockCanYield( void )
+    {
+        BaseType_t xReturn;
+        BaseType_t xCoreID = portGET_CORE_ID();
+
+        if( ( xYieldPendings[ xCoreID ] == pdTRUE )
+            && ( uxSchedulerSuspended == pdFALSE )
+            #if ( configUSE_TASK_PREEMPTION_DISABLE == 1 )
+                && ( pxCurrentTCBs[ xCoreID ]->uxPreemptionDisable == 0U )
+            #endif /* ( configUSE_TASK_PREEMPTION_DISABLE == 1 ) */
+            )
+        {
+            xReturn = pdTRUE;
+        }
+        else
+        {
+            xReturn = pdFALSE;
+        }
+
+        return xReturn;
+    }
+
+#endif /* #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) ) */
 /*-----------------------------------------------------------*/
