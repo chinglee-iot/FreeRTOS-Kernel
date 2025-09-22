@@ -4411,9 +4411,9 @@ BaseType_t xTaskResumeAll( void )
                         }
                         #else /* #if ( configNUMBER_OF_CORES == 1 ) */
                         {
-                            /* All appropriate tasks yield at the moment a task is added to xPendingReadyList.
-                             * If the current core yielded then vTaskSwitchContext() has already been called
-                             * which sets xYieldPendings for the current core to pdTRUE. */
+                            /* Yield for the task when removing out from pending
+                             * ready list. */
+                            prvYieldForTask( pxTCB );
                         }
                         #endif /* #if ( configNUMBER_OF_CORES == 1 ) */
                     }
@@ -5076,6 +5076,10 @@ BaseType_t xTaskIncrementTick( void )
         UBaseType_t uxSavedInterruptStatus;
     #endif /* #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) ) */
 
+    #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configUSE_TICK_HOOK == 1 ) )
+        BaseType_t xApplicationTickRequired = pdFALSE;
+    #endif
+
     traceENTER_xTaskIncrementTick();
 
     #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) )
@@ -5250,7 +5254,15 @@ BaseType_t xTaskIncrementTick( void )
              * count is being unwound (when the scheduler is being unlocked). */
             if( xPendedTicks == ( TickType_t ) 0 )
             {
-                vApplicationTickHook();
+                #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configUSE_TICK_HOOK == 1 ) )
+                {
+                    xApplicationTickRequired = pdTRUE;
+                }
+                #else
+                {
+                    vApplicationTickHook();
+                }
+                #endif
             }
             else
             {
@@ -5312,7 +5324,11 @@ BaseType_t xTaskIncrementTick( void )
 
         /* The tick hook gets called at regular intervals, even if the
          * scheduler is locked. */
-        #if ( configUSE_TICK_HOOK == 1 )
+        #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configUSE_TICK_HOOK == 1 ) )
+        {
+            xApplicationTickRequired = pdTRUE;
+        }
+        #else
         {
             vApplicationTickHook();
         }
@@ -5322,6 +5338,17 @@ BaseType_t xTaskIncrementTick( void )
     #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) )
         kernelEXIT_CRITICAL_FROM_ISR( uxSavedInterruptStatus );
     #endif /* #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) ) */
+
+    #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configUSE_TICK_HOOK == 1 ) )
+    {
+        /* In order not to voilate granular lock critical section hierarchy, calling
+         * the vApplicationTickHook when leaving the kernel critical section. */
+        if( xApplicationTickRequired == pdTRUE )
+        {
+            vApplicationTickHook();
+        }
+    }
+    #endif
 
     traceRETURN_xTaskIncrementTick( xSwitchRequired );
 
@@ -5912,14 +5939,15 @@ static BaseType_t prvTaskRemoveFromEventList( const List_t * const pxEventList )
             xReturn = pdFALSE;
 
             #if ( configUSE_PREEMPTION == 1 )
-            {
-                prvYieldForTask( pxUnblockedTCB );
-
-                if( xYieldPendings[ portGET_CORE_ID() ] != pdFALSE )
+                if( uxSchedulerSuspended == ( UBaseType_t ) 0U )
                 {
-                    xReturn = pdTRUE;
+                    prvYieldForTask( pxUnblockedTCB );
+
+                    if( xYieldPendings[ portGET_CORE_ID() ] != pdFALSE )
+                    {
+                        xReturn = pdTRUE;
+                    }
                 }
-            }
             #endif /* #if ( configUSE_PREEMPTION == 1 ) */
         }
         #endif /* #if ( configNUMBER_OF_CORES == 1 ) */
@@ -7467,8 +7495,8 @@ static void prvResetNextTaskUnblockTime( void )
                     /* Task yield can be called in a data group critilcal section.
                      * Adding a preemption disable check to prevent invalid context
                      * switch. */
-                    && ( pxCurrentTCBs[ xCoreID ]->uxPreemptionDisable == 0U )
-                    && ( pxCurrentTCBs[ xCoreID ]->uxDeferredStateChange == 0U )
+                    && ( pxCurrentTCBs[ xCoreID ]->uxPreemptionDisable == 0U ) &&
+                    ( pxCurrentTCBs[ xCoreID ]->uxDeferredStateChange == 0U )
                 #endif /* #if ( configUSE_TASK_PREEMPTION_DISABLE == 1 ) */
                 )
             {
@@ -7697,7 +7725,7 @@ static void prvResetNextTaskUnblockTime( void )
                     BaseType_t xYieldCurrentTask;
 
                     /* Get the xYieldPending status inside the critical section. */
-                    if( ( xYieldPendings[ xCoreID ] == pdTRUE ) && ( uxSchedulerSuspended == pdFALSE )
+                    if( ( xYieldPendings[ xCoreID ] == pdTRUE ) && ( uxSchedulerSuspended == ( UBaseType_t ) 0U )
                         #if ( configUSE_TASK_PREEMPTION_DISABLE == 1 )
                             && ( pxCurrentTCBs[ xCoreID ]->uxPreemptionDisable == 0U ) &&
                             ( pxCurrentTCBs[ xCoreID ]->uxDeferredStateChange == 0U )
@@ -7840,106 +7868,106 @@ static void prvResetNextTaskUnblockTime( void )
 /*-----------------------------------------------------------*/
 
 
-    static void prvLightWeightCheckForRunStateChange( void )
+static void prvLightWeightCheckForRunStateChange( void )
+{
+    const TCB_t * pxThisTCB;
+    BaseType_t xCoreID = ( BaseType_t ) portGET_CORE_ID();
+
+    /* Must not be called from ISR context. */
+    portASSERT_IF_IN_ISR();
+
+    /* Called with interrupts disabled. Safe to read pxCurrentTCBs. */
+    pxThisTCB = pxCurrentTCBs[ xCoreID ];
+
+    while( pxThisTCB->xTaskRunState == taskTASK_SCHEDULED_TO_YIELD )
     {
-        const TCB_t * pxThisTCB;
-        BaseType_t xCoreID = ( BaseType_t ) portGET_CORE_ID();
+        UBaseType_t uxPrevCriticalNesting;
 
-        /* Must not be called from ISR context. */
-        portASSERT_IF_IN_ISR();
+        /* Save nesting and temporarily release ISR lock if needed to service pending IPI. */
+        uxPrevCriticalNesting = portGET_CRITICAL_NESTING_COUNT( xCoreID );
 
-        /* Called with interrupts disabled. Safe to read pxCurrentTCBs. */
+        if( uxPrevCriticalNesting > 0U )
+        {
+            portSET_CRITICAL_NESTING_COUNT( xCoreID, 0U );
+            kernelRELEASE_ISR_LOCK( xCoreID );
+        }
+
+        portMEMORY_BARRIER();
+
+        /* Allow the core to service pending yield interrupt. */
+        portENABLE_INTERRUPTS();
+        portDISABLE_INTERRUPTS();
+
+        /* Reacquire ISR lock and restore nesting; re-evaluate run state. */
+        xCoreID = ( BaseType_t ) portGET_CORE_ID();
+        kernelGET_ISR_LOCK( xCoreID );
+        portSET_CRITICAL_NESTING_COUNT( xCoreID, uxPrevCriticalNesting );
         pxThisTCB = pxCurrentTCBs[ xCoreID ];
-
-        while( pxThisTCB->xTaskRunState == taskTASK_SCHEDULED_TO_YIELD )
-        {
-            UBaseType_t uxPrevCriticalNesting;
-
-            /* Save nesting and temporarily release ISR lock if needed to service pending IPI. */
-            uxPrevCriticalNesting = portGET_CRITICAL_NESTING_COUNT( xCoreID );
-
-            if( uxPrevCriticalNesting > 0U )
-            {
-                portSET_CRITICAL_NESTING_COUNT( xCoreID, 0U );
-                kernelRELEASE_ISR_LOCK( xCoreID );
-            }
-
-            portMEMORY_BARRIER();
-
-            /* Allow the core to service pending yield interrupt. */
-            portENABLE_INTERRUPTS();
-            portDISABLE_INTERRUPTS();
-
-            /* Reacquire ISR lock and restore nesting; re-evaluate run state. */
-            xCoreID = ( BaseType_t ) portGET_CORE_ID();
-            kernelGET_ISR_LOCK( xCoreID );
-            portSET_CRITICAL_NESTING_COUNT( xCoreID, uxPrevCriticalNesting );
-            pxThisTCB = pxCurrentTCBs[ xCoreID ];
-        }
     }
+}
 
-    void vKernelLightWeightEnterCritical( void )
+void vKernelLightWeightEnterCritical( void )
+{
+    if( xSchedulerRunning != pdFALSE )
     {
-        if( xSchedulerRunning != pdFALSE )
-        {
-            portDISABLE_INTERRUPTS();
-            {
-                const BaseType_t xCoreID = ( BaseType_t ) portGET_CORE_ID();
-
-                /* Take only the ISR lock, not the task lock. */
-                kernelGET_ISR_LOCK( xCoreID );
-
-                portINCREMENT_CRITICAL_NESTING_COUNT( xCoreID );
-
-                if( portGET_CRITICAL_NESTING_COUNT( xCoreID ) == 1U )
-                {
-                    prvLightWeightCheckForRunStateChange();
-                }
-            }
-        }
-    }
-
-    void vKernelLightWeightExitCritical( void )
-    {
-        if( xSchedulerRunning != pdFALSE )
+        portDISABLE_INTERRUPTS();
         {
             const BaseType_t xCoreID = ( BaseType_t ) portGET_CORE_ID();
 
-            if( portGET_CRITICAL_NESTING_COUNT( xCoreID ) > 0U )
+            /* Take only the ISR lock, not the task lock. */
+            kernelGET_ISR_LOCK( xCoreID );
+
+            portINCREMENT_CRITICAL_NESTING_COUNT( xCoreID );
+
+            if( ( portGET_CRITICAL_NESTING_COUNT( xCoreID ) == 1U ) && ( uxSchedulerSuspended == ( UBaseType_t ) 0U ) )
             {
-                BaseType_t xYieldCurrentTask;
+                prvLightWeightCheckForRunStateChange();
+            }
+        }
+    }
+}
 
-                if( ( xYieldPendings[ xCoreID ] == pdTRUE ) && ( uxSchedulerSuspended == pdFALSE )
-                    #if ( configUSE_TASK_PREEMPTION_DISABLE == 1 )
-                        && ( pxCurrentTCBs[ xCoreID ]->uxPreemptionDisable == 0U ) &&
-                        ( pxCurrentTCBs[ xCoreID ]->uxDeferredStateChange == 0U )
-                    #endif
-                    )
+void vKernelLightWeightExitCritical( void )
+{
+    if( xSchedulerRunning != pdFALSE )
+    {
+        const BaseType_t xCoreID = ( BaseType_t ) portGET_CORE_ID();
+
+        if( portGET_CRITICAL_NESTING_COUNT( xCoreID ) > 0U )
+        {
+            BaseType_t xYieldCurrentTask;
+
+            if( ( xYieldPendings[ xCoreID ] == pdTRUE ) && ( uxSchedulerSuspended == ( UBaseType_t ) 0U )
+                #if ( configUSE_TASK_PREEMPTION_DISABLE == 1 )
+                    && ( pxCurrentTCBs[ xCoreID ]->uxPreemptionDisable == 0U ) &&
+                    ( pxCurrentTCBs[ xCoreID ]->uxDeferredStateChange == 0U )
+                #endif
+                )
+            {
+                xYieldCurrentTask = pdTRUE;
+            }
+            else
+            {
+                xYieldCurrentTask = pdFALSE;
+            }
+
+            /* Release only the ISR lock. */
+            kernelRELEASE_ISR_LOCK( xCoreID );
+
+            portDECREMENT_CRITICAL_NESTING_COUNT( xCoreID );
+
+            if( portGET_CRITICAL_NESTING_COUNT( xCoreID ) == 0U )
+            {
+                portENABLE_INTERRUPTS();
+
+                if( xYieldCurrentTask != pdFALSE )
                 {
-                    xYieldCurrentTask = pdTRUE;
-                }
-                else
-                {
-                    xYieldCurrentTask = pdFALSE;
-                }
-
-                /* Release only the ISR lock. */
-                kernelRELEASE_ISR_LOCK( xCoreID );
-
-                portDECREMENT_CRITICAL_NESTING_COUNT( xCoreID );
-
-                if( portGET_CRITICAL_NESTING_COUNT( xCoreID ) == 0U )
-                {
-                    portENABLE_INTERRUPTS();
-
-                    if( xYieldCurrentTask != pdFALSE )
-                    {
-                        portYIELD();
-                    }
+                    portYIELD();
                 }
             }
         }
     }
+}
 
 /*-----------------------------------------------------------*/
 
@@ -8873,17 +8901,18 @@ TickType_t uxTaskResetEventItemValue( void )
                 #else /* #if ( configNUMBER_OF_CORES == 1 ) */
                 {
                     #if ( configUSE_PREEMPTION == 1 )
-                    {
-                        prvYieldForTask( pxTCB );
-
-                        if( xYieldPendings[ portGET_CORE_ID() ] == pdTRUE )
+                        if( uxSchedulerSuspended == ( UBaseType_t ) 0U )
                         {
-                            if( pxHigherPriorityTaskWoken != NULL )
+                            prvYieldForTask( pxTCB );
+
+                            if( xYieldPendings[ portGET_CORE_ID() ] == pdTRUE )
                             {
-                                *pxHigherPriorityTaskWoken = pdTRUE;
+                                if( pxHigherPriorityTaskWoken != NULL )
+                                {
+                                    *pxHigherPriorityTaskWoken = pdTRUE;
+                                }
                             }
                         }
-                    }
                     #endif /* if ( configUSE_PREEMPTION == 1 ) */
                 }
                 #endif /* #if ( configNUMBER_OF_CORES == 1 ) */
@@ -9007,17 +9036,18 @@ TickType_t uxTaskResetEventItemValue( void )
                 #else /* #if ( configNUMBER_OF_CORES == 1 ) */
                 {
                     #if ( configUSE_PREEMPTION == 1 )
-                    {
-                        prvYieldForTask( pxTCB );
-
-                        if( xYieldPendings[ portGET_CORE_ID() ] == pdTRUE )
+                        if( uxSchedulerSuspended == ( UBaseType_t ) 0U )
                         {
-                            if( pxHigherPriorityTaskWoken != NULL )
+                            prvYieldForTask( pxTCB );
+
+                            if( xYieldPendings[ portGET_CORE_ID() ] == pdTRUE )
                             {
-                                *pxHigherPriorityTaskWoken = pdTRUE;
+                                if( pxHigherPriorityTaskWoken != NULL )
+                                {
+                                    *pxHigherPriorityTaskWoken = pdTRUE;
+                                }
                             }
                         }
-                    }
                     #endif /* #if ( configUSE_PREEMPTION == 1 ) */
                 }
                 #endif /* #if ( configNUMBER_OF_CORES == 1 ) */
@@ -9562,8 +9592,8 @@ void vTaskResetState( void )
         BaseType_t xReturn;
         BaseType_t xCoreID = portGET_CORE_ID();
 
-        if( ( xYieldPendings[ xCoreID ] == pdTRUE )
-            && ( uxSchedulerSuspended == pdFALSE )
+        if( ( xYieldPendings[ xCoreID ] == pdTRUE ) &&
+            ( uxSchedulerSuspended == ( UBaseType_t ) 0U )
             #if ( configUSE_TASK_PREEMPTION_DISABLE == 1 )
                 && ( pxCurrentTCBs[ xCoreID ]->uxPreemptionDisable == 0U )
             #endif /* ( configUSE_TASK_PREEMPTION_DISABLE == 1 ) */
