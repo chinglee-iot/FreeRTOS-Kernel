@@ -854,14 +854,6 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
                                   TaskHandle_t * const pxCreatedTask ) PRIVILEGED_FUNCTION;
 #endif /* #if ( configSUPPORT_DYNAMIC_ALLOCATION == 1 ) */
 
-/* Lightweight critical section helpers (re-introduced) */
-#if ( configLIGHTWEIGHT_CRITICAL_SECTION == 1 )
-
-/* Checks to see if another task moved the current task out of the ready
- * list while it was waiting to enter a lightweight critical section and yields, if so. */
-    static void prvLightWeightCheckForRunStateChange( void );
-#endif
-
 /*
  * freertos_tasks_c_additions_init() should only be called if the user definable
  * macro FREERTOS_TASKS_C_ADDITIONS_INIT() is defined, as that is the only macro
@@ -903,6 +895,10 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB ) PRIVILEGED_FUNCTION;
                                                         size_t n );
 
 #endif /* #if ( ( configUSE_TRACE_FACILITY == 1 ) && ( configUSE_STATS_FORMATTING_FUNCTIONS > 0 ) ) */
+
+static void prvKernelEnterISROnlyCritical( void );
+
+static void prvKernelExitISROnlyCritical( void );
 
 /*-----------------------------------------------------------*/
 
@@ -3310,11 +3306,7 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
         UBaseType_t uxDeferredAction = 0U;
         BaseType_t xAlreadyYielded = pdFALSE;
 
-        #if ( configLIGHTWEIGHT_CRITICAL_SECTION == 1 )
-            vKernelLightWeightEnterCritical();
-        #else
-            kernelENTER_CRITICAL();
-        #endif
+        kernelENTER_CRITICAL();
         {
             const BaseType_t xCoreID = portGET_CORE_ID();
 
@@ -3355,11 +3347,7 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
                 mtCOVERAGE_TEST_MARKER();
             }
         }
-        #if ( configLIGHTWEIGHT_CRITICAL_SECTION == 1 )
-            vKernelLightWeightExitCritical();
-        #else
-            kernelEXIT_CRITICAL();
-        #endif
+        kernelEXIT_CRITICAL();
 
         if( uxDeferredAction != 0U )
         {
@@ -5822,11 +5810,11 @@ BaseType_t xTaskRemoveFromEventList( const List_t * const pxEventList )
 
     #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) )
         /* Lock the kernel data group as we are about to access its members */
-        vKernelLightWeightEnterCritical();
+        prvKernelEnterISROnlyCritical();
         {
             xReturn = prvTaskRemoveFromEventList( pxEventList );
         }
-        vKernelLightWeightExitCritical();
+        prvKernelExitISROnlyCritical();
     #else
         xReturn = prvTaskRemoveFromEventList( pxEventList );
     #endif
@@ -6059,7 +6047,7 @@ void vTaskInternalSetTimeOutState( TimeOut_t * const pxTimeOut )
 
     #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) )
         /* Lock the kernel data group as we are about to access its members */
-        vKernelLightWeightEnterCritical();
+        prvKernelEnterISROnlyCritical();
     #endif /* #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) ) */
 
     /* For internal use only as it does not use a critical section. */
@@ -6068,7 +6056,7 @@ void vTaskInternalSetTimeOutState( TimeOut_t * const pxTimeOut )
 
     #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) )
         /* We are done accessing the kernel data group. Unlock it. */
-        vKernelLightWeightExitCritical();
+        prvKernelExitISROnlyCritical();
     #endif /* #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) ) */
 
     traceRETURN_vTaskInternalSetTimeOutState();
@@ -7867,105 +7855,35 @@ static void prvResetNextTaskUnblockTime( void )
 #endif /* #if ( configNUMBER_OF_CORES > 1 ) */
 /*-----------------------------------------------------------*/
 
-
-static void prvLightWeightCheckForRunStateChange( void )
-{
-    const TCB_t * pxThisTCB;
-    BaseType_t xCoreID = ( BaseType_t ) portGET_CORE_ID();
-
-    /* Must not be called from ISR context. */
-    portASSERT_IF_IN_ISR();
-
-    /* Called with interrupts disabled. Safe to read pxCurrentTCBs. */
-    pxThisTCB = pxCurrentTCBs[ xCoreID ];
-
-    while( pxThisTCB->xTaskRunState == taskTASK_SCHEDULED_TO_YIELD )
-    {
-        UBaseType_t uxPrevCriticalNesting;
-
-        /* Save nesting and temporarily release ISR lock if needed to service pending IPI. */
-        uxPrevCriticalNesting = portGET_CRITICAL_NESTING_COUNT( xCoreID );
-
-        if( uxPrevCriticalNesting > 0U )
-        {
-            portSET_CRITICAL_NESTING_COUNT( xCoreID, 0U );
-            kernelRELEASE_ISR_LOCK( xCoreID );
-        }
-
-        portMEMORY_BARRIER();
-
-        /* Allow the core to service pending yield interrupt. */
-        portENABLE_INTERRUPTS();
-        portDISABLE_INTERRUPTS();
-
-        /* Reacquire ISR lock and restore nesting; re-evaluate run state. */
-        xCoreID = ( BaseType_t ) portGET_CORE_ID();
-        kernelGET_ISR_LOCK( xCoreID );
-        portSET_CRITICAL_NESTING_COUNT( xCoreID, uxPrevCriticalNesting );
-        pxThisTCB = pxCurrentTCBs[ xCoreID ];
-    }
-}
-
-void vKernelLightWeightEnterCritical( void )
-{
-    if( xSchedulerRunning != pdFALSE )
-    {
-        portDISABLE_INTERRUPTS();
-        {
-            const BaseType_t xCoreID = ( BaseType_t ) portGET_CORE_ID();
-
-            /* Take only the ISR lock, not the task lock. */
-            kernelGET_ISR_LOCK( xCoreID );
-
-            portINCREMENT_CRITICAL_NESTING_COUNT( xCoreID );
-
-            if( ( portGET_CRITICAL_NESTING_COUNT( xCoreID ) == 1U ) && ( uxSchedulerSuspended == ( UBaseType_t ) 0U ) )
-            {
-                prvLightWeightCheckForRunStateChange();
-            }
-        }
-    }
-}
-
-void vKernelLightWeightExitCritical( void )
+/* Light weight critical can only be used when multi-critical section is used.
+ * Therefor, run state change is not valid due to task can't be requested to yield. */
+static void prvKernelEnterISROnlyCritical( void )
 {
     if( xSchedulerRunning != pdFALSE )
     {
         const BaseType_t xCoreID = ( BaseType_t ) portGET_CORE_ID();
 
-        if( portGET_CRITICAL_NESTING_COUNT( xCoreID ) > 0U )
-        {
-            BaseType_t xYieldCurrentTask;
+        configASSERT( portGET_CRITICAL_NESTING_COUNT( xCoreID ) > 0U );
 
-            if( ( xYieldPendings[ xCoreID ] == pdTRUE ) && ( uxSchedulerSuspended == ( UBaseType_t ) 0U )
-                #if ( configUSE_TASK_PREEMPTION_DISABLE == 1 )
-                    && ( pxCurrentTCBs[ xCoreID ]->uxPreemptionDisable == 0U ) &&
-                    ( pxCurrentTCBs[ xCoreID ]->uxDeferredStateChange == 0U )
-                #endif
-                )
-            {
-                xYieldCurrentTask = pdTRUE;
-            }
-            else
-            {
-                xYieldCurrentTask = pdFALSE;
-            }
+        /* Take only the ISR lock, not the task lock. */
+        kernelGET_ISR_LOCK( xCoreID );
 
-            /* Release only the ISR lock. */
-            kernelRELEASE_ISR_LOCK( xCoreID );
+        portINCREMENT_CRITICAL_NESTING_COUNT( xCoreID );
+    }
+}
 
-            portDECREMENT_CRITICAL_NESTING_COUNT( xCoreID );
+static void prvKernelExitISROnlyCritical( void )
+{
+    if( xSchedulerRunning != pdFALSE )
+    {
+        const BaseType_t xCoreID = ( BaseType_t ) portGET_CORE_ID();
 
-            if( portGET_CRITICAL_NESTING_COUNT( xCoreID ) == 0U )
-            {
-                portENABLE_INTERRUPTS();
+        configASSERT( portGET_CRITICAL_NESTING_COUNT( xCoreID ) > 0U );
 
-                if( xYieldCurrentTask != pdFALSE )
-                {
-                    portYIELD();
-                }
-            }
-        }
+        /* Release only the ISR lock. */
+        kernelRELEASE_ISR_LOCK( xCoreID );
+
+        portDECREMENT_CRITICAL_NESTING_COUNT( xCoreID );
     }
 }
 

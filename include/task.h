@@ -3932,18 +3932,6 @@ void vTaskInternalSetTimeOutState( TimeOut_t * const pxTimeOut ) PRIVILEGED_FUNC
 #endif
 
 /*
- * This function is only intended for use when disabling or enabling preemption of a task.
- * This function takes only the kernel ISR lock, not the task lock.
- */
-    void vKernelLightWeightEnterCritical( void );
-
-/*
- * This function is only intended for use when disabling or enabling preemption of a task.
- * This function releases only the kernel ISR lock, not the task lock.
- */
-    void vKernelLightWeightExitCritical( void );
-
-/*
  * Checks whether a yield is required after portUNLOCK_DATA_GROUP() returns.
  * To be called while data group is locked.
  */
