@@ -6059,7 +6059,7 @@ void vTaskInternalSetTimeOutState( TimeOut_t * const pxTimeOut )
 
     #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) )
         /* Lock the kernel data group as we are about to access its members */
-        kernelENTER_CRITICAL();
+        vKernelLightWeightEnterCritical();
     #endif /* #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) ) */
 
     /* For internal use only as it does not use a critical section. */
@@ -6068,7 +6068,7 @@ void vTaskInternalSetTimeOutState( TimeOut_t * const pxTimeOut )
 
     #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) )
         /* We are done accessing the kernel data group. Unlock it. */
-        kernelEXIT_CRITICAL();
+        vKernelLightWeightExitCritical();
     #endif /* #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) ) */
 
     traceRETURN_vTaskInternalSetTimeOutState();
