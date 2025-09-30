@@ -7746,7 +7746,7 @@ static void prvResetNextTaskUnblockTime( void )
                     BaseType_t xYieldCurrentTask;
 
                     /* Get the xYieldPending status inside the critical section. */
-                    if( ( xYieldPendings[ xCoreID ] == pdTRUE ) && ( uxSchedulerSuspended == ( UBaseType_t ) 0U )
+                    if( ( xYieldPendings[ xCoreID ] == pdTRUE )
                         #if ( configUSE_TASK_PREEMPTION_DISABLE == 1 )
                             && ( pxCurrentTCBs[ xCoreID ]->uxPreemptionDisable == 0U ) &&
                             ( pxCurrentTCBs[ xCoreID ]->uxDeferredStateChange == 0U )
@@ -7959,7 +7959,7 @@ static void prvResetNextTaskUnblockTime( void )
             {
                 BaseType_t xYieldCurrentTask;
 
-                if( ( xYieldPendings[ xCoreID ] == pdTRUE ) && ( uxSchedulerSuspended == pdFALSE )
+                if( ( xYieldPendings[ xCoreID ] == pdTRUE )
                     #if ( configUSE_TASK_PREEMPTION_DISABLE == 1 )
                         && ( pxCurrentTCBs[ xCoreID ]->uxPreemptionDisable == 0U ) &&
                         ( pxCurrentTCBs[ xCoreID ]->uxDeferredStateChange == 0U )
