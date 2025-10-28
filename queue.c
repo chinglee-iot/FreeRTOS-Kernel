@@ -410,6 +410,12 @@ static void prvInitialiseNewQueue( const UBaseType_t uxQueueLength,
 #endif /* #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) ) */
 /*-----------------------------------------------------------*/
 
+extern TaskHandle_t xLowPriorityNormallyEmptyTask, xLowPriorityNormallyFullTask;
+extern TaskHandle_t xHighPriorityNormallyEmptyTask1, xHighPriorityNormallyEmptyTask2, xHighPriorityNormallyFullTask1, xHighPriorityNormallyFullTask2;
+
+
+/*-----------------------------------------------------------*/
+
 BaseType_t xQueueGenericReset( QueueHandle_t xQueue,
                                BaseType_t xNewQueue )
 {
@@ -1160,7 +1166,27 @@ BaseType_t xQueueGenericSend( QueueHandle_t xQueue,
                 }
                 #else /* configUSE_QUEUE_SETS */
                 {
-                    xYieldRequired = prvCopyDataToQueue( pxQueue, pvItemToQueue, xCopyPosition );
+                    #if ( configUSE_TASK_DIRECT_TRANSFER == 1 )
+                    if( ( pxQueue->uxItemSize != ( UBaseType_t ) 0 ) && 
+                        ( listLIST_IS_EMPTY( &( pxQueue->xTasksWaitingToReceive ) ) == pdFALSE ) )
+                    {
+                        TaskHandle_t xWaitingTask;
+
+                        /* Get highest priority waiting receiver */
+                        xWaitingTask = listGET_OWNER_OF_HEAD_ENTRY( &( pxQueue->xTasksWaitingToReceive ) );
+
+                        vTaskDirectSendToBuffer( xWaitingTask, pvItemToQueue, pxQueue->uxItemSize );
+                        xYieldRequired = pdFALSE;
+                    }
+                    else
+                    {
+                        xYieldRequired = prvCopyDataToQueue( pxQueue, pvItemToQueue, xCopyPosition );
+                    }
+                    #else
+                    {
+                        xYieldRequired = prvCopyDataToQueue( pxQueue, pvItemToQueue, xCopyPosition );
+                    }
+                    #endif
 
                     /* If there was a task waiting for data to arrive on the
                      * queue then unblock it now. */
@@ -1242,9 +1268,34 @@ BaseType_t xQueueGenericSend( QueueHandle_t xQueue,
             if( prvIsQueueFull( pxQueue ) != pdFALSE )
             {
                 traceBLOCKING_ON_QUEUE_SEND( pxQueue );
+
+                #if ( configUSE_TASK_DIRECT_TRANSFER == 1 )
+                {
+                    /* Register send buffer for direct receive */
+                    vTaskRegisterDirectTransferBuffer( ( void * ) pvItemToQueue, pxQueue->uxItemSize );
+                }
+                #endif
+
                 vTaskPlaceOnEventList( &( pxQueue->xTasksWaitingToSend ), xTicksToWait );
 
                 queueUNLOCK( pxQueue, pdTRUE );
+
+                #if ( configUSE_TASK_DIRECT_TRANSFER == 1 )
+                {
+                    /* Check if direct transfer completed */
+                    if( xTaskCheckDirectTransferComplete() == pdTRUE )
+                    {
+                        /* Data was transferred directly while we were blocked */
+                        vTaskRegisterDirectTransferBuffer( NULL, 0 );
+                        return pdPASS;
+                    }
+                    else
+                    {
+                        /* Direct transfer didn't happen - clear and retry */
+                        vTaskRegisterDirectTransferBuffer( NULL, 0 );
+                    }
+                }
+                #endif
             }
             else
             {
@@ -1313,12 +1364,48 @@ BaseType_t xQueueGenericSendFromISR( QueueHandle_t xQueue,
 
             traceQUEUE_SEND_FROM_ISR( pxQueue );
 
-            /* Semaphores use xQueueGiveFromISR(), so pxQueue will not be a
-             *  semaphore or mutex.  That means prvCopyDataToQueue() cannot result
-             *  in a task disinheriting a priority and prvCopyDataToQueue() can be
-             *  called here even though the disinherit function does not check if
-             *  the scheduler is suspended before accessing the ready lists. */
-            ( void ) prvCopyDataToQueue( pxQueue, pvItemToQueue, xCopyPosition );
+            #if ( configUSE_TASK_DIRECT_TRANSFER == 1 )
+            if( cTxLock == queueUNLOCKED )
+            {
+                if( ( pxQueue->uxItemSize != ( UBaseType_t ) 0 ) && 
+                    ( listLIST_IS_EMPTY( &( pxQueue->xTasksWaitingToReceive ) ) == pdFALSE ) )
+                {
+                    TaskHandle_t xWaitingTask;
+
+                    /* Get highest priority waiting receiver */
+                    xWaitingTask = listGET_OWNER_OF_HEAD_ENTRY( &( pxQueue->xTasksWaitingToReceive ) );
+
+                    vTaskDirectSendToBuffer( xWaitingTask, pvItemToQueue, pxQueue->uxItemSize );
+                }
+                else
+                {
+                    /* Semaphores use xQueueGiveFromISR(), so pxQueue will not be a
+                     *  semaphore or mutex.  That means prvCopyDataToQueue() cannot result
+                     *  in a task disinheriting a priority and prvCopyDataToQueue() can be
+                     *  called here even though the disinherit function does not check if
+                     *  the scheduler is suspended before accessing the ready lists. */
+                    ( void ) prvCopyDataToQueue( pxQueue, pvItemToQueue, xCopyPosition );
+                }
+            }
+            else
+            {
+                /* Semaphores use xQueueGiveFromISR(), so pxQueue will not be a
+                 *  semaphore or mutex.  That means prvCopyDataToQueue() cannot result
+                 *  in a task disinheriting a priority and prvCopyDataToQueue() can be
+                 *  called here even though the disinherit function does not check if
+                 *  the scheduler is suspended before accessing the ready lists. */
+                ( void ) prvCopyDataToQueue( pxQueue, pvItemToQueue, xCopyPosition );
+            }
+            #else
+            {
+                /* Semaphores use xQueueGiveFromISR(), so pxQueue will not be a
+                 *  semaphore or mutex.  That means prvCopyDataToQueue() cannot result
+                 *  in a task disinheriting a priority and prvCopyDataToQueue() can be
+                 *  called here even though the disinherit function does not check if
+                 *  the scheduler is suspended before accessing the ready lists. */
+                ( void ) prvCopyDataToQueue( pxQueue, pvItemToQueue, xCopyPosition );
+            }
+            #endif
 
             /* The event list is not altered if the queue is locked.  This will
              * be done when the queue is unlocked later. */
@@ -1644,8 +1731,37 @@ BaseType_t xQueueReceive( QueueHandle_t xQueue,
             {
                 /* Data available, remove one item. */
                 prvCopyDataFromQueue( pxQueue, pvBuffer );
+
                 traceQUEUE_RECEIVE( pxQueue );
                 pxQueue->uxMessagesWaiting = ( UBaseType_t ) ( uxMessagesWaiting - ( UBaseType_t ) 1 );
+
+                #if ( configUSE_TASK_DIRECT_TRANSFER == 1 )
+                {
+                    if( listLIST_IS_EMPTY( &( pxQueue->xTasksWaitingToSend ) ) == pdFALSE )
+                    {
+                        TaskHandle_t xWaitingTask;
+                        
+                        /* Get highest priority waiting sender */
+                        xWaitingTask = listGET_OWNER_OF_HEAD_ENTRY( &( pxQueue->xTasksWaitingToSend ) );
+
+                        /* Copy the task data directly to the queue. */
+                        vTaskDirectReceiveFromBuffer( xWaitingTask, pxQueue->pcWriteTo, pxQueue->uxItemSize );
+
+                        /* Update queue pointers */
+                        pxQueue->pcWriteTo += pxQueue->uxItemSize;
+                        if( pxQueue->pcWriteTo >= pxQueue->u.xQueue.pcTail )
+                        {
+                            pxQueue->pcWriteTo = pxQueue->pcHead;
+                        }
+                        else
+                        {
+                            mtCOVERAGE_TEST_MARKER();
+                        }
+                        
+                        pxQueue->uxMessagesWaiting = uxMessagesWaiting;
+                    }
+                }
+                #endif
 
                 /* There is now space in the queue, were any tasks waiting to
                  * post to the queue?  If so, unblock the highest priority waiting
@@ -1714,8 +1830,33 @@ BaseType_t xQueueReceive( QueueHandle_t xQueue,
             if( prvIsQueueEmpty( pxQueue ) != pdFALSE )
             {
                 traceBLOCKING_ON_QUEUE_RECEIVE( pxQueue );
+
+                #if ( configUSE_TASK_DIRECT_TRANSFER == 1 )
+                {
+                    /* Register receive buffer for direct send */
+                    vTaskRegisterDirectTransferBuffer( pvBuffer, pxQueue->uxItemSize );
+                }
+                #endif
+
                 vTaskPlaceOnEventList( &( pxQueue->xTasksWaitingToReceive ), xTicksToWait );
                 queueUNLOCK( pxQueue, pdTRUE );
+
+                #if ( configUSE_TASK_DIRECT_TRANSFER == 1 )
+                {
+                    /* Check if direct transfer completed */
+                    if( xTaskCheckDirectTransferComplete() == pdTRUE )
+                    {
+                        /* Data was transferred directly while we were blocked */
+                        vTaskRegisterDirectTransferBuffer( NULL, 0 );
+                        return pdPASS;
+                    }
+                    else
+                    {
+                        /* Direct transfer didn't happen - clear and retry */
+                        vTaskRegisterDirectTransferBuffer( NULL, 0 );
+                    }
+                }
+                #endif
             }
             else
             {
@@ -2143,6 +2284,35 @@ BaseType_t xQueueReceiveFromISR( QueueHandle_t xQueue,
 
             prvCopyDataFromQueue( pxQueue, pvBuffer );
             pxQueue->uxMessagesWaiting = ( UBaseType_t ) ( uxMessagesWaiting - ( UBaseType_t ) 1 );
+
+            #if ( configUSE_TASK_DIRECT_TRANSFER == 1 )
+            if( cRxLock == queueUNLOCKED )
+            {
+                if( listLIST_IS_EMPTY( &( pxQueue->xTasksWaitingToSend ) ) == pdFALSE )
+                {
+                    TaskHandle_t xWaitingTask;
+                    
+                    /* Get highest priority waiting sender */
+                    xWaitingTask = listGET_OWNER_OF_HEAD_ENTRY( &( pxQueue->xTasksWaitingToSend ) );
+
+                    /* Copy the task data directly to the queue. */
+                    vTaskDirectReceiveFromBuffer( xWaitingTask, pxQueue->pcWriteTo, pxQueue->uxItemSize );
+
+                    /* Update queue pointers */
+                    pxQueue->pcWriteTo += pxQueue->uxItemSize;
+                    if( pxQueue->pcWriteTo >= pxQueue->u.xQueue.pcTail )
+                    {
+                        pxQueue->pcWriteTo = pxQueue->pcHead;
+                    }
+                    else
+                    {
+                        mtCOVERAGE_TEST_MARKER();
+                    }
+                    
+                    pxQueue->uxMessagesWaiting = uxMessagesWaiting;
+                }
+            }
+            #endif
 
             /* If the queue is locked the event list will not be modified.
              * Instead update the lock count so the task that unlocks the queue

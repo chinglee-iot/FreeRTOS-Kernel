@@ -3631,6 +3631,57 @@ BaseType_t xTaskCatchUpTicks( TickType_t xTicksToCatchUp ) PRIVILEGED_FUNCTION;
  */
 void vTaskResetState( void ) PRIVILEGED_FUNCTION;
 
+#if ( configUSE_TASK_DIRECT_TRANSFER == 1 )
+
+/**
+ * Register a buffer for direct transfer operations.
+ * 
+ * When blocking to receive: register receive buffer
+ * When blocking to send: register send buffer (data source)
+ * 
+ * @param pvBuffer Pointer to buffer
+ * @param uxBufferSize Size of buffer in bytes
+ */
+void vTaskRegisterDirectTransferBuffer( void * pvBuffer,
+                                        UBaseType_t uxBufferSize ) PRIVILEGED_FUNCTION;
+
+/**
+ * Directly send data to a task's registered buffer.
+ * 
+ * Used when a receiver is blocked waiting for data.
+ * Data is copied directly from sender to receiver's buffer.
+ * 
+ * @param xTaskToSend Handle of receiver task
+ * @param pvBuffer Pointer to data to send
+ * @param uxBufferSize Size of data in bytes
+ */
+void vTaskDirectSendToBuffer( TaskHandle_t xTaskToSend,
+                              const void * pvBuffer,
+                              UBaseType_t uxBufferSize ) PRIVILEGED_FUNCTION;
+
+/**
+ * Directly receive data from a task's registered buffer.
+ * 
+ * Used when a sender is blocked waiting for space.
+ * Data is copied directly from sender's buffer to destination.
+ * 
+ * @param xTaskToReceive Handle of sender task
+ * @param pvBuffer Pointer to destination buffer
+ * @param uxBufferSize Size of data in bytes
+ */
+void vTaskDirectReceiveFromBuffer( TaskHandle_t xTaskToReceive,
+                                   void * pvBuffer,
+                                   UBaseType_t uxBufferSize ) PRIVILEGED_FUNCTION;
+
+/**
+ * Check if direct transfer completed.
+ * 
+ * @return pdTRUE if transfer completed, pdFALSE otherwise
+ */
+BaseType_t xTaskCheckDirectTransferComplete( void ) PRIVILEGED_FUNCTION;
+
+#endif /* configUSE_TASK_DIRECT_TRANSFER */
+
 
 /*-----------------------------------------------------------
 * SCHEDULER INTERNALS AVAILABLE FOR PORTING PURPOSES

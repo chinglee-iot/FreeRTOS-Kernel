@@ -3287,6 +3287,12 @@ typedef struct xSTATIC_TCB
     #if ( configUSE_POSIX_ERRNO == 1 )
         int iDummy22;
     #endif
+
+    #if ( configUSE_TASK_DIRECT_TRANSFER == 1 )
+        void * pvDummy27;
+        UBaseType_t uxDummy28;
+        BaseType_t xDummy29;
+    #endif
 } StaticTask_t;
 
 /*

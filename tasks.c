@@ -516,6 +516,12 @@ typedef struct tskTaskControlBlock       /* The old naming convention is used to
     #if ( configUSE_POSIX_ERRNO == 1 )
         int iTaskErrno;
     #endif
+
+    #if ( configUSE_TASK_DIRECT_TRANSFER == 1 )
+        void * pvDirectTransferBuffer;
+        UBaseType_t uxDirectTransferBufferSize;
+        BaseType_t xDirectTransferComplete;
+    #endif
 } tskTCB;
 
 /* The old tskTCB name is maintained above then typedefed to the new TCB_t name
@@ -9668,3 +9674,117 @@ void vTaskResetState( void )
 
 #endif /* #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) ) */
 /*-----------------------------------------------------------*/
+
+
+#if ( configUSE_TASK_DIRECT_TRANSFER == 1 )
+
+void vTaskRegisterDirectTransferBuffer( void * pvBuffer,
+                                        UBaseType_t uxBufferSize )
+{
+    TCB_t * pxCurrentTaskTCB;
+    
+    pxCurrentTaskTCB = ( TCB_t * ) xTaskGetCurrentTaskHandle();
+    
+    /* Register buffer for direct transfer */
+    pxCurrentTaskTCB->pvDirectTransferBuffer = pvBuffer;
+    pxCurrentTaskTCB->uxDirectTransferBufferSize = uxBufferSize;
+    pxCurrentTaskTCB->xDirectTransferComplete = pdFALSE;
+}
+
+/**
+ * Directly send data to a task's registered buffer.
+ * 
+ * Used when a receiver is blocked waiting for data.
+ * Data is copied directly from sender to receiver's buffer.
+ * 
+ * @param xTaskToSend Handle of receiver task
+ * @param pvBuffer Pointer to data to send
+ * @param uxBufferSize Size of data in bytes
+ */
+void vTaskDirectSendToBuffer( TaskHandle_t xTaskToSend,
+                              const void * pvBuffer,
+                              UBaseType_t uxBufferSize )
+{
+    TCB_t * pxTargetTCB;
+
+    pxTargetTCB = ( TCB_t * ) xTaskToSend;
+
+    configASSERT( xTaskToSend != NULL );
+    configASSERT( pvBuffer != NULL );
+    configASSERT( uxBufferSize > 0 );
+    configASSERT( pxTargetTCB->pvDirectTransferBuffer != NULL );
+    configASSERT( pxTargetTCB->uxDirectTransferBufferSize == uxBufferSize );
+    configASSERT( pxTargetTCB->xDirectTransferComplete == pdFALSE );
+    
+    /* Direct copy to target task's buffer */
+    ( void ) memcpy( pxTargetTCB->pvDirectTransferBuffer,
+                     pvBuffer,
+                     uxBufferSize );
+    
+    portMEMORY_BARRIER();
+    
+    /* Mark transfer as complete */
+    pxTargetTCB->xDirectTransferComplete = pdTRUE;
+    
+    /* Clear buffer registration */
+    pxTargetTCB->pvDirectTransferBuffer = NULL;
+    pxTargetTCB->uxDirectTransferBufferSize = 0;
+}
+
+/**
+ * Directly receive data from a task's registered buffer.
+ * 
+ * Used when a sender is blocked waiting for space.
+ * Data is copied directly from sender's buffer to destination.
+ * 
+ * @param xTaskToReceive Handle of sender task
+ * @param pvBuffer Pointer to destination buffer
+ * @param uxBufferSize Size of data in bytes
+ */
+void vTaskDirectReceiveFromBuffer( TaskHandle_t xTaskToReceive,
+                                   void * pvBuffer,
+                                   UBaseType_t uxBufferSize )
+{
+    TCB_t * pxSourceTCB;
+
+    pxSourceTCB = ( TCB_t * ) xTaskToReceive;
+
+    configASSERT( xTaskToReceive != NULL );
+    configASSERT( pvBuffer != NULL );
+    configASSERT( uxBufferSize > 0 );
+    configASSERT( pxSourceTCB->pvDirectTransferBuffer != NULL );
+    configASSERT( pxSourceTCB->uxDirectTransferBufferSize == uxBufferSize );
+    configASSERT( pxSourceTCB->xDirectTransferComplete == pdFALSE );
+    
+    /* Direct copy from source task's buffer to destination */
+    ( void ) memcpy( pvBuffer,
+                     pxSourceTCB->pvDirectTransferBuffer,
+                     uxBufferSize );
+    
+    #if ( configNUM_CORES > 1 )
+    {
+        /* Memory barrier for SMP cache coherency */
+        portMEMORY_BARRIER();
+    }
+    #endif
+    
+    /* Mark transfer as complete */
+    pxSourceTCB->xDirectTransferComplete = pdTRUE;
+    
+    /* Clear buffer registration */
+    pxSourceTCB->pvDirectTransferBuffer = NULL;
+    pxSourceTCB->uxDirectTransferBufferSize = 0;
+}
+
+/**
+ * Check if direct transfer completed.
+ * 
+ * @return pdTRUE if transfer completed, pdFALSE otherwise
+ */
+BaseType_t xTaskCheckDirectTransferComplete( void )
+{
+    TCB_t * pxCurrentTaskTCB = ( TCB_t * ) xTaskGetCurrentTaskHandle();
+    return pxCurrentTaskTCB->xDirectTransferComplete;
+}
+
+#endif /* configUSE_TASK_DIRECT_TRANSFER */
