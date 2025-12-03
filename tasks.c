@@ -355,33 +355,35 @@
 
             #define prvYieldCore( xCoreID )                                                          \
     do {                                                                                             \
+        const BaseType_t xCoreToYield = ( xCoreID );                                                  \
         BaseType_t xCurrentCoreID = portGET_CORE_ID();                                               \
         if( ( xCoreID ) == xCurrentCoreID )                                                          \
         {                                                                                            \
             /* Pending a yield for this core since it is in the critical section. */                 \
-            xYieldPendings[ ( xCoreID ) ] = pdTRUE;                                                  \
+            xYieldPendings[ xCoreToYield ] = pdTRUE;                                                  \
         }                                                                                            \
         else                                                                                         \
         {                                                                                            \
-            portGET_SPINLOCK( xCurrentCoreID, &( pxCurrentTCBs[ ( xCoreID ) ]->xTCBSpinlock ) );     \
+            portGET_SPINLOCK( xCurrentCoreID, &( pxCurrentTCBs[ xCoreToYield ]->xTCBSpinlock ) );     \
             {                                                                                        \
-                if( pxCurrentTCBs[ ( xCoreID ) ]->uxPreemptionDisable == 0U )                        \
+                if( pxCurrentTCBs[ xCoreToYield ]->uxPreemptionDisable == 0U )                        \
                 {                                                                                    \
                     /* Request other core to yield if it is not requested before. */                 \
-                    if( pxCurrentTCBs[ ( xCoreID ) ]->xTaskRunState != taskTASK_SCHEDULED_TO_YIELD ) \
+                    if( pxCurrentTCBs[ xCoreToYield ]->xTaskRunState != taskTASK_SCHEDULED_TO_YIELD ) \
                     {                                                                                \
-                        portYIELD_CORE( xCoreID );                                                   \
-                        pxCurrentTCBs[ ( xCoreID ) ]->xTaskRunState = taskTASK_SCHEDULED_TO_YIELD;   \
+                        portYIELD_CORE( xCoreToYield );                                                   \
+                        pxCurrentTCBs[ xCoreToYield ]->xTaskRunState = taskTASK_SCHEDULED_TO_YIELD;   \
                     }                                                                                \
                 }                                                                                    \
                 else                                                                                 \
                 {                                                                                    \
-                    xYieldPendings[ ( xCoreID ) ] = pdTRUE;                                          \
+                    xYieldPendings[ xCoreToYield ] = pdTRUE;                                          \
                 }                                                                                    \
             }                                                                                        \
-            portRELEASE_SPINLOCK( xCurrentCoreID, &( pxCurrentTCBs[ ( xCoreID ) ]->xTCBSpinlock ) ); \
+            portRELEASE_SPINLOCK( xCurrentCoreID, &( pxCurrentTCBs[ xCoreToYield ]->xTCBSpinlock ) ); \
         }                                                                                            \
     } while( 0 )
+
         #else /* if ( portUSING_GRANULAR_LOCKS == 1 ) */
             #define prvYieldCore( xCoreID )                                                      \
     do {                                                                                         \
