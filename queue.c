@@ -3425,7 +3425,6 @@ BaseType_t xQueueIsQueueFullFromISR( const QueueHandle_t xQueue )
 /*-----------------------------------------------------------*/
 
 #if ( configUSE_QUEUE_SETS == 1 )
-
     static BaseType_t prvNotifyQueueSetContainer( const Queue_t * const pxQueue )
     {
         BaseType_t xReturn;
