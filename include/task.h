@@ -292,22 +292,9 @@ typedef enum
  * \ingroup GranularLocks
  */
 #if ( portUSING_GRANULAR_LOCKS == 1 )
-    #define taskDATA_GROUP_ENTER_CRITICAL( pxTaskSpinlock, pxISRSpinlock )                \
-    do {                                                                                  \
-        /* Disable preemption to avoid task state changes during the critical section. */ \
-        vTaskPreemptionDisable( NULL );                                                   \
-        {                                                                                 \
-            const BaseType_t xCoreID = ( BaseType_t ) portGET_CORE_ID();                  \
-            /* Task spinlock is always taken first */                                     \
-            portGET_SPINLOCK( xCoreID, ( portSPINLOCK_TYPE * ) ( pxTaskSpinlock ) );      \
-            /* Disable interrupts */                                                      \
-            portDISABLE_INTERRUPTS();                                                     \
-            /* Take the ISR spinlock next */                                              \
-            portGET_SPINLOCK( xCoreID, ( portSPINLOCK_TYPE * ) ( pxISRSpinlock ) );       \
-            /* Increment the critical nesting count */                                    \
-            portINCREMENT_CRITICAL_NESTING_COUNT( xCoreID );                              \
-        }                                                                                 \
-    } while( 0 )
+    void taskDataGroupEnterCritical( portSPINLOCK_TYPE * pxTaskSpinlock,
+                                     portSPINLOCK_TYPE * pxISRSpinlock );
+    #define taskDATA_GROUP_ENTER_CRITICAL    taskDataGroupEnterCritical
 #endif /* #if ( portUSING_GRANULAR_LOCKS == 1 ) */
 
 /**
@@ -361,7 +348,7 @@ typedef enum
             mtCOVERAGE_TEST_MARKER();                                                \
         }                                                                            \
         /* Re-enable preemption */                                                   \
-        xTaskPreemptionEnableWithYieldStatus( NULL );                                             \
+        xTaskPreemptionEnableWithYieldStatus( NULL );                                \
     } while( 0 )
 #endif /* #if ( portUSING_GRANULAR_LOCKS == 1 ) */
 
@@ -421,7 +408,7 @@ typedef enum
     ( {                                                                                        \
         portRELEASE_SPINLOCK( portGET_CORE_ID(), ( portSPINLOCK_TYPE * ) ( pxTaskSpinlock ) ); \
         /* Re-enable preemption after releasing the task spinlock. */                          \
-        xTaskPreemptionEnableWithYieldStatus( NULL );                                                       \
+        xTaskPreemptionEnableWithYieldStatus( NULL );                                          \
     } )
 #endif /* #if ( portUSING_GRANULAR_LOCKS == 1 ) */
 
