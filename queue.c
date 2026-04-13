@@ -53,6 +53,11 @@
 #define queueLOCKED_UNMODIFIED    ( ( int8_t ) 0 )
 #define queueINT8_MAX             ( ( int8_t ) 127 )
 
+#if ( configQUEUE_DIRECT_TRANSFER == 1 )
+/* Initialization value for direct transfer position. */
+    #define queueDIRECT_TRANSFER_POSITION_INIT    ( ( BaseType_t ) -1 )
+#endif
+
 /* When the Queue_t structure is used to represent a base queue its pcHead and
  * pcTail members are used as pointers into the queue storage area.  When the
  * Queue_t structure is used to represent a mutex pcHead and pcTail pointers are
@@ -62,8 +67,8 @@
  * is maintained.  The QueuePointers_t and SemaphoreData_t types are used to form
  * a union as their usage is mutually exclusive dependent on what the queue is
  * being used for. */
-#define uxQueueType               pcHead
-#define queueQUEUE_IS_MUTEX       NULL
+#define uxQueueType            pcHead
+#define queueQUEUE_IS_MUTEX    NULL
 
 typedef struct QueuePointers
 {
@@ -256,16 +261,16 @@ static void prvInitialiseNewQueue( const UBaseType_t uxQueueLength,
     static void prvInitialiseMutex( Queue_t * pxNewQueue ) PRIVILEGED_FUNCTION;
 #endif
 
-#if ( configUSE_MUTEXES == 1 )
+#if ( ( configUSE_MUTEXES == 1 ) || ( configQUEUE_DIRECT_TRANSFER == 1 ) )
 
 /*
- * If a task waiting for a mutex causes the mutex holder to inherit a
- * priority, but the waiting task times out, then the holder should
- * disinherit the priority - but only down to the highest priority of any
- * other tasks that are waiting for the same mutex.  This function returns
- * that priority.
+ * Returns the highest priority of any task waiting on the specified event list.
+ * Used for:
+ * - Mutex priority disinheritance (xTasksWaitingToReceive)
+ * - Direct queue transfer (xTasksWaitingToReceive or xTasksWaitingToSend)
+ * Returns tskIDLE_PRIORITY if the list is empty.
  */
-    static UBaseType_t prvGetHighestPriorityOfWaitToReceiveList( const Queue_t * const pxQueue ) PRIVILEGED_FUNCTION;
+    static UBaseType_t prvGetHighestPriorityOfWaitingTasks( const List_t * const pxEventList ) PRIVILEGED_FUNCTION;
 #endif
 /*-----------------------------------------------------------*/
 
@@ -296,22 +301,28 @@ static void prvInitialiseNewQueue( const UBaseType_t uxQueueLength,
  * queueENTER_CRITICAL/queueEXIT_CRITICAL.
  */
 #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) )
-    #define prvLockQueue( pxQueue )                                                                        \
-    do {                                                                                                   \
-        UBaseType_t ulState = portSET_INTERRUPT_MASK();                                                    \
-        portGET_SPINLOCK( portGET_CORE_ID(), ( portSPINLOCK_TYPE * ) &( ( pxQueue )->xISRSpinlock ) );     \
-        {                                                                                                  \
-            if( ( pxQueue )->cRxLock == queueUNLOCKED )                                                    \
-            {                                                                                              \
-                ( pxQueue )->cRxLock = queueLOCKED_UNMODIFIED;                                             \
-            }                                                                                              \
-            if( ( pxQueue )->cTxLock == queueUNLOCKED )                                                    \
-            {                                                                                              \
-                ( pxQueue )->cTxLock = queueLOCKED_UNMODIFIED;                                             \
-            }                                                                                              \
-        }                                                                                                  \
-        portRELEASE_SPINLOCK( portGET_CORE_ID(), ( portSPINLOCK_TYPE * ) &( ( pxQueue )->xISRSpinlock ) ); \
-        portCLEAR_INTERRUPT_MASK( ulState );                                                               \
+    #define prvLockQueue( pxQueue )                                                              \
+    do {                                                                                         \
+        UBaseType_t ulState = portSET_INTERRUPT_MASK();                                          \
+        const BaseType_t xCoreID = ( BaseType_t ) portGET_CORE_ID();                             \
+        portINCREMENT_CRITICAL_NESTING_COUNT( xCoreID );                                         \
+        portGET_SPINLOCK( xCoreID, ( portSPINLOCK_TYPE * ) &( ( pxQueue )->xISRSpinlock ) );     \
+        {                                                                                        \
+            if( ( pxQueue )->cRxLock == queueUNLOCKED )                                          \
+            {                                                                                    \
+                ( pxQueue )->cRxLock = queueLOCKED_UNMODIFIED;                                   \
+            }                                                                                    \
+            if( ( pxQueue )->cTxLock == queueUNLOCKED )                                          \
+            {                                                                                    \
+                ( pxQueue )->cTxLock = queueLOCKED_UNMODIFIED;                                   \
+            }                                                                                    \
+        }                                                                                        \
+        portRELEASE_SPINLOCK( xCoreID, ( portSPINLOCK_TYPE * ) &( ( pxQueue )->xISRSpinlock ) ); \
+        portDECREMENT_CRITICAL_NESTING_COUNT( xCoreID );                                         \
+        if( portGET_CRITICAL_NESTING_COUNT( xCoreID ) == 0 )                                     \
+        {                                                                                        \
+            portCLEAR_INTERRUPT_MASK( ulState );                                                 \
+        }                                                                                        \
     } while( 0 )
 #else /* if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) ) */
     #define prvLockQueue( pxQueue )                        \
@@ -1075,6 +1086,13 @@ BaseType_t xQueueGenericSend( QueueHandle_t xQueue,
     TimeOut_t xTimeOut;
     Queue_t * const pxQueue = xQueue;
 
+    #if ( configQUEUE_DIRECT_TRANSFER == 1 )
+
+        /* Track whether we've armed direct transfer in task's TCB.
+        * This prevents false positives on first loop iteration. */
+        BaseType_t xDirectTransferArmed = pdFALSE;
+    #endif
+
     traceENTER_xQueueGenericSend( xQueue, pvItemToQueue, xTicksToWait, xCopyPosition );
 
     configASSERT( pxQueue );
@@ -1090,6 +1108,39 @@ BaseType_t xQueueGenericSend( QueueHandle_t xQueue,
     {
         queueENTER_CRITICAL( pxQueue );
         {
+            #if ( configQUEUE_DIRECT_TRANSFER == 1 )
+            {
+                /* Check if we were unblocked due to a direct transfer completion.
+                 * Only check if we actually armed the buffer (to avoid false positives on first iteration). */
+                if( xDirectTransferArmed == pdTRUE )
+                {
+                    void * pvCurrentBuffer = pvTaskGetDirectTransferBuffer( NULL );
+
+                    if( pvCurrentBuffer == NULL )
+                    {
+                        /* Our buffer was cleared - direct transfer completed successfully. */
+                        xDirectTransferArmed = pdFALSE;
+                        queueEXIT_CRITICAL( pxQueue );
+
+                        traceQUEUE_SEND( pxQueue );
+                        traceRETURN_xQueueGenericSend( pdPASS );
+                        return pdPASS;
+                    }
+                    else if( pvCurrentBuffer == pvItemToQueue )
+                    {
+                        /* We armed direct transfer but receiver didn't use it - clear and try normal path. */
+                        vTaskClearDirectTransferBuffer( NULL );
+                        xDirectTransferArmed = pdFALSE;
+                    }
+                    else
+                    {
+                        /* Buffer doesn't match - shouldn't happen, but clear our flag. */
+                        xDirectTransferArmed = pdFALSE;
+                    }
+                }
+            }
+            #endif /* if ( configQUEUE_DIRECT_TRANSFER == 1 ) */
+
             /* Is there room on the queue now?  The running task must be the
              * highest priority task wanting to access the queue.  If the head item
              * in the queue is to be overwritten then it does not matter if the
@@ -1160,6 +1211,43 @@ BaseType_t xQueueGenericSend( QueueHandle_t xQueue,
                 }
                 #else /* configUSE_QUEUE_SETS */
                 {
+                    #if ( configQUEUE_DIRECT_TRANSFER == 1 )
+                    {
+                        /* Check if there's a receiver waiting with armed direct transfer. */
+                        if( ( pxQueue->uxMessagesWaiting == ( UBaseType_t ) 0 ) &&
+                            ( listLIST_IS_EMPTY( &( pxQueue->xTasksWaitingToReceive ) ) == pdFALSE ) )
+                        {
+                            /* Find highest priority receiver with armed direct transfer. */
+                            TaskHandle_t xReceivingTask = xTaskGetHighestPriorityTaskWithDirectTransferArmed( &( pxQueue->xTasksWaitingToReceive ) );
+
+                            if( xReceivingTask != NULL )
+                            {
+                                void * pvReceiverBuffer = pvTaskGetDirectTransferBuffer( xReceivingTask );
+
+                                /* Direct copy to waiting receiver's buffer. */
+                                ( void ) memcpy( pvReceiverBuffer, pvItemToQueue, ( size_t ) pxQueue->uxItemSize );
+
+                                /* Clear receiver's buffer pointer. */
+                                vTaskClearDirectTransferBuffer( xReceivingTask );
+
+                                /* Unblock the waiting receiver. */
+                                if( xTaskRemoveFromEventList( &( pxQueue->xTasksWaitingToReceive ) ) != pdFALSE )
+                                {
+                                    queueYIELD_IF_USING_PREEMPTION();
+                                }
+                                else
+                                {
+                                    mtCOVERAGE_TEST_MARKER();
+                                }
+
+                                queueEXIT_CRITICAL( pxQueue );
+                                traceRETURN_xQueueGenericSend( pdPASS );
+                                return pdPASS;
+                            }
+                        }
+                    }
+                    #endif /* configQUEUE_DIRECT_TRANSFER */
+
                     xYieldRequired = prvCopyDataToQueue( pxQueue, pvItemToQueue, xCopyPosition );
 
                     /* If there was a task waiting for data to arrive on the
@@ -1242,6 +1330,15 @@ BaseType_t xQueueGenericSend( QueueHandle_t xQueue,
             if( prvIsQueueFull( pxQueue ) != pdFALSE )
             {
                 traceBLOCKING_ON_QUEUE_SEND( pxQueue );
+
+                #if ( configQUEUE_DIRECT_TRANSFER == 1 )
+                {
+                    /* Arm direct transfer in current task's TCB. Any receiver that unblocks us can check our TCB for the buffer. */
+                    vTaskSetDirectTransferBuffer( ( void * ) pvItemToQueue, xCopyPosition, NULL );
+                    xDirectTransferArmed = pdTRUE;
+                }
+                #endif /* if ( configQUEUE_DIRECT_TRANSFER == 1 ) */
+
                 vTaskPlaceOnEventList( &( pxQueue->xTasksWaitingToSend ), xTicksToWait );
 
                 queueUNLOCK( pxQueue, pdTRUE );
@@ -1318,6 +1415,49 @@ BaseType_t xQueueGenericSendFromISR( QueueHandle_t xQueue,
              *  in a task disinheriting a priority and prvCopyDataToQueue() can be
              *  called here even though the disinherit function does not check if
              *  the scheduler is suspended before accessing the ready lists. */
+
+            #if ( configQUEUE_DIRECT_TRANSFER == 1 )
+            {
+                /* Check if there's a receiver waiting with armed direct transfer. */
+                if( ( pxQueue->uxMessagesWaiting == ( UBaseType_t ) 0 ) &&
+                    ( listLIST_IS_EMPTY( &( pxQueue->xTasksWaitingToReceive ) ) == pdFALSE ) &&
+                    ( cTxLock == queueUNLOCKED ) )
+                {
+                    /* Find highest priority receiver with armed direct transfer. */
+                    TaskHandle_t xReceivingTask = xTaskGetHighestPriorityTaskWithDirectTransferArmed( &( pxQueue->xTasksWaitingToReceive ) );
+
+                    if( xReceivingTask != NULL )
+                    {
+                        void * pvReceiverBuffer = pvTaskGetDirectTransferBuffer( xReceivingTask );
+
+                        /* Direct copy to waiting receiver's buffer. */
+                        ( void ) memcpy( pvReceiverBuffer, pvItemToQueue, ( size_t ) pxQueue->uxItemSize );
+
+                        /* Clear receiver's buffer pointer. */
+                        vTaskClearDirectTransferBuffer( xReceivingTask );
+
+                        /* Unblock the waiting receiver. */
+                        if( xTaskRemoveFromEventListFromISR( &( pxQueue->xTasksWaitingToReceive ) ) != pdFALSE )
+                        {
+                            if( pxHigherPriorityTaskWoken != NULL )
+                            {
+                                *pxHigherPriorityTaskWoken = pdTRUE;
+                            }
+                            else
+                            {
+                                mtCOVERAGE_TEST_MARKER();
+                            }
+                        }
+
+                        xReturn = pdPASS;
+                        queueEXIT_CRITICAL_FROM_ISR( uxSavedInterruptStatus, pxQueue );
+                        traceRETURN_xQueueGenericSendFromISR( xReturn );
+                        return xReturn;
+                    }
+                }
+            }
+            #endif /* configQUEUE_DIRECT_TRANSFER */
+
             ( void ) prvCopyDataToQueue( pxQueue, pvItemToQueue, xCopyPosition );
 
             /* The event list is not altered if the queue is locked.  This will
@@ -1616,6 +1756,13 @@ BaseType_t xQueueReceive( QueueHandle_t xQueue,
     TimeOut_t xTimeOut;
     Queue_t * const pxQueue = xQueue;
 
+    #if ( configQUEUE_DIRECT_TRANSFER == 1 )
+
+        /* Track whether we've armed direct transfer in task's TCB.
+        * This prevents false positives on first loop iteration. */
+        BaseType_t xDirectTransferArmed = pdFALSE;
+    #endif
+
     traceENTER_xQueueReceive( xQueue, pvBuffer, xTicksToWait );
 
     /* Check the pointer is not NULL. */
@@ -1636,6 +1783,39 @@ BaseType_t xQueueReceive( QueueHandle_t xQueue,
     {
         queueENTER_CRITICAL( pxQueue );
         {
+            #if ( configQUEUE_DIRECT_TRANSFER == 1 )
+            {
+                /* Check if we were unblocked due to a direct transfer completion.
+                 * Only check if we actually armed the buffer (to avoid false positives on first iteration). */
+                if( xDirectTransferArmed == pdTRUE )
+                {
+                    void * pvCurrentBuffer = pvTaskGetDirectTransferBuffer( NULL );
+
+                    if( pvCurrentBuffer == NULL )
+                    {
+                        /* Our buffer was cleared - direct transfer completed successfully. */
+                        xDirectTransferArmed = pdFALSE;
+                        queueEXIT_CRITICAL( pxQueue );
+
+                        traceQUEUE_RECEIVE( pxQueue );
+                        traceRETURN_xQueueReceive( pdPASS );
+                        return pdPASS;
+                    }
+                    else if( pvCurrentBuffer == pvBuffer )
+                    {
+                        /* We armed direct transfer but sender didn't use it - clear and try normal path. */
+                        vTaskClearDirectTransferBuffer( NULL );
+                        xDirectTransferArmed = pdFALSE;
+                    }
+                    else
+                    {
+                        /* Buffer doesn't match - shouldn't happen, but clear our flag. */
+                        xDirectTransferArmed = pdFALSE;
+                    }
+                }
+            }
+            #endif /* if ( configQUEUE_DIRECT_TRANSFER == 1 ) */
+
             const UBaseType_t uxMessagesWaiting = pxQueue->uxMessagesWaiting;
 
             /* Is there data in the queue now?  To be running the calling task
@@ -1652,6 +1832,33 @@ BaseType_t xQueueReceive( QueueHandle_t xQueue,
                  * task. */
                 if( listLIST_IS_EMPTY( &( pxQueue->xTasksWaitingToSend ) ) == pdFALSE )
                 {
+                    #if ( configQUEUE_DIRECT_TRANSFER == 1 )
+                    {
+                        /* Check if there's a sender waiting with armed direct transfer.
+                         * Find highest priority sender with armed direct transfer. */
+                        TaskHandle_t xSendingTask = xTaskGetHighestPriorityTaskWithDirectTransferArmed( &( pxQueue->xTasksWaitingToSend ) );
+
+                        if( xSendingTask != NULL )
+                        {
+                            void * pvSenderBuffer = pvTaskGetDirectTransferBuffer( xSendingTask );
+                            BaseType_t xPosition = xTaskGetDirectTransferPosition( xSendingTask );
+
+                            /* Verify that position was set to a valid value */
+                            configASSERT( xPosition != queueDIRECT_TRANSFER_POSITION_INIT );
+                            configASSERT( ( xPosition == queueSEND_TO_BACK ) ||
+                                          ( xPosition == queueSEND_TO_FRONT ) ||
+                                          ( xPosition == queueOVERWRITE ) );
+
+                            /* Direct copy from waiting sender's buffer to the queue. */
+                            ( void ) prvCopyDataToQueue( pxQueue, pvSenderBuffer, xPosition );
+
+                            /* Clear sender's buffer pointer. */
+                            vTaskClearDirectTransferBuffer( xSendingTask );
+                        }
+                    }
+                    #endif /* configQUEUE_DIRECT_TRANSFER */
+
+                    /* Unblock the waiting sender. */
                     if( xTaskRemoveFromEventList( &( pxQueue->xTasksWaitingToSend ) ) != pdFALSE )
                     {
                         queueYIELD_IF_USING_PREEMPTION();
@@ -1714,6 +1921,15 @@ BaseType_t xQueueReceive( QueueHandle_t xQueue,
             if( prvIsQueueEmpty( pxQueue ) != pdFALSE )
             {
                 traceBLOCKING_ON_QUEUE_RECEIVE( pxQueue );
+
+                #if ( configQUEUE_DIRECT_TRANSFER == 1 )
+                {
+                    /* Arm direct transfer in current task's TCB. Any sender that unblocks us can check our TCB for the buffer. */
+                    vTaskSetDirectTransferBuffer( pvBuffer, queueDIRECT_TRANSFER_POSITION_INIT, NULL );
+                    xDirectTransferArmed = pdTRUE;
+                }
+                #endif /* if ( configQUEUE_DIRECT_TRANSFER == 1 ) */
+
                 vTaskPlaceOnEventList( &( pxQueue->xTasksWaitingToReceive ), xTicksToWait );
                 queueUNLOCK( pxQueue, pdTRUE );
             }
@@ -1925,13 +2141,13 @@ BaseType_t xQueueSemaphoreTake( QueueHandle_t xQueue,
                              * has timed out the priority should be disinherited
                              * again, but only as low as the next highest priority
                              * task that is waiting for the same mutex. */
-                            uxHighestWaitingPriority = prvGetHighestPriorityOfWaitToReceiveList( pxQueue );
+                            uxHighestWaitingPriority = prvGetHighestPriorityOfWaitingTasks( &( pxQueue->xTasksWaitingToReceive ) );
 
                             /* vTaskPriorityDisinheritAfterTimeout uses the uxHighestWaitingPriority
                              * parameter to index pxReadyTasksLists when adding the task holding
                              * mutex to the ready list for its new priority. Coverity thinks that
                              * it can result in out-of-bounds access which is not true because
-                             * uxHighestWaitingPriority, as returned by prvGetHighestPriorityOfWaitToReceiveList,
+                             * uxHighestWaitingPriority, as returned by prvGetHighestPriorityOfWaitingTasks,
                              * is capped at ( configMAX_PRIORITIES - 1 ). */
                             /* coverity[overrun] */
                             vTaskPriorityDisinheritAfterTimeout( pxQueue->u.xSemaphore.xMutexHolder, uxHighestWaitingPriority );
@@ -2152,6 +2368,33 @@ BaseType_t xQueueReceiveFromISR( QueueHandle_t xQueue,
             {
                 if( listLIST_IS_EMPTY( &( pxQueue->xTasksWaitingToSend ) ) == pdFALSE )
                 {
+                    #if ( configQUEUE_DIRECT_TRANSFER == 1 )
+                    {
+                        /* Check if there's a sender waiting with armed direct transfer.
+                         * Find highest priority sender with armed direct transfer. */
+                        TaskHandle_t xSendingTask = xTaskGetHighestPriorityTaskWithDirectTransferArmed( &( pxQueue->xTasksWaitingToSend ) );
+
+                        if( xSendingTask != NULL )
+                        {
+                            void * pvSenderBuffer = pvTaskGetDirectTransferBuffer( xSendingTask );
+                            BaseType_t xPosition = xTaskGetDirectTransferPosition( xSendingTask );
+
+                            /* Verify that position was set to a valid value. */
+                            configASSERT( xPosition != queueDIRECT_TRANSFER_POSITION_INIT );
+                            configASSERT( ( xPosition == queueSEND_TO_BACK ) ||
+                                          ( xPosition == queueSEND_TO_FRONT ) ||
+                                          ( xPosition == queueOVERWRITE ) );
+
+                            /* Direct copy from waiting sender's buffer to the queue. */
+                            ( void ) prvCopyDataToQueue( pxQueue, pvSenderBuffer, xPosition );
+
+                            /* Clear sender's buffer pointer. */
+                            vTaskClearDirectTransferBuffer( xSendingTask );
+                        }
+                    }
+                    #endif /* configQUEUE_DIRECT_TRANSFER */
+
+                    /* Unblock the waiting sender. */
                     if( xTaskRemoveFromEventListFromISR( &( pxQueue->xTasksWaitingToSend ) ) != pdFALSE )
                     {
                         /* The task waiting has a higher priority than us so
@@ -2425,21 +2668,18 @@ UBaseType_t uxQueueGetQueueLength( QueueHandle_t xQueue ) /* PRIVILEGED_FUNCTION
 }
 /*-----------------------------------------------------------*/
 
-#if ( configUSE_MUTEXES == 1 )
+#if ( ( configUSE_MUTEXES == 1 ) || ( configQUEUE_DIRECT_TRANSFER == 1 ) )
 
-    static UBaseType_t prvGetHighestPriorityOfWaitToReceiveList( const Queue_t * const pxQueue )
+    static UBaseType_t prvGetHighestPriorityOfWaitingTasks( const List_t * const pxEventList )
     {
         UBaseType_t uxHighestPriorityOfWaitingTasks;
 
-        /* If a task waiting for a mutex causes the mutex holder to inherit a
-         * priority, but the waiting task times out, then the holder should
-         * disinherit the priority - but only down to the highest priority of any
-         * other tasks that are waiting for the same mutex.  For this purpose,
-         * return the priority of the highest priority task that is waiting for the
-         * mutex. */
-        if( listCURRENT_LIST_LENGTH( &( pxQueue->xTasksWaitingToReceive ) ) > 0U )
+        /* Returns the priority of the highest priority task waiting on the given
+         * event list. If the list is empty, returns tskIDLE_PRIORITY.
+         * Used for mutex priority disinheritance and direct transfer optimization. */
+        if( listCURRENT_LIST_LENGTH( pxEventList ) > 0U )
         {
-            uxHighestPriorityOfWaitingTasks = ( UBaseType_t ) ( ( UBaseType_t ) configMAX_PRIORITIES - ( UBaseType_t ) listGET_ITEM_VALUE_OF_HEAD_ENTRY( &( pxQueue->xTasksWaitingToReceive ) ) );
+            uxHighestPriorityOfWaitingTasks = ( UBaseType_t ) ( ( UBaseType_t ) configMAX_PRIORITIES - ( UBaseType_t ) listGET_ITEM_VALUE_OF_HEAD_ENTRY( pxEventList ) );
         }
         else
         {
@@ -2449,7 +2689,7 @@ UBaseType_t uxQueueGetQueueLength( QueueHandle_t xQueue ) /* PRIVILEGED_FUNCTION
         return uxHighestPriorityOfWaitingTasks;
     }
 
-#endif /* configUSE_MUTEXES */
+#endif /* ( configUSE_MUTEXES == 1 ) || ( configQUEUE_DIRECT_TRANSFER == 1 ) */
 /*-----------------------------------------------------------*/
 
 static BaseType_t prvCopyDataToQueue( Queue_t * const pxQueue,
@@ -2697,9 +2937,10 @@ static void prvUnlockQueue( Queue_t * const pxQueue )
         pxQueue->cRxLock = queueUNLOCKED;
     }
     #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) )
-        portRELEASE_SPINLOCK( portGET_CORE_ID(), ( portSPINLOCK_TYPE * ) &( pxQueue->xISRSpinlock ) );
+        portRELEASE_SPINLOCK( xCoreID, ( portSPINLOCK_TYPE * ) &( pxQueue->xISRSpinlock ) );
         portDECREMENT_CRITICAL_NESTING_COUNT( xCoreID );
-        if( portGET_CRITICAL_NESTING_COUNT( xCoreID ) == 0U )
+
+        if( portGET_CRITICAL_NESTING_COUNT( xCoreID ) == 0 )
         {
             portENABLE_INTERRUPTS();
         }
@@ -3425,7 +3666,6 @@ BaseType_t xQueueIsQueueFullFromISR( const QueueHandle_t xQueue )
 /*-----------------------------------------------------------*/
 
 #if ( configUSE_QUEUE_SETS == 1 )
-
     static BaseType_t prvNotifyQueueSetContainer( const Queue_t * const pxQueue )
     {
         BaseType_t xReturn;

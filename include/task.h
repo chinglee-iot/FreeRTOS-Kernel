@@ -292,22 +292,12 @@ typedef enum
  * \ingroup GranularLocks
  */
 #if ( portUSING_GRANULAR_LOCKS == 1 )
-    #define taskDATA_GROUP_ENTER_CRITICAL( pxTaskSpinlock, pxISRSpinlock )                \
-    do {                                                                                  \
-        /* Disable preemption to avoid task state changes during the critical section. */ \
-        vTaskPreemptionDisable( NULL );                                                   \
-        {                                                                                 \
-            const BaseType_t xCoreID = ( BaseType_t ) portGET_CORE_ID();                  \
-            /* Task spinlock is always taken first */                                     \
-            portGET_SPINLOCK( xCoreID, ( portSPINLOCK_TYPE * ) ( pxTaskSpinlock ) );      \
-            /* Disable interrupts */                                                      \
-            portDISABLE_INTERRUPTS();                                                     \
-            /* Take the ISR spinlock next */                                              \
-            portGET_SPINLOCK( xCoreID, ( portSPINLOCK_TYPE * ) ( pxISRSpinlock ) );       \
-            /* Increment the critical nesting count */                                    \
-            portINCREMENT_CRITICAL_NESTING_COUNT( xCoreID );                              \
-        }                                                                                 \
-    } while( 0 )
+    /* Using a function implementation now since the data group entering critical
+     * section needs to check for run state change.
+     * TODO : Do we align this with other data group critical section APIs? */
+    void taskDataGroupEnterCritical( portSPINLOCK_TYPE * pxTaskSpinlock,
+                                     portSPINLOCK_TYPE * pxISRSpinlock );
+    #define taskDATA_GROUP_ENTER_CRITICAL    taskDataGroupEnterCritical
 #endif /* #if ( portUSING_GRANULAR_LOCKS == 1 ) */
 
 /**
@@ -361,7 +351,7 @@ typedef enum
             mtCOVERAGE_TEST_MARKER();                                                \
         }                                                                            \
         /* Re-enable preemption */                                                   \
-        xTaskPreemptionEnableWithYieldStatus( NULL );                                             \
+        ( void ) xTaskPreemptionEnableWithYieldStatus( NULL );                       \
     } while( 0 )
 #endif /* #if ( portUSING_GRANULAR_LOCKS == 1 ) */
 
@@ -417,11 +407,12 @@ typedef enum
  * \ingroup GranularLocks
  */
 #if ( portUSING_GRANULAR_LOCKS == 1 )
+    /* TODO : this is GNU C extension. Consider to remove the usage here. */
     #define taskDATA_GROUP_UNLOCK( pxTaskSpinlock )                                            \
     ( {                                                                                        \
         portRELEASE_SPINLOCK( portGET_CORE_ID(), ( portSPINLOCK_TYPE * ) ( pxTaskSpinlock ) ); \
         /* Re-enable preemption after releasing the task spinlock. */                          \
-        xTaskPreemptionEnableWithYieldStatus( NULL );                                                       \
+        xTaskPreemptionEnableWithYieldStatus( NULL );                                          \
     } )
 #endif /* #if ( portUSING_GRANULAR_LOCKS == 1 ) */
 
@@ -1639,6 +1630,8 @@ BaseType_t xTaskResumeFromISR( TaskHandle_t xTaskToResume ) PRIVILEGED_FUNCTION;
  * switch, otherwise pdFALSE. This is used by the scheduler to determine if a
  * context switch may be required following the enable.
  */
+/* NOTE : yield status is required in queue cause the implementation relies on task
+ * yielding itself after vTaskPlaceOnEventList is called. */
     BaseType_t xTaskPreemptionEnableWithYieldStatus( const TaskHandle_t xTask );
 #endif
 
@@ -3758,6 +3751,68 @@ BaseType_t xTaskRemoveFromEventListFromISR( const List_t * const pxEventList ) P
 void vTaskRemoveFromUnorderedEventList( ListItem_t * pxEventListItem,
                                         const TickType_t xItemValue ) PRIVILEGED_FUNCTION;
 
+#if ( configQUEUE_DIRECT_TRANSFER == 1 )
+
+/*
+ * THIS FUNCTION MUST NOT BE USED FROM APPLICATION CODE.  IT IS AN
+ * INTERFACE FOR THE EXCLUSIVE USE OF THE QUEUE IMPLEMENTATION.
+ *
+ * Set the direct transfer buffer for the current task.
+ * Called when a task is about to block on a queue operation.
+ */
+    void vTaskSetDirectTransferBuffer( void * pvBuffer,
+                                       BaseType_t xPosition,
+                                       TaskHandle_t xTask ) PRIVILEGED_FUNCTION;
+
+/*
+ * THIS FUNCTION MUST NOT BE USED FROM APPLICATION CODE.  IT IS AN
+ * INTERFACE FOR THE EXCLUSIVE USE OF THE QUEUE IMPLEMENTATION.
+ *
+ * Clear the direct transfer buffer for a task.
+ * @param xTask The task handle
+ */
+    void vTaskClearDirectTransferBuffer( TaskHandle_t xTask ) PRIVILEGED_FUNCTION;
+
+/*
+ * THIS FUNCTION MUST NOT BE USED FROM APPLICATION CODE.  IT IS AN
+ * INTERFACE FOR THE EXCLUSIVE USE OF THE QUEUE IMPLEMENTATION.
+ *
+ * Get the direct transfer buffer pointer from a task.
+ * @param xTask The task handle
+ * @return The buffer pointer, or NULL if not set
+ *
+ */
+    void * pvTaskGetDirectTransferBuffer( TaskHandle_t xTask ) PRIVILEGED_FUNCTION;
+
+/*
+ * THIS FUNCTION MUST NOT BE USED FROM APPLICATION CODE.  IT IS AN
+ * INTERFACE FOR THE EXCLUSIVE USE OF THE QUEUE IMPLEMENTATION.
+ *
+ * Get the direct transfer position from a task.
+ * @param xTask The task handle
+ * @return The position, or -1 if not set
+ *
+ */
+    BaseType_t xTaskGetDirectTransferPosition( TaskHandle_t xTask ) PRIVILEGED_FUNCTION;
+
+/*
+ * THIS FUNCTION MUST NOT BE USED FROM APPLICATION CODE.  IT IS AN
+ * INTERFACE FOR THE EXCLUSIVE USE OF THE QUEUE IMPLEMENTATION.
+ *
+ * Get the highest priority task from an event list if it has armed direct transfer.
+ * Checks only the head of the event list (O(1) operation) for deterministic behavior.
+ *
+ * If the highest priority task hasn't armed direct transfer (e.g., using xQueuePeek()),
+ * returns NULL and direct transfer is skipped for this operation. This is acceptable since
+ * direct transfer is an optimization, not a requirement.
+ *
+ * @param pxEventList The event list to check
+ * @return Task handle of highest priority task if it has armed transfer, or NULL otherwise
+ */
+    TaskHandle_t xTaskGetHighestPriorityTaskWithDirectTransferArmed( const List_t * const pxEventList ) PRIVILEGED_FUNCTION;
+
+#endif /* configQUEUE_DIRECT_TRANSFER */
+
 /*
  * THIS FUNCTION MUST NOT BE USED FROM APPLICATION CODE.  IT IS ONLY
  * INTENDED FOR USE WHEN IMPLEMENTING A PORT OF THE SCHEDULER AND IS
@@ -3953,6 +4008,8 @@ void vTaskInternalSetTimeOutState( TimeOut_t * const pxTimeOut ) PRIVILEGED_FUNC
  * Checks whether a yield is required after portUNLOCK_DATA_GROUP() returns.
  * To be called while data group is locked.
  */
+/* NOTE : xTaskUnlockCanYield is used when ISR leaving the critical section but current
+ * core is requested to yield in ISR. */
 #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) )
     BaseType_t xTaskUnlockCanYield( void );
 #endif /* #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) ) */

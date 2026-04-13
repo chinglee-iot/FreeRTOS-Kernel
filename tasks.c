@@ -351,7 +351,64 @@
  * must be valid. This macro is not required in single core since there is only
  * one core to yield. */
     #if ( configUSE_TASK_PREEMPTION_DISABLE == 1 )
-        #define prvYieldCore( xCoreID )                                                          \
+        #if ( portUSING_GRANULAR_LOCKS == 1 )
+
+        /* xYieldPending indicates that a yield was requested but could not be
+         * processed immediately.
+         *
+         * This occurs in situations such as:
+         * 1. Task preemption is disabled.
+         * 2. A task requests itself to yield while inside a critical section.
+         *
+         * In these cases, xYieldPending is set to pdTRUE to indicate that the
+         * yield request should be serviced after exiting the critical section.
+         *
+         * With granular locking, the task disables preemption first before acquiring
+         * data group locks. A check for run state change is required before acquiring
+         * the data group locks to preserve priority ordering, for example, in queue
+         * operations. However, setting xYieldPending alone is not sufficient. Without
+         * setting the task run state to taskTASK_SCHEDULED_TO_YIELD, the task would
+         * not be able to relinquish the critical section for higher priority tasks.
+         *
+         * Key distinction:
+         * - xYieldPending: yield is serviced when leaving the critical section.
+         * - taskTASK_SCHEDULED_TO_YIELD: yield is serviced before entering the
+         *   critical section. */
+            #define prvYieldCore( xCoreID )                                                           \
+    do {                                                                                              \
+        const BaseType_t xCoreToYield = ( xCoreID );                                                  \
+        BaseType_t xCurrentCoreID = portGET_CORE_ID();                                                \
+        if( ( xCoreID ) == xCurrentCoreID )                                                           \
+        {                                                                                             \
+            /* Pending a yield for this core since it is in the critical section. */                  \
+            xYieldPendings[ xCoreToYield ] = pdTRUE;                                                  \
+            pxCurrentTCBs[ xCoreToYield ]->xTaskRunState = taskTASK_SCHEDULED_TO_YIELD;               \
+        }                                                                                             \
+        else                                                                                          \
+        {                                                                                             \
+            portGET_SPINLOCK( xCurrentCoreID, &( pxCurrentTCBs[ xCoreToYield ]->xTCBSpinlock ) );     \
+            {                                                                                         \
+                if( pxCurrentTCBs[ xCoreToYield ]->uxPreemptionDisable == 0U )                        \
+                {                                                                                     \
+                    /* Request other core to yield if it is not requested before. */                  \
+                    if( pxCurrentTCBs[ xCoreToYield ]->xTaskRunState != taskTASK_SCHEDULED_TO_YIELD ) \
+                    {                                                                                 \
+                        portYIELD_CORE( xCoreToYield );                                               \
+                        pxCurrentTCBs[ xCoreToYield ]->xTaskRunState = taskTASK_SCHEDULED_TO_YIELD;   \
+                    }                                                                                 \
+                }                                                                                     \
+                else                                                                                  \
+                {                                                                                     \
+                    xYieldPendings[ xCoreToYield ] = pdTRUE;                                          \
+                    pxCurrentTCBs[ xCoreToYield ]->xTaskRunState = taskTASK_SCHEDULED_TO_YIELD;       \
+                }                                                                                     \
+            }                                                                                         \
+            portRELEASE_SPINLOCK( xCurrentCoreID, &( pxCurrentTCBs[ xCoreToYield ]->xTCBSpinlock ) ); \
+        }                                                                                             \
+    } while( 0 )
+
+        #else /* if ( portUSING_GRANULAR_LOCKS == 1 ) */
+            #define prvYieldCore( xCoreID )                                                      \
     do {                                                                                         \
         if( ( xCoreID ) == ( BaseType_t ) portGET_CORE_ID() )                                    \
         {                                                                                        \
@@ -375,6 +432,7 @@
             }                                                                                    \
         }                                                                                        \
     } while( 0 )
+        #endif /* if ( portUSING_GRANULAR_LOCKS == 1 ) */
     #else /* if ( configUSE_TASK_PREEMPTION_DISABLE == 1 ) */
         #define prvYieldCore( xCoreID )                                                      \
     do {                                                                                     \
@@ -464,6 +522,10 @@ typedef struct tskTaskControlBlock       /* The old naming convention is used to
         UBaseType_t uxDeferredStateChange; /**< Used to indicate if the task's state change is deferred. */
     #endif
 
+    #if ( portUSING_GRANULAR_LOCKS == 1 )
+        portSPINLOCK_TYPE xTCBSpinlock;
+    #endif
+
     #if ( ( portSTACK_GROWTH > 0 ) || ( configRECORD_STACK_HIGH_ADDRESS == 1 ) )
         StackType_t * pxEndOfStack; /**< Points to the highest valid address for the stack. */
     #endif
@@ -515,6 +577,14 @@ typedef struct tskTaskControlBlock       /* The old naming convention is used to
 
     #if ( configUSE_POSIX_ERRNO == 1 )
         int iTaskErrno;
+    #endif
+
+    #if ( configQUEUE_DIRECT_TRANSFER == 1 )
+        void * pvDirectTransferBuffer;      /**< Direct transfer buffer pointer for data group send/receive operations:
+                                             * - When waiting to RECEIVE: points to this task's receive buffer
+                                             * - When waiting to SEND: points to this task's send data
+                                             * NULL when not using direct transfer */
+        BaseType_t xDirectTransferPosition; /**< Position for direct transfer (queueSEND_TO_BACK, queueSEND_TO_FRONT, queueOVERWRITE) */
     #endif
 } tskTCB;
 
@@ -716,6 +786,31 @@ static BaseType_t prvTaskRemoveFromEventList( const List_t * const pxEventList )
  */
 static void prvAddCurrentTaskToDelayedList( TickType_t xTicksToWait,
                                             const BaseType_t xCanBlockIndefinitely ) PRIVILEGED_FUNCTION;
+
+#if ( configQUEUE_DIRECT_TRANSFER == 1 )
+
+/*
+ * Set the direct transfer buffer for a task.
+ * Called when a task is about to block on a data group operation.
+ */
+    void vTaskSetDirectTransferBuffer( void * pvBuffer,
+                                       BaseType_t xPosition,
+                                       TaskHandle_t xTask );
+
+/*
+ * Clear the direct transfer buffer for a task.
+ * This function should be called from data group send/receive operations when cleaning up.
+ */
+    void vTaskClearDirectTransferBuffer( TaskHandle_t xTask );
+
+/*
+ * Get the highest priority task from an event list that has armed direct transfer.
+ * Returns NULL if no task with armed direct transfer is found.
+ * This function should be called from data group send/receive operations to find a task with direct transfer armed.
+ */
+    TaskHandle_t xTaskGetHighestPriorityTaskWithDirectTransferArmed( const List_t * const pxEventList );
+
+#endif /* configQUEUE_DIRECT_TRANSFER */
 
 /*
  * Fills an TaskStatus_t structure with information on each task that is
@@ -943,20 +1038,11 @@ static void prvKernelExitISROnlyCritical( void );
             * and reacquire the correct locks. And then, do it all over again
             * if our state changed again during the reacquisition. */
             uxPrevCriticalNesting = portGET_CRITICAL_NESTING_COUNT( xCoreID );
+            portSET_CRITICAL_NESTING_COUNT( xCoreID, 0U );
 
-            if( uxPrevCriticalNesting > 0U )
-            {
-                portSET_CRITICAL_NESTING_COUNT( xCoreID, 0U );
-                kernelRELEASE_ISR_LOCK( xCoreID );
-            }
-            else
-            {
-                /* The scheduler is suspended. uxSchedulerSuspended is updated
-                 * only when the task is not requested to yield. */
-                mtCOVERAGE_TEST_MARKER();
-            }
-
+            kernelRELEASE_ISR_LOCK( xCoreID );
             kernelRELEASE_TASK_LOCK( xCoreID );
+
             portMEMORY_BARRIER();
             configASSERT( pxThisTCB->xTaskRunState == taskTASK_SCHEDULED_TO_YIELD );
 
@@ -971,15 +1057,11 @@ static void prvKernelExitISROnlyCritical( void );
             portDISABLE_INTERRUPTS();
 
             xCoreID = ( BaseType_t ) portGET_CORE_ID();
+
             kernelGET_TASK_LOCK( xCoreID );
             kernelGET_ISR_LOCK( xCoreID );
 
             portSET_CRITICAL_NESTING_COUNT( xCoreID, uxPrevCriticalNesting );
-
-            if( uxPrevCriticalNesting == 0U )
-            {
-                kernelRELEASE_ISR_LOCK( xCoreID );
-            }
         }
     }
 #endif /* #if ( configNUMBER_OF_CORES > 1 ) */
@@ -1003,7 +1085,6 @@ static void prvKernelExitISROnlyCritical( void );
         configASSERT( portGET_CRITICAL_NESTING_COUNT( xCurrentCoreID ) > 0U );
 
         #if ( configRUN_MULTIPLE_PRIORITIES == 0 )
-
             /* No task should yield for this one if it is a lower priority
              * than priority level of currently ready tasks. */
             if( pxTCB->uxPriority >= uxTopReadyPriority )
@@ -1042,14 +1123,30 @@ static void prvKernelExitISROnlyCritical( void );
                             {
                                 #if ( configUSE_TASK_PREEMPTION_DISABLE == 1 )
                                 {
+                                    /* Acquire the preemption lock to prevent the task changes
+                                     * it's preemption state. */
+                                    #if ( portUSING_GRANULAR_LOCKS == 1 )
+                                        portGET_SPINLOCK( xCurrentCoreID, &( pxCurrentTCBs[ xCoreID ]->xTCBSpinlock ) );
+                                    #endif
+
                                     if( pxCurrentTCBs[ xCoreID ]->uxPreemptionDisable == 0U )
                                     {
+                                        #if ( portUSING_GRANULAR_LOCKS == 1 )
+                                            if( xLowestPriorityCore != -1 )
+                                            {
+                                                /* Release previous preemption lock. */
+                                                portRELEASE_SPINLOCK( xCurrentCoreID, &( pxCurrentTCBs[ xLowestPriorityCore ]->xTCBSpinlock ) );
+                                            }
+                                        #endif
                                         xLowestPriorityToPreempt = xCurrentCoreTaskPriority;
                                         xLowestPriorityCore = xCoreID;
                                     }
                                     else
                                     {
                                         xYieldPendings[ xCoreID ] = pdTRUE;
+                                        #if ( portUSING_GRANULAR_LOCKS == 1 )
+                                            portRELEASE_SPINLOCK( xCurrentCoreID, &( pxCurrentTCBs[ xCoreID ]->xTCBSpinlock ) );
+                                        #endif
                                     }
                                 }
                                 #else /* if ( configUSE_TASK_PREEMPTION_DISABLE == 1 ) */
@@ -1097,6 +1194,18 @@ static void prvKernelExitISROnlyCritical( void );
             {
                 prvYieldCore( xLowestPriorityCore );
             }
+
+            /* After request the core to yield, preemption lock can be released.
+             * The task tries to set the preemption disable count will check it's
+             * run state first. If it is already requested to yield, it will serve
+             * the yield request first then retring to set the preemption disable
+             * count. */
+            #if ( portUSING_GRANULAR_LOCKS == 1 )
+                if( xLowestPriorityCore >= 0 )
+                {
+                    portRELEASE_SPINLOCK( xCurrentCoreID, &( pxCurrentTCBs[ xLowestPriorityCore ]->xTCBSpinlock ) );
+                }
+            #endif
 
             #if ( configRUN_MULTIPLE_PRIORITIES == 0 )
                 /* Verify that the calling core always yields to higher priority tasks. */
@@ -1278,9 +1387,13 @@ static void prvKernelExitISROnlyCritical( void );
 
                     for( x = ( BaseType_t ) 0; x < ( BaseType_t ) configNUMBER_OF_CORES; x++ )
                     {
-                        if( ( pxCurrentTCBs[ x ]->uxTaskAttributes & taskATTRIBUTE_IS_IDLE ) != 0U )
+                        /* Core xCoreID already selects the task to run. */
+                        if( x != xCoreID )
                         {
-                            prvYieldCore( x );
+                            if( ( pxCurrentTCBs[ x ]->uxTaskAttributes & taskATTRIBUTE_IS_IDLE ) != 0U )
+                            {
+                                prvYieldCore( x );
+                            }
                         }
                     }
                 }
@@ -1358,17 +1471,28 @@ static void prvKernelExitISROnlyCritical( void );
                                 ( xYieldPendings[ uxCore ] == pdFALSE ) )
                             {
                                 #if ( configUSE_TASK_PREEMPTION_DISABLE == 1 )
-                                {
+                                    #if ( portUSING_GRANULAR_LOCKS == 1 )
+                                        portGET_SPINLOCK( xCoreID, &( pxCurrentTCBs[ uxCore ]->xTCBSpinlock ) );
+                                    #endif
+
                                     if( pxCurrentTCBs[ uxCore ]->uxPreemptionDisable == 0U )
                                     {
+                                        #if ( portUSING_GRANULAR_LOCKS == 1 )
+                                            if( xLowestPriorityCore != -1 )
+                                            {
+                                                portRELEASE_SPINLOCK( xCoreID, &( pxCurrentTCBs[ xLowestPriorityCore ]->xTCBSpinlock ) );
+                                            }
+                                        #endif
                                         xLowestPriority = xTaskPriority;
                                         xLowestPriorityCore = ( BaseType_t ) uxCore;
                                     }
                                     else
                                     {
                                         xYieldPendings[ uxCore ] = pdTRUE;
+                                        #if ( portUSING_GRANULAR_LOCKS == 1 )
+                                            portRELEASE_SPINLOCK( xCoreID, &( pxCurrentTCBs[ uxCore ]->xTCBSpinlock ) );
+                                        #endif
                                     }
-                                }
                                 #else /* if ( configUSE_TASK_PREEMPTION_DISABLE == 1 ) */
                                 {
                                     xLowestPriority = xTaskPriority;
@@ -1382,6 +1506,10 @@ static void prvKernelExitISROnlyCritical( void );
                     if( xLowestPriorityCore >= 0 )
                     {
                         prvYieldCore( xLowestPriorityCore );
+
+                        #if ( portUSING_GRANULAR_LOCKS == 1 )
+                            portRELEASE_SPINLOCK( xCoreID, &( pxCurrentTCBs[ xLowestPriorityCore ]->xTCBSpinlock ) );
+                        #endif
                     }
                 }
             }
@@ -2080,6 +2208,12 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
     }
     #endif
 
+    #if ( portUSING_GRANULAR_LOCKS == 1 )
+    {
+        portINIT_SPINLOCK( &pxNewTCB->xTCBSpinlock );
+    }
+    #endif
+
     /* Initialize the TCB stack to look as if the task was already running,
      * but had been interrupted by the scheduler.  The return address is set
      * to the start of the task function. Once the stack has been initialised
@@ -2346,25 +2480,34 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
 
         kernelENTER_CRITICAL();
         {
+            const BaseType_t xCoreID = portGET_CORE_ID();
+
             /* If null is passed in here then it is the calling task that is
              * being deleted. */
             pxTCB = prvGetTCBFromHandle( xTaskToDelete );
             configASSERT( pxTCB != NULL );
 
             #if ( configUSE_TASK_PREEMPTION_DISABLE == 1 )
-
-                /* If the task has disabled preemption, we need to defer the deletion until the
-                 * task enables preemption. The deletion will be performed in vTaskPreemptionEnable(). */
-                if( pxTCB->uxPreemptionDisable > 0U )
+            {
+                /* FIXME : Acquire the TCB lock before reading the preemptions
+                 * disable count. */
+                portGET_SPINLOCK( xCoreID, &pxTCB->xTCBSpinlock );
                 {
-                    pxTCB->uxDeferredStateChange |= tskDEFERRED_DELETION;
-                    xDeferredDeletion = pdTRUE;
+                    /* If the task has disabled preemption, we need to defer the deletion until the
+                     * task enables preemption. The deletion will be performed in vTaskPreemptionEnable(). */
+                    if( pxTCB->uxPreemptionDisable > 0U )
+                    {
+                        pxTCB->uxDeferredStateChange |= tskDEFERRED_DELETION;
+                        xDeferredDeletion = pdTRUE;
+                        portRELEASE_SPINLOCK( xCoreID, &pxTCB->xTCBSpinlock );
+                    }
+                    else
+                    {
+                        /* Reset the deferred state change flags */
+                        pxTCB->uxDeferredStateChange &= ~tskDEFERRED_DELETION;
+                    }
                 }
-                else
-                {
-                    /* Reset the deferred state change flags */
-                    pxTCB->uxDeferredStateChange &= ~tskDEFERRED_DELETION;
-                }
+            }
             #endif /* configUSE_TASK_PREEMPTION_DISABLE */
 
             #if ( configUSE_TASK_PREEMPTION_DISABLE == 1 )
@@ -2471,6 +2614,10 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
                      * the task that has just been deleted. */
                     prvResetNextTaskUnblockTime();
                 }
+
+                #if ( portUSING_GRANULAR_LOCKS == 1 )
+                    portRELEASE_SPINLOCK( xCoreID, &pxTCB->xTCBSpinlock );
+                #endif
             }
         }
         kernelEXIT_CRITICAL();
@@ -3283,16 +3430,227 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
 
 /*-----------------------------------------------------------*/
 
-#if ( configUSE_TASK_PREEMPTION_DISABLE == 1 )
+#if ( portUSING_GRANULAR_LOCKS == 1 )
 
+    static void prvTaskTCBLockCheckForRunStateChange( void )
+    {
+        const TCB_t * pxThisTCB;
+        BaseType_t xCoreID = ( BaseType_t ) portGET_CORE_ID();
+
+        /* This must only be called from within a task. */
+        portASSERT_IF_IN_ISR();
+
+        /* This function is always called with interrupts disabled
+         * so this is safe. */
+        pxThisTCB = pxCurrentTCBs[ xCoreID ];
+
+        while( pxThisTCB->xTaskRunState == taskTASK_SCHEDULED_TO_YIELD )
+        {
+            UBaseType_t uxPrevCriticalNesting;
+
+            /* We are only here if we just entered a critical section
+            * or if we just suspended the scheduler, and another task
+            * has requested that we yield.
+            *
+            * This is slightly complicated since we need to save and restore
+            * the suspension and critical nesting counts, as well as release
+            * and reacquire the correct locks. And then, do it all over again
+            * if our state changed again during the reacquisition. */
+            uxPrevCriticalNesting = portGET_CRITICAL_NESTING_COUNT( xCoreID );
+
+            if( uxPrevCriticalNesting > 0U )
+            {
+                portSET_CRITICAL_NESTING_COUNT( xCoreID, 0U );
+                portRELEASE_SPINLOCK( xCoreID, &pxCurrentTCBs[ xCoreID ]->xTCBSpinlock );
+            }
+            else
+            {
+                /* The scheduler is suspended. uxSchedulerSuspended is updated
+                 * only when the task is not requested to yield. */
+                mtCOVERAGE_TEST_MARKER();
+            }
+
+            portMEMORY_BARRIER();
+
+            portENABLE_INTERRUPTS();
+
+            /* Enabling interrupts should cause this core to immediately service
+             * the pending interrupt and yield. After servicing the pending interrupt,
+             * the task needs to re-evaluate its run state within this loop, as
+             * other cores may have requested this task to yield, potentially altering
+             * its run state. */
+
+            portDISABLE_INTERRUPTS();
+
+            xCoreID = ( BaseType_t ) portGET_CORE_ID();
+            portGET_SPINLOCK( xCoreID, &pxCurrentTCBs[ xCoreID ]->xTCBSpinlock );
+
+            portSET_CRITICAL_NESTING_COUNT( xCoreID, uxPrevCriticalNesting );
+        }
+    }
+
+    void vTaskTCBEnterCritical( void )
+    {
+        if( xSchedulerRunning != pdFALSE )
+        {
+            portDISABLE_INTERRUPTS();
+            {
+                const BaseType_t xCoreID = ( BaseType_t ) portGET_CORE_ID();
+
+                portGET_SPINLOCK( xCoreID, &pxCurrentTCBs[ xCoreID ]->xTCBSpinlock );
+
+                portINCREMENT_CRITICAL_NESTING_COUNT( xCoreID );
+
+                if( ( portGET_CRITICAL_NESTING_COUNT( xCoreID ) == 1U ) &&
+                    ( pxCurrentTCBs[ xCoreID ]->uxPreemptionDisable == 0U ) )
+                {
+                    prvTaskTCBLockCheckForRunStateChange();
+                }
+            }
+        }
+    }
+
+    void vTaskTCBExtiCritical( void )
+    {
+        const BaseType_t xCoreID = ( BaseType_t ) portGET_CORE_ID();
+
+        if( xSchedulerRunning != pdFALSE )
+        {
+            if( portGET_CRITICAL_NESTING_COUNT( xCoreID ) > 0U )
+            {
+                BaseType_t xYieldCurrentTask = pdFALSE;
+
+                /* Get the xYieldPending stats inside the critical section. */
+                if( pxCurrentTCBs[ xCoreID ]->uxPreemptionDisable == 0U )
+                {
+                    xYieldCurrentTask = xYieldPendings[ xCoreID ];
+                }
+
+                portRELEASE_SPINLOCK( xCoreID, &pxCurrentTCBs[ xCoreID ]->xTCBSpinlock );
+
+                portDECREMENT_CRITICAL_NESTING_COUNT( xCoreID );
+
+                /* If the critical nesting count is 0, enable interrupts */
+                if( portGET_CRITICAL_NESTING_COUNT( xCoreID ) == 0U )
+                {
+                    portENABLE_INTERRUPTS();
+
+                    if( xYieldCurrentTask != pdFALSE )
+                    {
+                        portYIELD();
+                    }
+                }
+            }
+        }
+    }
+
+    static void prvTaskDataGroupCheckForRunStateChange( portSPINLOCK_TYPE * pxTaskSpinlock,
+                                                        portSPINLOCK_TYPE * pxISRSpinlock )
+    {
+        const TCB_t * pxThisTCB;
+        BaseType_t xCoreID = ( BaseType_t ) portGET_CORE_ID();
+
+        /* This must only be called from within a task. */
+        portASSERT_IF_IN_ISR();
+
+        /* This function is always called with interrupts disabled
+         * so this is safe. */
+        pxThisTCB = pxCurrentTCBs[ xCoreID ];
+
+        while( pxThisTCB->xTaskRunState == taskTASK_SCHEDULED_TO_YIELD )
+        {
+            UBaseType_t uxPrevCriticalNesting;
+
+            /* We are only here if we just entered a critical section
+            * or if we just suspended the scheduler, and another task
+            * has requested that we yield.
+            *
+            * This is slightly complicated since we need to save and restore
+            * the suspension and critical nesting counts, as well as release
+            * and reacquire the correct locks. And then, do it all over again
+            * if our state changed again during the reacquisition. */
+            uxPrevCriticalNesting = portGET_CRITICAL_NESTING_COUNT( xCoreID );
+
+            /* Data group lock. */
+            if( uxPrevCriticalNesting > 0U )
+            {
+                portSET_CRITICAL_NESTING_COUNT( xCoreID, 0U );
+                portRELEASE_SPINLOCK( xCoreID, pxISRSpinlock );
+            }
+            else
+            {
+                /* The scheduler is suspended. uxSchedulerSuspended is updated
+                 * only when the task is not requested to yield. */
+                mtCOVERAGE_TEST_MARKER();
+            }
+
+            portENABLE_INTERRUPTS();
+
+            portRELEASE_SPINLOCK( xCoreID, pxTaskSpinlock );
+
+            portMEMORY_BARRIER();
+
+            xTaskPreemptionEnableWithYieldStatus( NULL );
+
+
+
+            /* Enabling interrupts should cause this core to immediately service
+             * the pending interrupt and yield. After servicing the pending interrupt,
+             * the task needs to re-evaluate its run state within this loop, as
+             * other cores may have requested this task to yield, potentially altering
+             * its run state. */
+
+            vTaskPreemptionDisable( NULL );
+
+            xCoreID = ( BaseType_t ) portGET_CORE_ID();
+            portGET_SPINLOCK( xCoreID, pxTaskSpinlock );
+            /* Disable interrupts */
+            portDISABLE_INTERRUPTS();
+            /* Take the ISR spinlock next */
+            portGET_SPINLOCK( xCoreID, pxISRSpinlock );
+            /* Increment the critical nesting count */
+            portINCREMENT_CRITICAL_NESTING_COUNT( xCoreID );
+        }
+    }
+
+    void taskDataGroupEnterCritical( portSPINLOCK_TYPE * pxTaskSpinlock,
+                                     portSPINLOCK_TYPE * pxISRSpinlock )
+    {
+        /* Disable preemption to avoid task state changes during the critical section. */
+        vTaskPreemptionDisable( NULL );
+        {
+            const BaseType_t xCoreID = ( BaseType_t ) portGET_CORE_ID();
+            /* Task spinlock is always taken first */
+            portGET_SPINLOCK( xCoreID, pxTaskSpinlock );
+            /* Disable interrupts */
+            portDISABLE_INTERRUPTS();
+            /* Take the ISR spinlock next */
+            portGET_SPINLOCK( xCoreID, pxISRSpinlock );
+            /* Increment the critical nesting count */
+            portINCREMENT_CRITICAL_NESTING_COUNT( xCoreID );
+
+            if( xSchedulerRunning == pdTRUE )
+            {
+                if( ( portGET_CRITICAL_NESTING_COUNT( xCoreID ) == 1U ) &&
+                    ( pxCurrentTCBs[ xCoreID ]->uxPreemptionDisable == 1U ) )
+                {
+                    prvTaskDataGroupCheckForRunStateChange( pxTaskSpinlock, pxISRSpinlock );
+                }
+            }
+        }
+    }
+#endif /* #if ( configUSE_TASK_PREEMPTION_DISABLE == 1 ) */
+/*-----------------------------------------------------------*/
+
+#if ( configUSE_TASK_PREEMPTION_DISABLE == 1 )
     void vTaskPreemptionDisable( const TaskHandle_t xTask )
     {
         TCB_t * pxTCB;
 
         traceENTER_vTaskPreemptionDisable( xTask );
 
-        #if ( configLIGHTWEIGHT_CRITICAL_SECTION == 1 )
-            vKernelLightWeightEnterCritical();
+        #if ( portUSING_GRANULAR_LOCKS == 1 )
+            vTaskTCBEnterCritical();
         #else
             kernelENTER_CRITICAL();
         #endif
@@ -3309,8 +3667,8 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
                 mtCOVERAGE_TEST_MARKER();
             }
         }
-        #if ( configLIGHTWEIGHT_CRITICAL_SECTION == 1 )
-            vKernelLightWeightExitCritical();
+        #if ( portUSING_GRANULAR_LOCKS == 1 )
+            vTaskTCBExtiCritical();
         #else
             kernelEXIT_CRITICAL();
         #endif
@@ -3328,15 +3686,20 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
         TCB_t * pxTCB;
         UBaseType_t uxDeferredAction = 0U;
         BaseType_t xAlreadyYielded = pdFALSE;
+        BaseType_t xTaskRequestedToYield = pdFALSE;
 
-        #if ( configLIGHTWEIGHT_CRITICAL_SECTION == 1 )
-            vKernelLightWeightEnterCritical();
+        #if ( portUSING_GRANULAR_LOCKS == 1 )
+            vTaskTCBEnterCritical();
         #else
             kernelENTER_CRITICAL();
         #endif
         {
+            const BaseType_t xCoreID = portGET_CORE_ID();
+
             if( xSchedulerRunning != pdFALSE )
             {
+                /* Current task running on the core can not be changed by other core.
+                 * Get TCB from handle is safe to call within TCB critical section. */
                 pxTCB = prvGetTCBFromHandle( xTask );
                 configASSERT( pxTCB != NULL );
                 configASSERT( pxTCB->uxPreemptionDisable > 0U );
@@ -3353,8 +3716,7 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
                     {
                         if( ( xYieldPendings[ pxTCB->xTaskRunState ] != pdFALSE ) && ( taskTASK_IS_RUNNING( pxTCB ) != pdFALSE ) )
                         {
-                            prvYieldCore( pxTCB->xTaskRunState );
-                            xAlreadyYielded = pdTRUE;
+                            xTaskRequestedToYield = pdTRUE;
                         }
                         else
                         {
@@ -3372,8 +3734,8 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
                 mtCOVERAGE_TEST_MARKER();
             }
         }
-        #if ( configLIGHTWEIGHT_CRITICAL_SECTION == 1 )
-            vKernelLightWeightExitCritical();
+        #if ( portUSING_GRANULAR_LOCKS == 1 )
+            vTaskTCBExtiCritical();
         #else
             kernelEXIT_CRITICAL();
         #endif
@@ -3395,6 +3757,26 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
 
             /* Any deferred action on the task would result in a context switch. */
             xAlreadyYielded = pdTRUE;
+        }
+        else
+        {
+            if( xTaskRequestedToYield != pdFALSE )
+            {
+                /* prvYieldCore must be called in critical section. */
+                kernelENTER_CRITICAL();
+                {
+                    pxTCB = prvGetTCBFromHandle( xTask );
+                    /* There is gap between TCB critical section and kernel critical section.
+                     * Checking the yield pending again to prevent that the current task
+                     * already handle the yield request. */
+                    if( ( xYieldPendings[ pxTCB->xTaskRunState ] != pdFALSE ) && ( taskTASK_IS_RUNNING( pxTCB ) != pdFALSE ) )
+                    {
+                        prvYieldCore( pxTCB->xTaskRunState );
+                    }
+                }
+                kernelEXIT_CRITICAL();
+                xAlreadyYielded = pdTRUE;
+            }
         }
 
         return xAlreadyYielded;
@@ -3430,12 +3812,18 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
 
         kernelENTER_CRITICAL();
         {
+            const BaseType_t xCoreID = portGET_CORE_ID();
+
             /* If null is passed in here then it is the running task that is
              * being suspended. */
             pxTCB = prvGetTCBFromHandle( xTaskToSuspend );
             configASSERT( pxTCB != NULL );
 
             #if ( configUSE_TASK_PREEMPTION_DISABLE == 1 )
+            {
+                /* FIXME : Acquire the TCB lock before reading the preemptions
+                 * disable count. */
+                portGET_SPINLOCK( xCoreID, &pxTCB->xTCBSpinlock );
 
                 /* If the task has disabled preemption, we need to defer the suspension until the
                  * task enables preemption. The suspension will be performed in vTaskPreemptionEnable(). */
@@ -3443,12 +3831,14 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
                 {
                     pxTCB->uxDeferredStateChange |= tskDEFERRED_SUSPENSION;
                     xDeferredSuspension = pdTRUE;
+                    portRELEASE_SPINLOCK( xCoreID, &pxTCB->xTCBSpinlock );
                 }
                 else
                 {
                     /* Reset the deferred state change flags */
                     pxTCB->uxDeferredStateChange &= ~tskDEFERRED_SUSPENSION;
                 }
+            }
             #endif /* configUSE_TASK_PREEMPTION_DISABLE */
 
             #if ( configUSE_TASK_PREEMPTION_DISABLE == 1 )
@@ -3535,6 +3925,9 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
                     }
                 }
                 #endif /* #if ( configNUMBER_OF_CORES > 1 ) */
+                #if ( configUSE_TASK_PREEMPTION_DISABLE == 1 )
+                    portRELEASE_SPINLOCK( xCoreID, &pxTCB->xTCBSpinlock );
+                #endif
             }
         }
         kernelEXIT_CRITICAL();
@@ -3695,12 +4088,10 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
         configASSERT( xTaskToResume );
 
         #if ( configNUMBER_OF_CORES == 1 )
-
             /* The parameter cannot be NULL as it is impossible to resume the
              * currently executing task. */
             if( ( pxTCB != pxCurrentTCB ) && ( pxTCB != NULL ) )
         #else
-
             /* The parameter cannot be NULL as it is impossible to resume the
              * currently executing task. It is also impossible to resume a task
              * that is actively running on another core but it is not safe
@@ -3712,7 +4103,7 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
             kernelENTER_CRITICAL();
             {
                 #if ( configUSE_TASK_PREEMPTION_DISABLE == 1 )
-
+                {
                     /* If the task being resumed is in a deferred suspension state,
                      * we simply clear the deferred suspension state and return. */
                     if( pxTCB->uxDeferredStateChange & tskDEFERRED_SUSPENSION )
@@ -3724,6 +4115,7 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
                     {
                         mtCOVERAGE_TEST_MARKER();
                     }
+                }
                 #endif /* configUSE_TASK_PREEMPTION_DISABLE */
 
                 #if ( configUSE_TASK_PREEMPTION_DISABLE == 1 )
@@ -3805,6 +4197,9 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
         {
             #if ( configUSE_TASK_PREEMPTION_DISABLE == 1 )
             {
+                /* FIXME : Acquire the TCB lock before reading the preemptions
+                 * disable count. */
+
                 /* If the task being resumed is in a deferred suspension state,
                  * we simply clear the deferred suspension state and return. */
                 if( pxTCB->uxDeferredStateChange & tskDEFERRED_SUSPENSION )
@@ -4256,6 +4651,12 @@ void vTaskSuspendAll( void )
             portSOFTWARE_BARRIER();
 
             kernelGET_TASK_LOCK( xCoreID );
+            /* Task lock is acquired here to increase the scheduler suspended count.
+             * In granular lock, it is possible that prvYieldCore is called with only
+             * ISR spinlock is acquired in ISR. To remove the gap, the logic is updated
+             * to acquire the ISR spinlock before check for run state. The logic in
+             * prvCheckForRunStateChange() is updated accordingly. */
+            kernelGET_ISR_LOCK( xCoreID );
 
             /* uxSchedulerSuspended is increased after prvCheckForRunStateChange. The
              * purpose is to prevent altering the variable when fromISR APIs are readying
@@ -4265,9 +4666,13 @@ void vTaskSuspendAll( void )
                 /* If the scheduler is being suspended after taking a granular lock (in any data group)
                  * then we do not check for the run state of a task and we let it run through until
                  * the granular lock is released. */
+                /* Task may acquire kernel lock in data group critical section.
+                * In this case, check for run state change is not required since
+                * we can't yield for other task when preemption is disabled. */
                 #if ( portUSING_GRANULAR_LOCKS == 1 )
                     && ( portGET_CRITICAL_NESTING_COUNT( xCoreID ) == 0U )
                 #endif /* #if ( portUSING_GRANULAR_LOCKS == 1 ) */
+                && ( pxCurrentTCBs[ xCoreID ]->uxPreemptionDisable == 0U )
                 )
             {
                 prvCheckForRunStateChange();
@@ -4281,8 +4686,6 @@ void vTaskSuspendAll( void )
              * caused the task to get scheduled on a different core. The correct
              * task lock for the core is acquired in prvCheckForRunStateChange. */
             xCoreID = ( BaseType_t ) portGET_CORE_ID();
-
-            kernelGET_ISR_LOCK( xCoreID );
 
             /* The scheduler is suspended if uxSchedulerSuspended is non-zero. An increment
              * is used to allow calls to vTaskSuspendAll() to nest. */
@@ -5712,7 +6115,6 @@ void vTaskPlaceOnEventList( List_t * const pxEventList,
         /* Suspend the kernel data group as we are about to access its members */
         vTaskSuspendAll();
     #else /* #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) ) */
-
         /* THIS FUNCTION MUST BE CALLED WITH THE
          * SCHEDULER SUSPENDED AND THE QUEUE BEING ACCESSED LOCKED. */
         configASSERT( uxSchedulerSuspended != ( UBaseType_t ) 0U );
@@ -5755,7 +6157,6 @@ void vTaskPlaceOnUnorderedEventList( List_t * pxEventList,
         /* Suspend the kernel data group as we are about to access its members */
         vTaskSuspendAll();
     #else /* #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) ) */
-
         /* THIS FUNCTION MUST BE CALLED WITH THE SCHEDULER SUSPENDED.  It is used by
          * the event groups implementation. */
         configASSERT( uxSchedulerSuspended != ( UBaseType_t ) 0U );
@@ -5798,7 +6199,6 @@ void vTaskPlaceOnUnorderedEventList( List_t * pxEventList,
             /* Suspend the kernel data group as we are about to access its members */
             vTaskSuspendAll();
         #else /* #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) ) */
-
             /* This function should not be called by application code hence the
              * 'Restricted' in its name.  It is not part of the public API.  It is
              * designed for use by kernel code, and has special calling requirements -
@@ -5990,7 +6390,6 @@ void vTaskRemoveFromUnorderedEventList( ListItem_t * pxEventListItem,
     traceENTER_vTaskRemoveFromUnorderedEventList( pxEventListItem, xItemValue );
 
     #if ( !( portUSING_GRANULAR_LOCKS == 1 ) )
-
         /* THIS FUNCTION MUST BE CALLED WITH THE SCHEDULER SUSPENDED.  It is used by
          * the event flags implementation. */
         configASSERT( uxSchedulerSuspended != ( UBaseType_t ) 0U );
@@ -7608,7 +8007,8 @@ static void prvResetNextTaskUnblockTime( void )
                  * interrupt.  Only assert if the critical nesting count is 1 to
                  * protect against recursive calls if the assert function also uses a
                  * critical section. */
-                if( portGET_CRITICAL_NESTING_COUNT( xCoreID ) == 1U )
+                if( ( portGET_CRITICAL_NESTING_COUNT( xCoreID ) == 1U ) &&
+                    ( pxCurrentTCBs[ xCoreID ]->uxPreemptionDisable == 0U ) )
                 {
                     portASSERT_IF_IN_ISR();
 
@@ -9357,6 +9757,133 @@ TickType_t uxTaskResetEventItemValue( void )
     }
 
 #endif /* if ( ( configGENERATE_RUN_TIME_STATS == 1 ) && ( INCLUDE_xTaskGetIdleTaskHandle == 1 ) ) */
+/*-----------------------------------------------------------*/
+
+#if ( configQUEUE_DIRECT_TRANSFER == 1 )
+
+    void vTaskSetDirectTransferBuffer( void * pvBuffer,
+                                       BaseType_t xPosition,
+                                       TaskHandle_t xTask )
+    {
+        TCB_t * pxTCB;
+
+        /* With granular locks, we need kernel critical section for TCB access. */
+        #if ( portUSING_GRANULAR_LOCKS == 1 )
+            kernelENTER_CRITICAL();
+        #endif
+        {
+            pxTCB = prvGetTCBFromHandle( xTask );
+
+            if( pxTCB != NULL )
+            {
+                pxTCB->pvDirectTransferBuffer = pvBuffer;
+                pxTCB->xDirectTransferPosition = xPosition;
+            }
+        }
+        #if ( portUSING_GRANULAR_LOCKS == 1 )
+            kernelEXIT_CRITICAL();
+        #endif
+    }
+
+    void vTaskClearDirectTransferBuffer( TaskHandle_t xTask )
+    {
+        TCB_t * pxTCB;
+
+        /* With granular locks, we need kernel critical section for TCB access. */
+        #if ( portUSING_GRANULAR_LOCKS == 1 )
+            kernelENTER_CRITICAL();
+        #endif
+        {
+            pxTCB = prvGetTCBFromHandle( xTask );
+
+            if( pxTCB != NULL )
+            {
+                pxTCB->pvDirectTransferBuffer = NULL;
+            }
+        }
+        #if ( portUSING_GRANULAR_LOCKS == 1 )
+            kernelEXIT_CRITICAL();
+        #endif
+    }
+
+    void * pvTaskGetDirectTransferBuffer( TaskHandle_t xTask )
+    {
+        TCB_t * pxTCB;
+        void * pvReturn = NULL;
+
+        pxTCB = prvGetTCBFromHandle( xTask );
+        configASSERT( pxTCB != NULL );
+
+        #if ( portUSING_GRANULAR_LOCKS == 1 )
+            kernelENTER_CRITICAL();
+        #endif
+        {
+            pvReturn = pxTCB->pvDirectTransferBuffer;
+        }
+        #if ( portUSING_GRANULAR_LOCKS == 1 )
+            kernelEXIT_CRITICAL();
+        #endif
+
+        return pvReturn;
+    }
+
+    BaseType_t xTaskGetDirectTransferPosition( TaskHandle_t xTask )
+    {
+        TCB_t * pxTCB;
+        BaseType_t xReturn = ( ( BaseType_t ) -1 );
+
+        pxTCB = prvGetTCBFromHandle( xTask );
+        configASSERT( pxTCB != NULL );
+
+        #if ( portUSING_GRANULAR_LOCKS == 1 )
+            kernelENTER_CRITICAL();
+        #endif
+        {
+            xReturn = pxTCB->xDirectTransferPosition;
+        }
+        #if ( portUSING_GRANULAR_LOCKS == 1 )
+            kernelEXIT_CRITICAL();
+        #endif
+
+        return xReturn;
+    }
+
+    TaskHandle_t xTaskGetHighestPriorityTaskWithDirectTransferArmed( const List_t * const pxEventList )
+    {
+        TaskHandle_t xReturn = NULL;
+
+        if( listCURRENT_LIST_LENGTH( pxEventList ) > 0U )
+        {
+            TCB_t * pxTCB;
+
+            /* Event lists are sorted by priority (highest first).
+             * Get the head (highest priority task) and check if it has armed direct transfer.
+             * This is O(1) operation, making it deterministic for RTOS requirements.
+             *
+             * If the highest priority task hasn't armed direct transfer (e.g., it's using
+             * xQueuePeek instead of xQueueReceive), we skip direct transfer for this operation.
+             * This is acceptable since direct transfer is an optimization, not a requirement. */
+            pxTCB = ( TCB_t * ) listGET_OWNER_OF_HEAD_ENTRY( pxEventList );
+
+            #if ( portUSING_GRANULAR_LOCKS == 1 )
+                /* Check if armed within kernel critical section */
+                kernelENTER_CRITICAL();
+            #endif
+            {
+                if( pxTCB->pvDirectTransferBuffer != NULL )
+                {
+                    xReturn = ( TaskHandle_t ) pxTCB;
+                }
+            }
+            #if ( portUSING_GRANULAR_LOCKS == 1 )
+                kernelEXIT_CRITICAL();
+            #endif
+        }
+
+        return xReturn;
+    }
+
+#endif /* configQUEUE_DIRECT_TRANSFER */
 /*-----------------------------------------------------------*/
 
 static void prvAddCurrentTaskToDelayedList( TickType_t xTicksToWait,
