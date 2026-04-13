@@ -292,6 +292,9 @@ typedef enum
  * \ingroup GranularLocks
  */
 #if ( portUSING_GRANULAR_LOCKS == 1 )
+    /* Using a function implementation now since the data group entering critical
+     * section needs to check for run state change.
+     * TODO : Do we align this with other data group critical section APIs? */
     void taskDataGroupEnterCritical( portSPINLOCK_TYPE * pxTaskSpinlock,
                                      portSPINLOCK_TYPE * pxISRSpinlock );
     #define taskDATA_GROUP_ENTER_CRITICAL    taskDataGroupEnterCritical
@@ -348,7 +351,7 @@ typedef enum
             mtCOVERAGE_TEST_MARKER();                                                \
         }                                                                            \
         /* Re-enable preemption */                                                   \
-        xTaskPreemptionEnableWithYieldStatus( NULL );                                \
+        ( void ) xTaskPreemptionEnableWithYieldStatus( NULL );                       \
     } while( 0 )
 #endif /* #if ( portUSING_GRANULAR_LOCKS == 1 ) */
 
@@ -404,6 +407,7 @@ typedef enum
  * \ingroup GranularLocks
  */
 #if ( portUSING_GRANULAR_LOCKS == 1 )
+    /* TODO : this is GNU C extension. Consider to remove the usage here. */
     #define taskDATA_GROUP_UNLOCK( pxTaskSpinlock )                                            \
     ( {                                                                                        \
         portRELEASE_SPINLOCK( portGET_CORE_ID(), ( portSPINLOCK_TYPE * ) ( pxTaskSpinlock ) ); \
@@ -1626,6 +1630,8 @@ BaseType_t xTaskResumeFromISR( TaskHandle_t xTaskToResume ) PRIVILEGED_FUNCTION;
  * switch, otherwise pdFALSE. This is used by the scheduler to determine if a
  * context switch may be required following the enable.
  */
+/* NOTE : yield status is required in queue cause the implementation relies on task
+ * yielding itself after vTaskPlaceOnEventList is called. */
     BaseType_t xTaskPreemptionEnableWithYieldStatus( const TaskHandle_t xTask );
 #endif
 
@@ -4002,6 +4008,8 @@ void vTaskInternalSetTimeOutState( TimeOut_t * const pxTimeOut ) PRIVILEGED_FUNC
  * Checks whether a yield is required after portUNLOCK_DATA_GROUP() returns.
  * To be called while data group is locked.
  */
+/* NOTE : xTaskUnlockCanYield is used when ISR leaving the critical section but current
+ * core is requested to yield in ISR. */
 #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) )
     BaseType_t xTaskUnlockCanYield( void );
 #endif /* #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) ) */
