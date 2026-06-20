@@ -399,7 +399,7 @@ typedef enum
 #endif /* #if ( portUSING_GRANULAR_LOCKS == 1 ) */
 
 /**
- * task. h
+ * task.h
  *
  * Macros to unlock a data group (task-level lock only).
  *
@@ -407,12 +407,8 @@ typedef enum
  * \ingroup GranularLocks
  */
 #if ( portUSING_GRANULAR_LOCKS == 1 )
-    #define taskDATA_GROUP_UNLOCK( pxTaskSpinlock )                                            \
-    ( {                                                                                        \
-        portRELEASE_SPINLOCK( portGET_CORE_ID(), ( portSPINLOCK_TYPE * ) ( pxTaskSpinlock ) ); \
-        /* Re-enable preemption after releasing the task spinlock. */                          \
-        xTaskPreemptionEnableWithYieldStatus( NULL );                                          \
-    } )
+    BaseType_t xTaskDataGroupUnlock( portSPINLOCK_TYPE * pxTaskSpinlock );
+    #define taskDATA_GROUP_UNLOCK xTaskDataGroupUnlock
 #endif /* #if ( portUSING_GRANULAR_LOCKS == 1 ) */
 
 /*-----------------------------------------------------------

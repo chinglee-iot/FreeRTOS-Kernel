@@ -197,14 +197,14 @@ static void prvUnlockQueue( Queue_t * const pxQueue ) PRIVILEGED_FUNCTION;
  *
  * @return pdTRUE if the queue contains no items, otherwise pdFALSE.
  */
-static BaseType_t prvIsQueueEmpty( const Queue_t * pxQueue ) PRIVILEGED_FUNCTION;
+static BaseType_t prvIsQueueEmpty( Queue_t * pxQueue ) PRIVILEGED_FUNCTION;
 
 /*
  * Uses a critical section to determine if there is any space in a queue.
  *
  * @return pdTRUE if there is no space, otherwise pdFALSE;
  */
-static BaseType_t prvIsQueueFull( const Queue_t * pxQueue ) PRIVILEGED_FUNCTION;
+static BaseType_t prvIsQueueFull( Queue_t * pxQueue ) PRIVILEGED_FUNCTION;
 
 /*
  * Copies an item into the queue, either at the front of the queue or the
@@ -2951,7 +2951,7 @@ static void prvUnlockQueue( Queue_t * const pxQueue )
 }
 /*-----------------------------------------------------------*/
 
-static BaseType_t prvIsQueueEmpty( const Queue_t * pxQueue )
+static BaseType_t prvIsQueueEmpty( Queue_t * pxQueue )
 {
     BaseType_t xReturn;
 
@@ -2996,7 +2996,7 @@ BaseType_t xQueueIsQueueEmptyFromISR( const QueueHandle_t xQueue )
 }
 /*-----------------------------------------------------------*/
 
-static BaseType_t prvIsQueueFull( const Queue_t * pxQueue )
+static BaseType_t prvIsQueueFull( Queue_t * pxQueue )
 {
     BaseType_t xReturn;
 

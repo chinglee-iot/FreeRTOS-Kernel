@@ -2481,14 +2481,16 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
 
         kernelENTER_CRITICAL();
         {
-            const BaseType_t xCoreID = portGET_CORE_ID();
+            #if ( portUSING_GRANULAR_LOCKS == 1 )
+                const BaseType_t xCoreID = portGET_CORE_ID();
+            #endif
 
             /* If null is passed in here then it is the calling task that is
              * being deleted. */
             pxTCB = prvGetTCBFromHandle( xTaskToDelete );
             configASSERT( pxTCB != NULL );
 
-            #if ( configUSE_TASK_PREEMPTION_DISABLE == 1 )
+            #if ( portUSING_GRANULAR_LOCKS == 1 )
             {
                 /* FIXME : Acquire the TCB lock before reading the preemptions
                  * disable count. */
@@ -2505,15 +2507,15 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
                     else
                     {
                         /* Reset the deferred state change flags */
-                        pxTCB->uxDeferredStateChange &= ~tskDEFERRED_DELETION;
+                        pxTCB->uxDeferredStateChange = 0;
                     }
                 }
             }
-            #endif /* configUSE_TASK_PREEMPTION_DISABLE */
+            #endif /* portUSING_GRANULAR_LOCKS */
 
-            #if ( configUSE_TASK_PREEMPTION_DISABLE == 1 )
+            #if ( portUSING_GRANULAR_LOCKS == 1 )
                 if( xDeferredDeletion == pdFALSE )
-            #endif /* #if ( configUSE_TASK_PREEMPTION_DISABLE == 1 ) */
+            #endif /* #if ( portUSING_GRANULAR_LOCKS == 1 ) */
             {
                 /* Remove task from the ready/delayed list. */
                 if( uxListRemove( &( pxTCB->xStateListItem ) ) == ( UBaseType_t ) 0 )
@@ -3640,6 +3642,13 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
             }
         }
     }
+
+    BaseType_t xTaskDataGroupUnlock( portSPINLOCK_TYPE * pxTaskSpinlock )
+    {
+        portRELEASE_SPINLOCK( portGET_CORE_ID(), ( portSPINLOCK_TYPE * ) ( pxTaskSpinlock ) );
+        /* Re-enable preemption after releasing the task spinlock. */
+        return xTaskPreemptionEnableWithYieldStatus( NULL );
+    }
 #endif /* #if ( configUSE_TASK_PREEMPTION_DISABLE == 1 ) */
 /*-----------------------------------------------------------*/
 
@@ -3695,8 +3704,6 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
             kernelENTER_CRITICAL();
         #endif
         {
-            const BaseType_t xCoreID = portGET_CORE_ID();
-
             if( xSchedulerRunning != pdFALSE )
             {
                 /* Current task running on the core can not be changed by other core.
@@ -3814,14 +3821,16 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
 
         kernelENTER_CRITICAL();
         {
-            const BaseType_t xCoreID = portGET_CORE_ID();
+            #if ( portUSING_GRANULAR_LOCKS == 1 )
+                const BaseType_t xCoreID = portGET_CORE_ID();
+            #endif
 
             /* If null is passed in here then it is the running task that is
              * being suspended. */
             pxTCB = prvGetTCBFromHandle( xTaskToSuspend );
             configASSERT( pxTCB != NULL );
 
-            #if ( configUSE_TASK_PREEMPTION_DISABLE == 1 )
+            #if ( portUSING_GRANULAR_LOCKS == 1 )
             {
                 /* FIXME : Acquire the TCB lock before reading the preemptions
                  * disable count. */
@@ -3841,7 +3850,7 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
                     pxTCB->uxDeferredStateChange &= ~tskDEFERRED_SUSPENSION;
                 }
             }
-            #endif /* configUSE_TASK_PREEMPTION_DISABLE */
+            #endif /* portUSING_GRANULAR_LOCKS */
 
             #if ( configUSE_TASK_PREEMPTION_DISABLE == 1 )
                 if( xDeferredSuspension == pdFALSE )
@@ -3927,7 +3936,7 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
                     }
                 }
                 #endif /* #if ( configNUMBER_OF_CORES > 1 ) */
-                #if ( configUSE_TASK_PREEMPTION_DISABLE == 1 )
+                #if ( portUSING_GRANULAR_LOCKS == 1 )
                     portRELEASE_SPINLOCK( xCoreID, &pxTCB->xTCBSpinlock );
                 #endif
             }
@@ -4678,7 +4687,9 @@ void vTaskSuspendAll( void )
                 #if ( portUSING_GRANULAR_LOCKS == 1 )
                     && ( portGET_CRITICAL_NESTING_COUNT( xCoreID ) == 0U )
                 #endif /* #if ( portUSING_GRANULAR_LOCKS == 1 ) */
-                && ( pxCurrentTCBs[ xCoreID ]->uxPreemptionDisable == 0U )
+                #if ( configUSE_TASK_PREEMPTION_DISABLE == 1 )
+                    && ( pxCurrentTCBs[ xCoreID ]->uxPreemptionDisable == 0U )
+                #endif
                 )
             {
                 prvCheckForRunStateChange();
@@ -5750,13 +5761,17 @@ BaseType_t xTaskIncrementTick( void )
 
         /* The tick hook gets called at regular intervals, even if the
          * scheduler is locked. */
-        #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configUSE_TICK_HOOK == 1 ) )
+        #if ( configUSE_TICK_HOOK == 1 )
         {
-            xApplicationTickRequired = pdTRUE;
-        }
-        #else
-        {
-            vApplicationTickHook();
+            #if ( portUSING_GRANULAR_LOCKS == 1 )
+            {
+                xApplicationTickRequired = pdTRUE;
+            }
+            #else
+            {
+                vApplicationTickHook();
+            }
+            #endif
         }
         #endif
     }
@@ -6245,9 +6260,9 @@ void vTaskPlaceOnUnorderedEventList( List_t * pxEventList,
 
 BaseType_t xTaskRemoveFromEventList( const List_t * const pxEventList )
 {
-    traceENTER_xTaskRemoveFromEventList( pxEventList );
-
     BaseType_t xReturn;
+
+    traceENTER_xTaskRemoveFromEventList( pxEventList );
 
     #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) )
         /* Lock the kernel data group as we are about to access its members */
@@ -6268,11 +6283,12 @@ BaseType_t xTaskRemoveFromEventList( const List_t * const pxEventList )
 
 BaseType_t xTaskRemoveFromEventListFromISR( const List_t * const pxEventList )
 {
-    traceENTER_xTaskRemoveFromEventListFromISR( pxEventList );
-
     BaseType_t xReturn;
 
+    traceENTER_xTaskRemoveFromEventListFromISR( pxEventList );
+
     #if ( ( portUSING_GRANULAR_LOCKS == 1 ) && ( configNUMBER_OF_CORES > 1 ) )
+    {
         UBaseType_t uxSavedInterruptStatus;
 
         /* Lock the kernel data group as we are about to access its members */
@@ -6281,8 +6297,11 @@ BaseType_t xTaskRemoveFromEventListFromISR( const List_t * const pxEventList )
             xReturn = prvTaskRemoveFromEventList( pxEventList );
         }
         kernelEXIT_CRITICAL_FROM_ISR( uxSavedInterruptStatus );
+    }
     #else
+    {
         xReturn = prvTaskRemoveFromEventList( pxEventList );
+    }
     #endif
 
     traceRETURN_xTaskRemoveFromEventListFromISR( xReturn );
@@ -8018,8 +8037,11 @@ static void prvResetNextTaskUnblockTime( void )
                  * interrupt.  Only assert if the critical nesting count is 1 to
                  * protect against recursive calls if the assert function also uses a
                  * critical section. */
-                if( ( portGET_CRITICAL_NESTING_COUNT( xCoreID ) == 1U ) &&
-                    ( pxCurrentTCBs[ xCoreID ]->uxPreemptionDisable == 0U ) )
+                if( ( portGET_CRITICAL_NESTING_COUNT( xCoreID ) == 1U )
+                    #if ( configUSE_TASK_PREEMPTION_DISABLE == 1 )
+                        && ( pxCurrentTCBs[ xCoreID ]->uxPreemptionDisable == 0U )
+                    #endif
+                )
                 {
                     portASSERT_IF_IN_ISR();
 
@@ -8405,6 +8427,7 @@ static void prvResetNextTaskUnblockTime( void )
 
 /* ISR only critical can only be used when multi-critical section is used.
  * Therefore, run state change is not valid due to task can't be requested to yield. */
+#if ( portUSING_GRANULAR_LOCKS == 1 )
 static void prvKernelEnterISROnlyCritical( void )
 {
     if( xSchedulerRunning != pdFALSE )
@@ -8419,7 +8442,10 @@ static void prvKernelEnterISROnlyCritical( void )
         portINCREMENT_CRITICAL_NESTING_COUNT( xCoreID );
     }
 }
+#endif
 /*-----------------------------------------------------------*/
+
+#if ( portUSING_GRANULAR_LOCKS == 1 )
 
 static void prvKernelExitISROnlyCritical( void )
 {
@@ -8435,6 +8461,7 @@ static void prvKernelExitISROnlyCritical( void )
         portDECREMENT_CRITICAL_NESTING_COUNT( xCoreID );
     }
 }
+#endif
 
 /*-----------------------------------------------------------*/
 
