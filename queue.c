@@ -1044,20 +1044,13 @@ BaseType_t xQueueGenericSend( QueueHandle_t xQueue,
 
                     /* If there was a task waiting for data to arrive on the
                      * queue then unblock it now. */
-                    if( listLIST_IS_EMPTY( &( pxQueue->xTasksWaitingToReceive ) ) == pdFALSE )
+                    if( xTaskRemoveFromEventList( &( pxQueue->xTasksWaitingToReceive ) ) != pdFALSE )
                     {
-                        if( xTaskRemoveFromEventList( &( pxQueue->xTasksWaitingToReceive ) ) != pdFALSE )
-                        {
-                            /* The unblocked task has a priority higher than
-                             * our own so yield immediately.  Yes it is ok to do
-                             * this from within the critical section - the kernel
-                             * takes care of that. */
-                            queueYIELD_IF_USING_PREEMPTION();
-                        }
-                        else
-                        {
-                            mtCOVERAGE_TEST_MARKER();
-                        }
+                        /* The unblocked task has a priority higher than
+                         * our own so yield immediately.  Yes it is ok to do
+                         * this from within the critical section - the kernel
+                         * takes care of that. */
+                        queueYIELD_IF_USING_PREEMPTION();
                     }
                     else if( xYieldRequired != pdFALSE )
                     {
