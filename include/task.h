@@ -3705,14 +3705,8 @@ void vTaskResetState( void ) PRIVILEGED_FUNCTION;
  * \ingroup GranularLocks
  */
 #if ( portUSING_GRANULAR_LOCKS == 1 )
-    #define taskDATA_GROUP_LOCK( pxTaskSpinlock )                                              \
-    do {                                                                                       \
-        /* Disable preemption while holding the task spinlock. */                              \
-        vTaskPreemptionDisable( NULL );                                                        \
-        {                                                                                      \
-            portGET_SPINLOCK( portGET_CORE_ID(), ( portSPINLOCK_TYPE * ) ( pxTaskSpinlock ) ); \
-        }                                                                                      \
-    } while( 0 )
+    void vTaskDataGroupLock( portSPINLOCK_TYPE * pxTaskSpinlock );
+    #define taskDATA_GROUP_LOCK    vTaskDataGroupLock
 #endif /* #if ( portUSING_GRANULAR_LOCKS == 1 ) */
 
 /**
